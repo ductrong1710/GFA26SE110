@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><UserSecretsId>FarmMonitoring-Api-Development</UserSecretsId></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FarmMonitoring.Application/FarmMonitoring.Application.csproj" />
+    <ProjectReference Include="../FarmMonitoring.Infrastructure/FarmMonitoring.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" PrivateAssets="all" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+</Project>
