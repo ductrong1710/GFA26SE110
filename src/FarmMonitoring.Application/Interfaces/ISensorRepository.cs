@@ -6,6 +6,11 @@ namespace FarmMonitoring.Application.Interfaces;
 
 public interface ISensorRepository
 {
+    Task<T> InTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct);
+    Task<SensorNode?> LockNodeAsync(int id, CancellationToken ct);
+    Task<SensorChannel?> LockChannelAsync(int id, CancellationToken ct);
+    Task<bool> ConflictsWithMissionAsync(int nodeId, int destinationZoneId, CancellationToken ct);
+    Task<bool> HasReadingsAsync(int channelId, CancellationToken ct);
     Task<PagedResult<SensorTypeResponse>> ListTypesAsync(PageQuery query, CancellationToken ct);
     Task<PagedResult<SensorNodeResponse>> ListNodesAsync(SensorNodeQuery query, CancellationToken ct);
     Task<PagedResult<SensorChannelResponse>> ListChannelsAsync(int nodeId, PageQuery query, CancellationToken ct);

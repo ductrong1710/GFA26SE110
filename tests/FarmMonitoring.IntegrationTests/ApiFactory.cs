@@ -17,6 +17,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly string adminConnection = Environment.GetEnvironmentVariable("TEST_POSTGRES_CONNECTION")
         ?? throw new InvalidOperationException("Set TEST_POSTGRES_CONNECTION to an isolated PostgreSQL server (database creation permission required), or use scripts/Test-Postgres.ps1.");
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+    public string DeviceKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
     public bool SeedAccounts { get; init; } = true;
     private bool databaseCreated;
     public string ConnectionString => new NpgsqlConnectionStringBuilder(adminConnection) { Database = databaseName }.ConnectionString;
@@ -29,8 +30,17 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["Jwt:Issuer"] = "FarmMonitoring.Tests", ["Jwt:Audience"] = "FarmMonitoring.Tests.Client",
             ["Jwt:SecretKey"] = SigningKey,
+            ["DeviceAuthentication:Credentials:0:GatewayCode"] = "integration-gateway",
+            ["DeviceAuthentication:Credentials:0:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
+            ["DeviceAuthentication:Credentials:1:GatewayCode"] = "sync-gateway",
+            ["DeviceAuthentication:Credentials:1:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
+            ["DeviceAuthentication:Credentials:2:GatewayCode"] = "sync-gateway-2",
+            ["DeviceAuthentication:Credentials:2:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
+            ["DeviceAuthentication:Credentials:3:GatewayCode"] = "alerts-gateway",
+            ["DeviceAuthentication:Credentials:3:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
             ["SEED_ADMIN_EMAIL"] = "", ["SEED_ADMIN_PASSWORD"] = "",
-            ["Logging:LogLevel:Default"] = "Warning"
+            ["Logging:LogLevel:Default"] = "Warning",
+            ["Monitoring:Enabled"] = "false"
         }));
         builder.ConfigureServices(services => services.AddControllers().AddApplicationPart(typeof(RoleProbeController).Assembly));
     }

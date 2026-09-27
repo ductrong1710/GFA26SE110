@@ -9,6 +9,30 @@ namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
 public sealed class SensorRepository(AppDbContext db) : ISensorRepository
 {
+    public async Task<T> InTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var result = await action();
+        await transaction.CommitAsync(ct);
+        return result;
+    }
+    public async Task<SensorNode?> LockNodeAsync(int id, CancellationToken ct)
+    {
+        var node = await db.SensorNodes.FromSqlInterpolated($"SELECT * FROM sensor_nodes WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct);
+        if (node is not null) await db.Entry(node).ReloadAsync(ct);
+        return node;
+    }
+    public async Task<SensorChannel?> LockChannelAsync(int id, CancellationToken ct)
+    {
+        var channel = await db.SensorChannels.FromSqlInterpolated($"SELECT * FROM sensor_channels WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct);
+        if (channel is not null) await db.Entry(channel).ReloadAsync(ct);
+        return channel;
+    }
+    public Task<bool> ConflictsWithMissionAsync(int nodeId, int destinationZoneId, CancellationToken ct) =>
+        db.MissionTargets.AnyAsync(x => x.SensorNodeId == nodeId
+            && (x.Mission.Status == MissionStatus.PENDING || x.Mission.Status == MissionStatus.SCHEDULED || x.Mission.Status == MissionStatus.RUNNING)
+            && !db.Zones.Any(z => z.Id == destinationZoneId && z.FarmId == x.Mission.FarmId), ct);
+    public Task<bool> HasReadingsAsync(int channelId, CancellationToken ct) => db.SensorReadings.AnyAsync(x => x.SensorChannelId == channelId, ct);
     public async Task<PagedResult<SensorTypeResponse>> ListTypesAsync(PageQuery query, CancellationToken ct)
     {
         var rows = db.SensorTypes.AsNoTracking();

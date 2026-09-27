@@ -62,6 +62,9 @@ public class AuthContractTests(ApiFactory factory)
             Assert.Contains(security.EnumerateArray(), entry => entry.TryGetProperty("Bearer", out _));
         }
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/swagger/index.html")).StatusCode);
+        var deviceSecurity = paths.GetProperty("/api/device/telemetry").GetProperty("post").GetProperty("security");
+        Assert.Contains(deviceSecurity.EnumerateArray(), entry => entry.TryGetProperty("DeviceKey", out _) && entry.TryGetProperty("GatewayCode", out _));
+        Assert.DoesNotContain(deviceSecurity.EnumerateArray(), entry => entry.TryGetProperty("Bearer", out _));
     }
 }
 

@@ -41,12 +41,17 @@ public sealed class SensorService(ISensorRepository repository, TimeProvider clo
     public async Task<SensorNodeResponse> UpdateNodeAsync(int id, SensorNodeRequest request, CancellationToken ct)
     {
         await nodes.ValidateAndThrowAsync(request, ct);
-        var node = await RequireNodeAsync(id, ct);
-        await RequireZoneAsync(request.ZoneId, ct);
-        Apply(node, request);
-        node.UpdatedAt = clock.GetUtcNow();
-        await repository.SaveAsync(ct);
-        return ToResponse(node);
+        return await repository.InTransactionAsync(async () =>
+        {
+            var node = await repository.LockNodeAsync(id, ct) ?? throw new NotFoundException("Sensor node not found.");
+            await RequireZoneAsync(request.ZoneId, ct);
+            if (node.ZoneId != request.ZoneId && await repository.ConflictsWithMissionAsync(id, request.ZoneId, ct))
+                throw new ConflictException("A sensor selected for an unfinished mission cannot move to another farm.");
+            Apply(node, request);
+            node.UpdatedAt = clock.GetUtcNow();
+            await repository.SaveAsync(ct);
+            return ToResponse(node);
+        }, ct);
     }
     public async Task<SensorNodeResponse> SetStatusAsync(int id, SensorNodeStatusRequest request, CancellationToken ct)
     {
@@ -78,12 +83,17 @@ public sealed class SensorService(ISensorRepository repository, TimeProvider clo
     public async Task<SensorChannelResponse> UpdateChannelAsync(int id, SensorChannelRequest request, CancellationToken ct)
     {
         await channels.ValidateAndThrowAsync(request, ct);
-        var channel = await repository.FindChannelAsync(id, ct) ?? throw new NotFoundException("Sensor channel not found.");
-        await RequireTypeAsync(request.SensorTypeId, ct);
-        Apply(channel, request);
-        channel.UpdatedAt = clock.GetUtcNow();
-        await repository.SaveAsync(ct);
-        return ToResponse(channel);
+        return await repository.InTransactionAsync(async () =>
+        {
+            var channel = await repository.LockChannelAsync(id, ct) ?? throw new NotFoundException("Sensor channel not found.");
+            await RequireTypeAsync(request.SensorTypeId, ct);
+            if (channel.SensorTypeId != request.SensorTypeId && await repository.HasReadingsAsync(id, ct))
+                throw new ConflictException("A channel with historical readings cannot change its measurement type.");
+            Apply(channel, request);
+            channel.UpdatedAt = clock.GetUtcNow();
+            await repository.SaveAsync(ct);
+            return ToResponse(channel);
+        }, ct);
     }
     private async Task<SensorNode> RequireNodeAsync(int id, CancellationToken ct) =>
         await repository.FindNodeAsync(id, ct) ?? throw new NotFoundException("Sensor node not found.");

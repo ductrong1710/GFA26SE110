@@ -4,6 +4,15 @@ using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Users;
 using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Features.Sensors;
+using FarmMonitoring.Application.Features.Equipment;
+using FarmMonitoring.Application.Features.Thresholds;
+using FarmMonitoring.Application.Features.Missions;
+using FarmMonitoring.Application.Features.Telemetry;
+using FarmMonitoring.Application.Features.Sync;
+using FarmMonitoring.Application.Features.SensorData;
+using FarmMonitoring.Application.Features.Alerts;
+using FarmMonitoring.Application.Features.Reports;
+using Microsoft.AspNetCore.Authentication;
 using FarmMonitoring.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using FarmMonitoring.Api.Contracts;
@@ -27,6 +36,29 @@ public static class ApiServiceExtensions
         services.AddScoped<UserService>();
         services.AddScoped<FarmService>();
         services.AddScoped<SensorService>();
+        services.AddScoped<EquipmentService>();
+        services.AddScoped<ThresholdService>();
+        services.AddScoped<MissionService>();
+        services.AddScoped<TelemetryService>();
+        services.AddScoped<SyncService>();
+        services.AddScoped<AlertService>();
+        services.AddScoped<ReportService>();
+        services.AddScoped<AlertMonitoringService>();
+        services.AddScoped<IValidator<AlertQuery>, AlertQueryValidator>();
+        services.AddScoped<SensorDataService>();
+        services.AddScoped<IValidator<SyncRequest>, SyncValidator>();
+        services.AddScoped<IValidator<ReadingQuery>, ReadingQueryValidator>();
+        services.AddScoped<IValidator<TelemetryRequest>, TelemetryValidator>();
+        services.AddScoped<IValidator<TelemetryQuery>, TelemetryQueryValidator>();
+        services.AddScoped<IValidator<MissionRequest>, MissionValidator>();
+        services.AddScoped<IValidator<ScheduleMissionRequest>, ScheduleMissionValidator>();
+        services.AddScoped<IValidator<MissionActionRequest>, MissionActionValidator>();
+        services.AddScoped<IValidator<MissionQuery>, MissionQueryValidator>();
+        services.AddScoped<IValidator<ThresholdRequest>, ThresholdValidator>();
+        services.AddScoped<IValidator<UavRequest>, UavValidator>();
+        services.AddScoped<IValidator<GatewayRequest>, GatewayValidator>();
+        services.AddScoped<IValidator<EquipmentStatusRequest>, EquipmentStatusValidator>();
+        services.AddScoped<IValidator<AssignUavRequest>, AssignUavValidator>();
         services.AddScoped<IValidator<SensorTypeRequest>, SensorTypeValidator>();
         services.AddScoped<IValidator<SensorNodeRequest>, SensorNodeValidator>();
         services.AddScoped<IValidator<SensorNodeStatusRequest>, SensorNodeStatusValidator>();
@@ -47,7 +79,8 @@ public static class ApiServiceExtensions
                 context.ModelState.Where(x => x.Value?.Errors.Count > 0)
                     .Select(x => new ApiFieldError(x.Key, "Invalid request value.")).ToArray())));
 
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer()
+            .AddScheme<AuthenticationSchemeOptions, DeviceAuthenticationHandler>(DeviceAuthenticationHandler.SchemeName, _ => { });
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IOptions<JwtOptions>>((options, configured) =>
             {
@@ -91,6 +124,10 @@ public static class ApiServiceExtensions
                 .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.UavDeviceOperator)));
             options.AddPolicy(AccessPolicies.ManageDevices, policy => policy.RequireAuthenticatedUser()
                 .AddRequirements(new CurrentRoleRequirement(RoleNames.UavDeviceOperator)));
+            options.AddPolicy(AccessPolicies.ConfigureThresholds, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
+            options.AddPolicy(AccessPolicies.ManageMissions, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.UavDeviceOperator)));
         });
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(options =>
@@ -102,6 +139,15 @@ public static class ApiServiceExtensions
                 Description = "Paste the JWT access token. Swagger adds the Bearer prefix."
             });
             options.OperationFilter<BearerSecurityOperationFilter>();
+            options.AddSecurityDefinition("DeviceKey", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.ApiKey, In = ParameterLocation.Header, Name = "X-Api-Key",
+                Description = "Gateway API key. Provide X-Gateway-Code as well."
+            });
+            options.AddSecurityDefinition("GatewayCode", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.ApiKey, In = ParameterLocation.Header, Name = "X-Gateway-Code"
+            });
         });
         return services;
     }

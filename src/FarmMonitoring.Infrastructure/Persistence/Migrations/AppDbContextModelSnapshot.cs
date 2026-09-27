@@ -22,6 +22,207 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Alert", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acknowledged_at");
+
+                    b.Property<string>("AlertType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("alert_type");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<int?>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opened_at");
+
+                    b.Property<int?>("SensorChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_channel_id");
+
+                    b.Property<int?>("SensorNodeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_node_id");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal?>("TriggeredValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("triggered_value");
+
+                    b.Property<int?>("UavId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uav_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
+
+                    b.HasIndex("MissionId");
+
+                    b.HasIndex("SensorChannelId");
+
+                    b.HasIndex("SensorNodeId");
+
+                    b.HasIndex("UavId");
+
+                    b.HasIndex("Status", "OpenedAt");
+
+                    b.HasIndex("AlertType", "Status", "SensorChannelId");
+
+                    b.ToTable("alerts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_alerts_gateway_error", "alert_type <> 'GATEWAY_ERROR' OR gateway_id IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_alerts_status", "status IN ('OPEN','ACKNOWLEDGED','CLOSED')");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.AlertHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("action");
+
+                    b.Property<int>("AlertId")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("AlertId", "CreatedAt");
+
+                    b.ToTable("alert_histories", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CollectionAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttemptNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_no");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("error_code");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error_message");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<int>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<int>("MissionTargetId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_target_id");
+
+                    b.Property<int>("RecordsReceived")
+                        .HasColumnType("integer")
+                        .HasColumnName("records_received");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
+
+                    b.HasIndex("MissionId");
+
+                    b.HasIndex("MissionTargetId", "AttemptNo")
+                        .IsUnique();
+
+                    b.ToTable("collection_attempts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_collection_attempts_values", "attempt_no > 0 AND records_received >= 0 AND finished_at >= started_at");
+                        });
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Farm", b =>
                 {
                     b.Property<int>("Id")
@@ -68,6 +269,395 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("farms", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Gateway", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("BatteryPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("battery_percent");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FirmwareVersion")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("firmware_version");
+
+                    b.Property<string>("GatewayType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("gateway_type");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("UavId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uav_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("UavId");
+
+                    b.ToTable("gateways", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_gateways_battery_percent", "battery_percent BETWEEN 0 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Mission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("text")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<int>("FarmId")
+                        .HasColumnType("integer")
+                        .HasColumnName("farm_id");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("OperatorNotes")
+                        .HasColumnType("text")
+                        .HasColumnName("operator_notes");
+
+                    b.Property<DateTimeOffset?>("ScheduledEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_end_at");
+
+                    b.Property<DateTimeOffset?>("ScheduledStartAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_start_at");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("UavId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uav_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ScheduledStartAt");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("FarmId", "Status");
+
+                    b.HasIndex("GatewayId", "Status", "ScheduledStartAt", "ScheduledEndAt");
+
+                    b.HasIndex("UavId", "Status", "ScheduledStartAt", "ScheduledEndAt");
+
+                    b.ToTable("missions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_missions_schedule", "(scheduled_start_at IS NULL AND scheduled_end_at IS NULL) OR (scheduled_start_at IS NOT NULL AND scheduled_end_at IS NOT NULL AND scheduled_end_at > scheduled_start_at)");
+
+                            t.HasCheckConstraint("CK_missions_status", "status IN ('PENDING','SCHEDULED','RUNNING','COMPLETED','FAILED','CANCELLED')");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<string>("LogType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("log_type");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<int>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MissionId", "CreatedAt");
+
+                    b.ToTable("mission_logs", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<int>("SensorNodeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_node_id");
+
+                    b.Property<int?>("SequenceNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequence_no");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("WaypointId")
+                        .HasColumnType("integer")
+                        .HasColumnName("waypoint_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SensorNodeId");
+
+                    b.HasIndex("WaypointId");
+
+                    b.HasIndex("MissionId", "SensorNodeId")
+                        .IsUnique();
+
+                    b.ToTable("mission_targets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_mission_targets_status", "status IN ('PENDING','COLLECTED','FAILED','SKIPPED')");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionWaypoint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("action_type");
+
+                    b.Property<decimal?>("AltitudeM")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("altitude_m");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)")
+                        .HasColumnName("latitude");
+
+                    b.Property<decimal?>("LocalX")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("local_x");
+
+                    b.Property<decimal?>("LocalY")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("local_y");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)")
+                        .HasColumnName("longitude");
+
+                    b.Property<int>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<int?>("PlannedHoldSeconds")
+                        .HasColumnType("integer")
+                        .HasColumnName("planned_hold_seconds");
+
+                    b.Property<int>("SequenceNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequence_no");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MissionId", "SequenceNo")
+                        .IsUnique();
+
+                    b.ToTable("mission_waypoints", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_mission_waypoints_coordinates", "((latitude IS NOT NULL AND longitude IS NOT NULL) OR (local_x IS NOT NULL AND local_y IS NOT NULL)) AND (latitude IS NULL) = (longitude IS NULL) AND (local_x IS NULL) = (local_y IS NULL) AND (latitude BETWEEN -90 AND 90) AND (longitude BETWEEN -180 AND 180)");
+
+                            t.HasCheckConstraint("CK_mission_waypoints_hold", "planned_hold_seconds >= 0");
+
+                            t.HasCheckConstraint("CK_mission_waypoints_sequence", "sequence_no > 0");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertId")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_id");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("channel");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("subject");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlertId", "UserId", "Channel")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Status", "CreatedAt");
+
+                    b.ToTable("notifications", (string)null);
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.RefreshToken", b =>
@@ -305,6 +895,144 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SensorReading", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CollectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("collected_at");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<bool>("IsValid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_valid");
+
+                    b.Property<DateTimeOffset>("MeasuredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("measured_at");
+
+                    b.Property<int?>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<string>("QualityStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("quality_status");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<int>("SensorChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_channel_id");
+
+                    b.Property<string>("SourceRecordKey")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("source_record_key");
+
+                    b.Property<string>("ValidationError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("validation_error");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
+
+                    b.HasIndex("MissionId");
+
+                    b.HasIndex("SensorChannelId", "MeasuredAt");
+
+                    b.HasIndex("SensorChannelId", "SourceRecordKey")
+                        .IsUnique();
+
+                    b.ToTable("sensor_readings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_sensor_readings_time", "measured_at <= collected_at");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SensorThreshold", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("DataTimeoutMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("data_timeout_minutes");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_enabled");
+
+                    b.Property<decimal?>("LowBatteryPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("low_battery_percent");
+
+                    b.Property<decimal?>("MaxValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("max_value");
+
+                    b.Property<decimal?>("MinValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("min_value");
+
+                    b.Property<int>("SensorChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_channel_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SensorChannelId")
+                        .IsUnique();
+
+                    b.ToTable("sensor_thresholds", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_sensor_thresholds_battery", "low_battery_percent BETWEEN 0 AND 100");
+
+                            t.HasCheckConstraint("CK_sensor_thresholds_timeout", "data_timeout_minutes > 0");
+
+                            t.HasCheckConstraint("CK_sensor_thresholds_value_bounds", "min_value <= max_value");
+                        });
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.SensorType", b =>
                 {
                     b.Property<int>("Id")
@@ -342,6 +1070,233 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("sensor_types", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SyncBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcceptedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("accepted_count");
+
+                    b.Property<string>("BatchKey")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("batch_key");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<int>("DuplicateCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("duplicate_count");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<int>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<int?>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("payload_hash");
+
+                    b.Property<int>("RecordCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("record_count");
+
+                    b.Property<int>("RejectedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("rejected_count");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("response_json");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MissionId");
+
+                    b.HasIndex("GatewayId", "BatchKey")
+                        .IsUnique();
+
+                    b.ToTable("sync_batches", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_sync_batches_counts", "record_count >= 0 AND accepted_count >= 0 AND duplicate_count >= 0 AND rejected_count >= 0 AND record_count = accepted_count + duplicate_count + rejected_count");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.TelemetryRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal?>("AltitudeM")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("altitude_m");
+
+                    b.Property<decimal?>("BatteryPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("battery_percent");
+
+                    b.Property<int?>("CurrentWaypointNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_waypoint_no");
+
+                    b.Property<string>("FlightStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("flight_status");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)")
+                        .HasColumnName("latitude");
+
+                    b.Property<decimal?>("LocalX")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("local_x");
+
+                    b.Property<decimal?>("LocalY")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)")
+                        .HasColumnName("local_y");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)")
+                        .HasColumnName("longitude");
+
+                    b.Property<int>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<int?>("UavId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uav_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
+
+                    b.HasIndex("UavId");
+
+                    b.HasIndex("MissionId", "RecordedAt");
+
+                    b.ToTable("telemetry_records", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_telemetry_battery", "battery_percent BETWEEN 0 AND 100");
+
+                            t.HasCheckConstraint("CK_telemetry_coordinates", "(latitude IS NULL) = (longitude IS NULL) AND (local_x IS NULL) = (local_y IS NULL) AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Uav", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("BatteryPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("battery_percent");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("model");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("uavs", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_uavs_battery_percent", "battery_percent BETWEEN 0 AND 100");
+                        });
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.User", b =>
@@ -468,6 +1423,211 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("zones", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Alert", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorChannel", "SensorChannel")
+                        .WithMany()
+                        .HasForeignKey("SensorChannelId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorNode", "SensorNode")
+                        .WithMany()
+                        .HasForeignKey("SensorNodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Uav", "Uav")
+                        .WithMany()
+                        .HasForeignKey("UavId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("SensorChannel");
+
+                    b.Navigation("SensorNode");
+
+                    b.Navigation("Uav");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.AlertHistory", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Alert", "Alert")
+                        .WithMany("History")
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Alert");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CollectionAttempt", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.MissionTarget", "MissionTarget")
+                        .WithMany()
+                        .HasForeignKey("MissionTargetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("MissionTarget");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Gateway", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Uav", "Uav")
+                        .WithMany()
+                        .HasForeignKey("UavId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Uav");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Mission", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Farm", "Farm")
+                        .WithMany()
+                        .HasForeignKey("FarmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Uav", "Uav")
+                        .WithMany()
+                        .HasForeignKey("UavId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Farm");
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Uav");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionLog", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionTarget", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany("Targets")
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorNode", "SensorNode")
+                        .WithMany()
+                        .HasForeignKey("SensorNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.MissionWaypoint", "Waypoint")
+                        .WithMany()
+                        .HasForeignKey("WaypointId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("SensorNode");
+
+                    b.Navigation("Waypoint");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionWaypoint", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany("Waypoints")
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Mission");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Alert", "Alert")
+                        .WithMany()
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Alert");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("FarmMonitoring.Domain.Entities.RefreshToken", null)
@@ -512,6 +1672,85 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Zone");
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SensorReading", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorChannel", "SensorChannel")
+                        .WithMany()
+                        .HasForeignKey("SensorChannelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("SensorChannel");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SensorThreshold", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorChannel", "SensorChannel")
+                        .WithMany()
+                        .HasForeignKey("SensorChannelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SensorChannel");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SyncBatch", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.TelemetryRecord", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Uav", "Uav")
+                        .WithMany()
+                        .HasForeignKey("UavId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("Uav");
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.UserRole", b =>
                 {
                     b.HasOne("FarmMonitoring.Domain.Entities.Role", "Role")
@@ -540,6 +1779,18 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Farm");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Alert", b =>
+                {
+                    b.Navigation("History");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Mission", b =>
+                {
+                    b.Navigation("Targets");
+
+                    b.Navigation("Waypoints");
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.User", b =>

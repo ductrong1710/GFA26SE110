@@ -22,6 +22,8 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
             {
                 NotFoundException missing => (StatusCodes.Status404NotFound, ApiError.Create(context, missing.Message)),
                 ConflictException conflict => (StatusCodes.Status409Conflict, ApiError.Create(context, conflict.Message)),
+                BusinessRuleException rule => (StatusCodes.Status422UnprocessableEntity, ApiError.Create(context, rule.Message)),
+                AccessDeniedException denied => (StatusCodes.Status403Forbidden, ApiError.Create(context, denied.Message)),
                 AuthException auth => (StatusCodes.Status401Unauthorized, ApiError.Create(context, auth.Message)),
                 ValidationException validation => (StatusCodes.Status400BadRequest,
                     ApiError.Create(context, "Validation failed.", validation.Errors
