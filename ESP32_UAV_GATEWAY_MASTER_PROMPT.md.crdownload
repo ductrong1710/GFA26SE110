@@ -1,0 +1,1230 @@
+# ESP32 UAV Gateway - Master Coding Prompt
+
+You are a senior Embedded/IoT engineer.
+
+I am building a university capstone project named:
+
+**UAV-Assisted IoT Platform for Farm Monitoring and Sensor Data Collection**
+
+This prompt is ONLY for the **ESP32 UAV Mobile Gateway** firmware.
+
+Do NOT implement ESP8266 sensor-node firmware in this project.
+
+---
+
+## 1. PROJECT ROLE
+
+The ESP32 is mounted on a UAV and acts as a **Mobile IoT Gateway**.
+
+Its responsibilities are:
+
+- Create a local Wi-Fi Access Point for ESP8266 sensor nodes.
+- Optionally connect to an Internet hotspot using Wi-Fi STA.
+- Support AP + STA mode when practical.
+- Discover sensor nodes when they connect/register.
+- Authenticate registered sensor nodes.
+- Request stored measurements from sensor nodes.
+- Validate received data.
+- Detect duplicate measurements.
+- Persist collected measurements locally before ACK.
+- Send ACK to the sensor node only after successful local storage.
+- Keep data offline when Internet is unavailable.
+- Synchronize pending records to the .NET backend when Internet becomes available.
+- Expose local gateway health/status endpoints.
+- Log important events over Serial.
+
+The ESP32 does NOT control UAV motors, navigation, flight paths, or autopilot.
+
+Direct UAV flight control is OUT OF SCOPE.
+
+---
+
+## 2. DEVELOPMENT ENVIRONMENT
+
+Use:
+
+- ESP32
+- PlatformIO
+- Arduino Framework
+- C++
+- LittleFS
+- ArduinoJson
+- WiFi
+- HTTPClient
+- WebServer or an appropriate ESP32 Arduino HTTP server
+
+Target project:
+
+```text
+ESP32/
+```
+
+The project must compile with PlatformIO.
+
+Do not put all logic inside `main.cpp`.
+
+---
+
+## 3. EXPECTED SYSTEM FLOW
+
+The intended data flow is:
+
+```text
+ESP8266 Sensor Node
+        |
+        | Wi-Fi
+        v
+ESP32 UAV Gateway
+        |
+        | Internet when available
+        v
+.NET Backend API
+        |
+        v
+PostgreSQL
+```
+
+Collection workflow:
+
+```text
+Sensor node connects to ESP32 AP
+        |
+        v
+Node registers
+        |
+        v
+Gateway authenticates node
+        |
+        v
+Gateway asks for pending data
+        |
+        v
+Gateway validates records
+        |
+        v
+Gateway checks duplicates
+        |
+        v
+Gateway saves records to LittleFS
+        |
+        v
+ONLY IF SAVE SUCCESSFUL
+        |
+        v
+Gateway ACKs record IDs
+        |
+        v
+Gateway later uploads pending records to backend
+```
+
+Important:
+
+**Never ACK a measurement before it has been safely stored by the gateway.**
+
+---
+
+## 4. WI-FI ARCHITECTURE
+
+The ESP32 should operate as a Wi-Fi Access Point for sensor nodes.
+
+Example configuration:
+
+```cpp
+GATEWAY_AP_SSID = "UAV_GATEWAY"
+GATEWAY_AP_PASSWORD = "uav_gateway_2026"
+```
+
+The ESP32 should also support Wi-Fi STA for Internet/hotspot access.
+
+Preferred mode:
+
+```text
+WIFI_AP_STA
+```
+
+Requirements:
+
+- Sensor collection must still work when Internet is unavailable.
+- Internet reconnect must not disable the AP used by sensor nodes.
+- Wi-Fi reconnect must not block the main loop for long periods.
+- Do not spread credentials throughout source files.
+- Configuration belongs in config/secrets files.
+
+---
+
+## 5. SENSOR NODE IDENTIFICATION
+
+Each ESP8266 sensor node has:
+
+```text
+nodeId
+deviceCode
+farmId
+zoneId
+deviceSecret
+firmwareVersion
+IP address
+```
+
+Example:
+
+```text
+nodeId = 1
+deviceCode = SENSOR-001
+farmId = 1
+zoneId = 1
+```
+
+Do NOT use IP address as the unique identity.
+
+The unique logical identifier is:
+
+```text
+deviceCode
+```
+
+IP addresses may change because of DHCP.
+
+---
+
+## 6. NODE REGISTRATION
+
+The gateway hosts:
+
+```http
+POST /api/gateway/nodes/register
+```
+
+Expected request example:
+
+```json
+{
+  "deviceCode": "SENSOR-001",
+  "farmId": 1,
+  "zoneId": 1,
+  "firmwareVersion": "1.0.0",
+  "deviceType": "ESP8266_SENSOR",
+  "ipAddress": "192.168.4.2"
+}
+```
+
+The gateway maintains an in-memory registry containing at least:
+
+```text
+deviceCode
+ipAddress
+farmId
+zoneId
+firmwareVersion
+authenticated
+lastSeen
+rssi
+online
+```
+
+A node becomes offline after a configurable inactivity timeout.
+
+Example:
+
+```cpp
+NODE_TIMEOUT_MS
+```
+
+Do not permanently trust values only because the node registered successfully.
+
+---
+
+## 7. DEVICE AUTHENTICATION
+
+Implement prototype device authentication.
+
+ESP8266 requests include:
+
+```http
+X-Device-Code
+X-Device-Token
+```
+
+The ESP32 verifies the node against a registered-device configuration.
+
+Example conceptual registry:
+
+```text
+SENSOR-001 -> sensor-secret-001
+SENSOR-002 -> sensor-secret-002
+```
+
+Requirements:
+
+- Never accept measurements from an unauthenticated node.
+- Never log device secrets.
+- Keep authentication code isolated behind a `NodeAuthenticator` class.
+- Make it possible to replace the prototype token mechanism later with HMAC or another stronger scheme.
+
+Do not over-engineer cryptography for this prototype.
+
+---
+
+## 8. EXPECTED SENSOR NODE API
+
+The ESP32 Gateway will later communicate with an ESP8266 exposing endpoints similar to:
+
+### Node information
+
+```http
+GET /api/node/info
+```
+
+Example response:
+
+```json
+{
+  "deviceCode": "SENSOR-001",
+  "farmId": 1,
+  "zoneId": 1,
+  "firmwareVersion": "1.0.0",
+  "pendingRecords": 15
+}
+```
+
+### Get pending data
+
+```http
+GET /api/node/data?limit=20
+```
+
+Example response:
+
+```json
+{
+  "deviceCode": "SENSOR-001",
+  "count": 2,
+  "records": [
+    {
+      "recordId": "SENSOR-001-100",
+      "deviceCode": "SENSOR-001",
+      "sequence": 100,
+      "measuredAt": 1720000000,
+      "timeSynced": true,
+      "temperature": 30.2,
+      "humidity": 75.1,
+      "soilMoisture": 48.5,
+      "lightIntensity": null,
+      "ph": null,
+      "waterLevel": null,
+      "batteryVoltage": 4.02
+    }
+  ]
+}
+```
+
+### ACK records
+
+```http
+POST /api/node/ack
+```
+
+Request:
+
+```json
+{
+  "recordIds": [
+    "SENSOR-001-100",
+    "SENSOR-001-101"
+  ]
+}
+```
+
+### Node health
+
+```http
+GET /api/node/health
+```
+
+The ESP32 implementation should isolate these HTTP calls inside a dedicated sensor-node client component.
+
+Do NOT scatter raw HTTPClient code throughout the application.
+
+---
+
+## 9. SENSOR MEASUREMENT MODEL
+
+Create a measurement model containing at least:
+
+```text
+recordId
+deviceCode
+sequence
+measuredAt
+timeSynced
+temperature
+humidity
+soilMoisture
+lightIntensity
+ph
+waterLevel
+batteryVoltage
+```
+
+After the gateway collects it, attach gateway metadata:
+
+```text
+gatewayCode
+collectedAt
+gatewayRssi
+syncStatus
+```
+
+Example local record:
+
+```json
+{
+  "recordId": "SENSOR-001-100",
+  "deviceCode": "SENSOR-001",
+  "sequence": 100,
+  "measuredAt": 1720000000,
+  "timeSynced": true,
+  "collectedAt": 1720000100,
+  "gatewayCode": "GATEWAY-001",
+  "gatewayRssi": -52,
+  "temperature": 30.2,
+  "humidity": 75.1,
+  "soilMoisture": 48.5,
+  "lightIntensity": null,
+  "ph": null,
+  "waterLevel": null,
+  "batteryVoltage": 4.02,
+  "syncStatus": "PENDING"
+}
+```
+
+---
+
+## 10. DUPLICATE PREVENTION
+
+Duplicate prevention is mandatory.
+
+Logical unique key:
+
+```text
+deviceCode + sequence
+```
+
+or the equivalent:
+
+```text
+recordId
+```
+
+Before saving a received measurement:
+
+1. Check whether it already exists locally.
+2. If it does NOT exist:
+   - validate it,
+   - save it.
+3. If it already exists:
+   - do not save another copy,
+   - treat it as already safely stored,
+   - include its ID in the ACK response when appropriate.
+
+This is important because the sensor node may resend the same record after a lost ACK.
+
+The design must therefore be **idempotent**.
+
+---
+
+## 11. LOCAL OFFLINE STORAGE
+
+Use LittleFS initially.
+
+Create persistent local storage for collected records.
+
+Requirements:
+
+- Persist pending backend-upload records.
+- Survive ESP32 reboot.
+- Retrieve records in batches.
+- Mark successfully synchronized records.
+- Avoid duplicate records.
+- Avoid rewriting a huge file for every small operation if possible.
+- Include a configurable maximum record limit.
+- Provide a safe cleanup policy for already synchronized data.
+
+Create a class such as:
+
+```text
+StorageManager
+```
+
+Possible responsibilities:
+
+```cpp
+bool begin();
+bool saveMeasurement(const GatewayMeasurement& record);
+bool exists(const String& deviceCode, uint32_t sequence);
+size_t getPendingCount();
+bool loadPendingBatch(...);
+bool markSynced(...);
+bool cleanup();
+```
+
+You may improve these APIs if there is a better embedded-friendly design.
+
+If JSON Lines / NDJSON is chosen for prototype storage, explain why.
+
+If another simple file layout is better, explain it.
+
+Do NOT introduce SQLite or heavyweight dependencies.
+
+---
+
+## 12. COLLECTION MANAGER
+
+Create:
+
+```text
+CollectionManager
+```
+
+Responsibilities:
+
+- Iterate through online authenticated nodes.
+- Request node info.
+- Determine pending record count.
+- Request records in configurable batches.
+- Validate JSON responses.
+- Validate each measurement.
+- Check duplicates.
+- Save valid records locally.
+- Build ACK list only from records confirmed to be safely stored or already known duplicates.
+- POST ACK to node.
+- Handle timeouts safely.
+- Stop collection if node disconnects.
+- Continue with other nodes if one node fails.
+
+Suggested algorithm:
+
+```text
+for each online authenticated node:
+
+    request node info
+
+    while node has pending records:
+
+        request <= COLLECTION_BATCH_SIZE records
+
+        for each record:
+
+            validate
+
+            if invalid:
+                log and skip
+
+            if duplicate:
+                add recordId to ack list
+                continue
+
+            save locally
+
+            if save succeeds:
+                add recordId to ack list
+
+        if ack list not empty:
+            send ACK
+
+        stop on:
+            timeout
+            disconnect
+            empty batch
+            max batches per collection cycle
+```
+
+Avoid infinite loops.
+
+---
+
+## 13. VALIDATION
+
+Create explicit validation.
+
+Reject records when appropriate, for example:
+
+- missing `deviceCode`
+- response deviceCode does not match expected node
+- invalid sequence
+- malformed JSON
+- impossible record structure
+- unauthenticated node
+- batch contains too many records
+
+Do NOT reject a record merely because a specific optional sensor field is null.
+
+Environmental sensor values may be absent depending on node hardware.
+
+Keep validation logic inside a dedicated function/class.
+
+---
+
+## 14. TIME MANAGEMENT
+
+Create:
+
+```text
+TimeManager
+```
+
+The gateway may get time from:
+
+1. NTP when Internet is available.
+2. Existing valid system time if already synchronized.
+3. Uptime fallback when real time is unavailable.
+
+The gateway should be able to provide current time to sensor nodes later.
+
+Expose an endpoint such as:
+
+```http
+GET /api/gateway/time
+```
+
+Example:
+
+```json
+{
+  "unixTime": 1720000100,
+  "timeSynced": true
+}
+```
+
+Do not assume NTP is always available.
+
+---
+
+## 15. BACKEND SYNCHRONIZATION
+
+Create:
+
+```text
+BackendSyncManager
+```
+
+The backend is a .NET API.
+
+The base URL must be configurable.
+
+Example only:
+
+```text
+http://192.168.1.100:5000/api
+```
+
+Do NOT tightly couple code to this exact URL.
+
+Use a configurable endpoint such as:
+
+```http
+POST /api/sensor-readings/batch
+```
+
+If the actual backend contract is not known, isolate the request builder so the endpoint and JSON shape can be changed easily.
+
+Example payload:
+
+```json
+{
+  "gatewayCode": "GATEWAY-001",
+  "records": [
+    {
+      "deviceCode": "SENSOR-001",
+      "sequence": 100,
+      "measuredAt": 1720000000,
+      "collectedAt": 1720000100,
+      "temperature": 30.2,
+      "humidity": 75.1,
+      "soilMoisture": 48.5
+    }
+  ]
+}
+```
+
+Requirements:
+
+- Only attempt sync when STA Internet connection is available.
+- Read local PENDING records in batches.
+- Use HTTP timeout.
+- Retry safely.
+- Do not retry in a tight infinite loop.
+- Use configurable retry delay/backoff.
+- On success, mark uploaded records as SYNCED.
+- On failure, leave records PENDING.
+- Backend failure must never stop local sensor collection.
+
+---
+
+## 16. GATEWAY LOCAL API
+
+Expose at least:
+
+### Gateway status
+
+```http
+GET /api/gateway/status
+```
+
+Example:
+
+```json
+{
+  "gatewayCode": "GATEWAY-001",
+  "status": "ONLINE",
+  "uptime": 123456,
+  "freeHeap": 120000,
+  "internetConnected": true,
+  "connectedNodes": 3,
+  "pendingUploadRecords": 25
+}
+```
+
+### Registered nodes
+
+```http
+GET /api/gateway/nodes
+```
+
+Example:
+
+```json
+[
+  {
+    "deviceCode": "SENSOR-001",
+    "ipAddress": "192.168.4.2",
+    "authenticated": true,
+    "rssi": -54,
+    "lastSeen": 1720000000,
+    "online": true
+  }
+]
+```
+
+### Time
+
+```http
+GET /api/gateway/time
+```
+
+### Sensor registration
+
+```http
+POST /api/gateway/nodes/register
+```
+
+Return consistent JSON responses.
+
+Example error:
+
+```json
+{
+  "success": false,
+  "errorCode": "INVALID_DEVICE",
+  "message": "Device authentication failed"
+}
+```
+
+---
+
+## 17. NODE REGISTRY
+
+Create:
+
+```text
+NodeRegistry
+```
+
+Responsibilities:
+
+- Add/update registered nodes.
+- Resolve node by deviceCode.
+- Update lastSeen.
+- Mark authentication result.
+- Track IP address.
+- Track RSSI when available.
+- Mark stale nodes offline.
+- Return active-node list.
+
+Avoid an unnecessarily large fixed array.
+
+But also avoid complicated STL usage if it causes embedded-memory problems.
+
+Use a reasonable maximum node count for the prototype, for example:
+
+```cpp
+MAX_SENSOR_NODES = 20
+```
+
+Make it configurable.
+
+---
+
+## 18. LOGGING
+
+Implement lightweight logging.
+
+Example:
+
+```text
+[GATEWAY] Starting...
+[GATEWAY] LittleFS mounted
+[GATEWAY] AP started: UAV_GATEWAY
+[GATEWAY] STA connected
+[GATEWAY] Internet unavailable
+
+[NODE] SENSOR-001 registered
+[NODE] SENSOR-001 authenticated
+[NODE] SENSOR-001 offline
+
+[COLLECT] SENSOR-001 pending=15
+[COLLECT] Received 10 records
+[COLLECT] Stored 10 records
+[COLLECT] ACK sent for 10 records
+
+[SYNC] Pending records=25
+[SYNC] Uploading batch size=20
+[SYNC] Upload success
+[SYNC] Backend unavailable
+
+[ERROR] Invalid JSON
+[ERROR] LittleFS write failed
+[ERROR] Sensor node timeout
+```
+
+Do not log secrets.
+
+Use log levels if simple to implement:
+
+```text
+DEBUG
+INFO
+WARN
+ERROR
+```
+
+---
+
+## 19. NON-BLOCKING DESIGN
+
+Avoid large `delay()` calls.
+
+Use `millis()`-based scheduling.
+
+Main loop should remain responsive.
+
+Tasks include:
+
+```text
+HTTP server handling
+node timeout checks
+sensor collection cycles
+STA reconnect
+backend sync
+storage cleanup
+time sync
+```
+
+Suggested structure:
+
+```cpp
+void loop() {
+    apiServer.handleClient();
+
+    wifiManager.update();
+    nodeRegistry.update();
+    collectionManager.update();
+    backendSyncManager.update();
+    timeManager.update();
+}
+```
+
+The exact API may differ.
+
+Do not implement unnecessary FreeRTOS complexity unless there is a real reason.
+
+Prefer a clean cooperative scheduler for the first prototype.
+
+---
+
+## 20. MEMORY AND RELIABILITY
+
+Requirements:
+
+- Use bounded JSON document sizes.
+- Do not parse an unlimited body.
+- Batch sensor records.
+- Avoid excessive String copying.
+- Avoid giant in-memory arrays.
+- Close HTTP connections correctly.
+- Check filesystem operation results.
+- Check JSON deserialize errors.
+- Check HTTP response codes.
+- Use connection/request timeouts.
+- One failed sensor node must not crash the gateway.
+- Backend outage must not crash the gateway.
+
+---
+
+## 21. CONFIGURATION
+
+Create a central configuration file.
+
+Suggested values:
+
+```cpp
+GATEWAY_CODE
+
+GATEWAY_AP_SSID
+GATEWAY_AP_PASSWORD
+
+INTERNET_SSID
+INTERNET_PASSWORD
+
+BACKEND_BASE_URL
+BACKEND_BATCH_ENDPOINT
+
+NODE_TIMEOUT_MS
+NODE_COLLECTION_INTERVAL_MS
+INTERNET_RECONNECT_INTERVAL_MS
+BACKEND_SYNC_INTERVAL_MS
+
+COLLECTION_BATCH_SIZE
+BACKEND_BATCH_SIZE
+
+MAX_SENSOR_NODES
+MAX_LOCAL_RECORDS
+
+HTTP_CONNECT_TIMEOUT_MS
+HTTP_REQUEST_TIMEOUT_MS
+```
+
+Secrets must not be committed.
+
+Create:
+
+```text
+include/Secrets.example.h
+```
+
+The real file:
+
+```text
+include/Secrets.h
+```
+
+must be in `.gitignore`.
+
+---
+
+## 22. RECOMMENDED PROJECT STRUCTURE
+
+Use or improve this structure:
+
+```text
+esp32-gateway/
+├── platformio.ini
+├── .gitignore
+├── README.md
+│
+├── include/
+│   ├── Config.h
+│   ├── Secrets.example.h
+│   ├── Models.h
+│   ├── ErrorCodes.h
+│   └── Logger.h
+│
+└── src/
+    ├── main.cpp
+    ├── GatewayWiFiManager.h
+    ├── GatewayWiFiManager.cpp
+    ├── NodeRegistry.h
+    ├── NodeRegistry.cpp
+    ├── NodeAuthenticator.h
+    ├── NodeAuthenticator.cpp
+    ├── SensorNodeClient.h
+    ├── SensorNodeClient.cpp
+    ├── CollectionManager.h
+    ├── CollectionManager.cpp
+    ├── StorageManager.h
+    ├── StorageManager.cpp
+    ├── BackendSyncManager.h
+    ├── BackendSyncManager.cpp
+    ├── ApiServer.h
+    ├── ApiServer.cpp
+    ├── TimeManager.h
+    └── TimeManager.cpp
+```
+
+You may put headers under `include/` instead if that results in a cleaner PlatformIO layout.
+
+Keep the result easy for students to understand.
+
+---
+
+## 23. DEMO / MOCK SENSOR MODE
+
+Because the ESP8266 firmware may not exist yet, add a way to test the ESP32 project before real sensor nodes are ready.
+
+Provide ONE of these approaches:
+
+### Preferred
+
+Create a small mock sensor-node script for a laptop using Python.
+
+It should simulate:
+
+```text
+registration
+GET /api/node/info
+GET /api/node/data
+POST /api/node/ack
+```
+
+However, because a laptop normally connects as a client to the ESP32 AP and cannot automatically behave exactly like an ESP8266 without configuration, explain how to run it and configure its IP/port.
+
+OR:
+
+Provide a compile-time:
+
+```cpp
+MOCK_NODE_MODE
+```
+
+that inserts one fake node into the registry and generates mock HTTP responses internally for testing CollectionManager.
+
+Keep mock code isolated from production logic.
+
+---
+
+## 24. IMPLEMENTATION PHASES
+
+Implement in this exact order.
+
+### PHASE 1 - Project bootstrap
+
+- Create PlatformIO project.
+- Configure ESP32 board.
+- Serial logging.
+- Mount LittleFS.
+
+Expected Serial:
+
+```text
+[GATEWAY] Boot
+[GATEWAY] LittleFS mounted
+```
+
+### PHASE 2 - Wi-Fi AP
+
+- Start ESP32 AP.
+- Print AP IP.
+
+Expected:
+
+```text
+[GATEWAY] AP started
+[GATEWAY] SSID=UAV_GATEWAY
+[GATEWAY] IP=192.168.4.1
+```
+
+### PHASE 3 - Gateway API
+
+Implement:
+
+```text
+GET /api/gateway/status
+POST /api/gateway/nodes/register
+GET /api/gateway/nodes
+GET /api/gateway/time
+```
+
+Test using laptop/curl/Postman connected to ESP32 AP.
+
+### PHASE 4 - Node registry/authentication
+
+- Register node.
+- Authenticate node.
+- Track lastSeen.
+- Mark stale node offline.
+
+### PHASE 5 - Storage
+
+- Save fake GatewayMeasurement.
+- Reboot ESP32.
+- Verify record remains.
+- Verify duplicate prevention.
+
+### PHASE 6 - Collection
+
+- Use mock node or actual ESP8266 later.
+- Request info.
+- Request data.
+- Save records.
+- ACK stored records.
+
+### PHASE 7 - Internet STA
+
+- Add hotspot connection.
+- Keep AP alive while STA reconnects.
+
+### PHASE 8 - Backend sync
+
+- Upload pending batches.
+- Mark successful records.
+- Preserve records when backend is unavailable.
+
+Do NOT implement all phases as one uncontrolled code dump without validating dependencies.
+
+---
+
+## 25. REQUIRED TEST CASES
+
+At minimum, provide tests/manual procedures for:
+
+### AP
+
+- ESP32 starts AP.
+- Laptop connects.
+- `/api/gateway/status` responds.
+
+### Registration
+
+- Valid node registers.
+- Unknown/invalid node is rejected.
+- Node re-registration updates existing registry instead of duplicating it.
+
+### Timeout
+
+- Registered node stops sending requests.
+- Node becomes offline after timeout.
+
+### Collection
+
+- Node has zero records.
+- Node has one record.
+- Node has more than one batch.
+- Node disconnects halfway through collection.
+- Node sends malformed JSON.
+- One invalid record does not discard the entire valid batch where avoidable.
+
+### Duplicate
+
+1. Receive record sequence 100.
+2. Save successfully.
+3. ACK is lost.
+4. Node sends sequence 100 again.
+5. Gateway detects duplicate.
+6. Gateway does not create second copy.
+7. Gateway ACKs sequence 100 again.
+
+### Storage failure
+
+- If local save fails, that record must NOT be ACKed.
+
+### Backend offline
+
+- Collect data normally.
+- Backend unavailable.
+- Records remain PENDING.
+
+### Backend recovery
+
+- Internet/backend becomes available.
+- Pending records upload.
+- Uploaded records become SYNCED.
+
+### Reboot
+
+- Collect data.
+- Reboot ESP32 before backend upload.
+- Pending records still exist after reboot.
+
+---
+
+## 26. CODE QUALITY
+
+Requirements:
+
+- Compilable PlatformIO project.
+- No pseudo-code for core features.
+- Clear classes with focused responsibilities.
+- No giant `main.cpp`.
+- No unnecessary enterprise architecture.
+- Meaningful comments only.
+- Consistent naming.
+- No silent failures.
+- Check return values.
+- Avoid unnecessary global mutable state.
+- Keep dependencies minimal.
+
+---
+
+## 27. REQUIRED OUTPUT FROM YOU
+
+Before generating code:
+
+1. Briefly analyze the architecture.
+2. Point out only serious technical issues.
+3. Keep the architecture unless a change is necessary.
+
+Then generate the COMPLETE ESP32 project.
+
+Output in this order:
+
+1. Project tree.
+2. `platformio.ini`.
+3. `.gitignore`.
+4. Configuration files.
+5. Models.
+6. Logger/error definitions.
+7. Wi-Fi manager.
+8. Node registry.
+9. Node authenticator.
+10. Sensor node HTTP client.
+11. LittleFS storage.
+12. Collection manager.
+13. Time manager.
+14. Backend sync manager.
+15. Gateway API server.
+16. `main.cpp`.
+17. Mock/demo mechanism.
+18. `README.md`.
+19. Build instructions.
+20. Flash instructions.
+21. Test instructions.
+22. Curl/Postman examples.
+23. End-to-end verification steps.
+
+Do NOT omit file contents.
+
+Do NOT leave TODO for core gateway logic.
+
+Hardware-independent backend endpoint details may remain configurable.
+
+Before finishing, perform a consistency review:
+
+- header declarations match `.cpp` implementations
+- includes are correct
+- namespaces/types are consistent
+- ESP32 APIs are compatible with Arduino Framework
+- LittleFS APIs are correct
+- HTTPClient APIs are correct
+- WebServer APIs are correct
+- ArduinoJson APIs are correct
+- PlatformIO dependencies are listed
+- no ESP8266-only APIs are accidentally used
+- project should compile
+
+Finally, explain the exact first test I should perform using only:
+
+- one ESP32
+- one laptop
+- USB cable
+
+before adding the ESP8266.
