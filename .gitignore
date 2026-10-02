@@ -1,0 +1,6 @@
+.pio/
+include/Secrets.h
+__pycache__/
+build-logs/
+tests/host/build/
+lib/BoundedESP8266WebServer/

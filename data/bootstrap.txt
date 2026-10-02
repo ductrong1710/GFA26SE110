@@ -1,0 +1,1 @@
+LittleFS provisioning image. Upload only to a NEW/EMPTY board: uploadfs erases stored records and sequence identity history.
