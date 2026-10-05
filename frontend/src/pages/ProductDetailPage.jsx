@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import Icon from '../components/Icon'
 import ConsultationButton from '../components/ConsultationButton'
@@ -58,7 +59,7 @@ function RentalPricingDialog({ product, onClose }) {
         <div className="rental-pricing-table-wrap"><table className="rental-pricing-table"><thead><tr><th>Chọn</th><th>Thời hạn thuê</th><th>Tỷ lệ / tháng</th><th>Giá thuê / tháng</th></tr></thead><tbody>{rentTerms.map((term) => <tr key={term.duration} className={selectedDuration === term.duration ? 'selected' : ''}><td><input type="radio" name="rental-duration" aria-label={'Chọn thuê ' + term.duration} checked={selectedDuration === term.duration} onChange={() => { setSelectedDuration(term.duration); setAdded(false) }} /></td><td>{term.duration}</td><td>{term.rate}</td><td>{formatPrice(exampleBasePrice * term.min)}</td></tr>)}</tbody></table></div>
         <div className="rental-quantity-select"><span>Số lượng thiết bị</span><div><button type="button" aria-label="Giảm số lượng" disabled={quantity <= 1} onClick={() => { setQuantity((value) => Math.max(1, value - 1)); setAdded(false) }}>−</button><output>{quantity}</output><button type="button" aria-label="Tăng số lượng" onClick={() => { setQuantity((value) => value + 1); setAdded(false) }}>+</button></div></div>
         <button className="rental-add-to-cart" type="button" onClick={addSelectedRental}>{added ? 'Đã thêm vào giỏ hàng' : 'Thêm vào giỏ hàng'}</button>
-        {added && <a className="rental-view-cart" href="/gio-hang">Xem giỏ hàng</a>}
+        {added && <Link className="rental-view-cart" to="/gio-hang">Xem giỏ hàng</Link>}
       </section>
     </div>
   )
@@ -67,13 +68,13 @@ function RentalPricingDialog({ product, onClose }) {
 export default function ProductDetailPage({ productId }) {
   const [showRentalPricing, setShowRentalPricing] = useState(false)
   const product = products.find((item) => item.id === productId)
-  if (!product) return <><SiteHeader innerPage /><main className="product-not-found"><span>Không tìm thấy sản phẩm</span><a href="/thiet-bi">Quay lại danh mục thiết bị</a></main><SiteFooter innerPage /></>
+  if (!product) return <><SiteHeader innerPage /><main className="product-not-found"><span>Không tìm thấy sản phẩm</span><Link to="/thiet-bi">Quay lại danh mục thiết bị</Link></main><SiteFooter innerPage /></>
 
   return (
     <>
       <SiteHeader innerPage />
       <main className="product-detail-page">
-        <div className="product-breadcrumb page-width"><a href="/">Trang chủ</a><Icon name="chevron" size={13} /><a href="/thiet-bi">Thiết bị</a><Icon name="chevron" size={13} /><span>{product.name}</span></div>
+        <div className="product-breadcrumb page-width"><Link to="/">Trang chủ</Link><Icon name="chevron" size={13} /><Link to="/thiet-bi">Thiết bị</Link><Icon name="chevron" size={13} /><span>{product.name}</span></div>
         <section className="product-overview page-width"><Reveal className="product-detail-image"><img src={product.image} alt={product.name} /><span>{product.tag}</span></Reveal><Reveal className="product-detail-copy" delay={100}><span className="eyebrow">SMART FARM · THIẾT BỊ</span><h1>{product.name}</h1><p>{product.description}</p><div className="product-detail-specs">{[...product.specs, '100% sản phẩm chính hãng', 'Bao test 1 tuần', 'Freeship nội thành TP.HCM (dưới 15km) hoặc hóa đơn trên 1.000.000 đồng'].map((spec) => <span key={spec}><i />{spec}</span>)}</div><div className="product-prices"><span>GIÁ MUA MẪU</span><strong>{formatPrice(exampleBasePrice)}</strong><small>Đã gồm cấu hình & lắp đặt · Chuyển khoản / theo hợp đồng · Không hỗ trợ COD</small></div><div className="product-detail-actions"><a className="product-buy-now" href="#product-inquiry">Mua ngay</a><button className="product-rent-now" type="button" onClick={() => setShowRentalPricing(true)}>Thuê chỉ từ {formatPrice(exampleBasePrice * .03)}/tháng</button></div></Reveal></section>
         {showRentalPricing && <RentalPricingDialog product={product} onClose={() => setShowRentalPricing(false)} />}
         <section className="product-policy-section page-width"><Reveal className="product-policy-heading"><span className="eyebrow">THÔNG TIN SẢN PHẨM</span><h2>Hướng dẫn mua,<br /><span>thuê và sử dụng.</span></h2></Reveal><Reveal className="product-policy-content"><ProductPolicies /></Reveal></section>

@@ -1,15 +1,45 @@
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import EquipmentPage from './pages/EquipmentPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import CartPage from './pages/CartPage'
 import AccountPage from './pages/AccountPage'
-import FloatingContactDock from './components/FloatingContactDock'
+import ProtectedRoute from './components/app/ProtectedRoute'
+import RouteScroll from './components/RouteScroll'
+import PublicLayout from './layouts/PublicLayout'
+import AppShell from './layouts/AppShell'
+import AppPlaceholderPage from './pages/app/AppPlaceholderPage'
+import NotFoundPage from './pages/NotFoundPage'
+import { appRoutes } from './config/appRoutes'
 import './App.css'
 
+function ProductDetailRoute() {
+  const { id } = useParams()
+  return <ProductDetailPage key={id} productId={id} />
+}
+
 export default function App() {
-  const path = window.location.pathname.replace(/\/$/, '')
-  const productDetailMatch = path.match(/^\/thiet-bi\/([^/]+)$/)
-  const isAccountPage = path === '/dang-nhap' || path === '/dang-ky'
-  const page = productDetailMatch ? <ProductDetailPage productId={productDetailMatch[1]} /> : path === '/thiet-bi' ? <EquipmentPage /> : path === '/gio-hang' ? <CartPage /> : path === '/dang-nhap' ? <AccountPage /> : path === '/dang-ky' ? <AccountPage register /> : <HomePage />
-  return <>{page}{!isAccountPage && <FloatingContactDock />}</>
+  return <>
+    <RouteScroll />
+    <Routes>
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/thiet-bi" element={<EquipmentPage />} />
+        <Route path="/thiet-bi/:id" element={<ProductDetailRoute />} />
+        <Route path="/gio-hang" element={<CartPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+      <Route path="/dang-nhap" element={<AccountPage key="login" />} />
+      <Route path="/dang-ky" element={<AccountPage key="register" register />} />
+      <Route path="/app" element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          {appRoutes.map(({ path, title, permissions }) => <Route key={path} path={path} element={
+            <ProtectedRoute permissions={permissions}><AppPlaceholderPage title={title} /></ProtectedRoute>
+          } />)}
+          <Route path="*" element={<NotFoundPage application />} />
+        </Route>
+      </Route>
+    </Routes>
+  </>
 }

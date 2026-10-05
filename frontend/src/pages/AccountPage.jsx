@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import EngineerRegistrationWizard from '../components/EngineerRegistrationWizard'
 import PasswordField from '../components/PasswordField'
 import UserRegistrationForm from '../components/UserRegistrationForm'
+import { useAuth } from '../context/AuthContext'
 
 function AccountTypePicker({ onSelect }) {
   return <section className="account-form-content account-type-picker">
@@ -14,41 +16,51 @@ function AccountTypePicker({ onSelect }) {
 }
 
 export default function AccountPage({ register = false }) {
-  const [isRegister, setIsRegister] = useState(register)
+  const isRegister = register
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
+  const [loginError, setLoginError] = useState('')
   const [registrationType, setRegistrationType] = useState(null)
   const mode = isRegister ? 'register' : 'login'
 
-  useEffect(() => {
-    const syncMode = () => {
-      const nextRegister = window.location.pathname === '/dang-ky'
-      setIsRegister(nextRegister)
-      setRegistrationType(null)
+  const handleLogin = (event) => {
+    event.preventDefault()
+    setLoginError('')
+    const data = new FormData(event.currentTarget)
+    try {
+      login(data.get('email'), data.get('password'))
+    } catch (error) {
+      setLoginError(error.message)
+      return
     }
-    window.addEventListener('popstate', syncMode)
-    return () => window.removeEventListener('popstate', syncMode)
-  }, [])
+
+    const from = location.state?.from
+    const pathname = from?.pathname
+    const isAppPath = typeof pathname === 'string' && (pathname === '/app' || pathname.startsWith('/app/'))
+    navigate(isAppPath ? { pathname, search: from.search, hash: from.hash } : '/app/dashboard', { replace: true })
+  }
 
   const switchMode = (nextRegister) => {
     if (nextRegister === isRegister) return
-    setIsRegister(nextRegister)
-    setRegistrationType(null)
-    window.history.pushState({}, '', nextRegister ? '/dang-ky' : '/dang-nhap')
+    navigate(nextRegister ? '/dang-ky' : '/dang-nhap', { state: location.state })
   }
 
   return <main className={'account-screen account-screen--' + mode}>
     <div className="account-card">
       <section className="account-form-panel">
         <div className="account-brand-group">
-          <a className="account-brand" href="/" aria-label="Smart Farm trang chủ"><span className="wordmark-mark"><i /><i /><i /></span>Smart Farm</a>
-          <a className="account-home-link" href="/">Trở về trang chủ</a>
+          <Link className="account-brand" to="/" aria-label="Smart Farm trang chủ"><span className="wordmark-mark"><i /><i /><i /></span>Smart Farm</Link>
+          <Link className="account-home-link" to="/">Trở về trang chủ</Link>
         </div>
         {!isRegister && <section className="account-form-content account-login-form">
           <h1>Chào mừng trở lại</h1>
           <p className="account-intro">Đăng nhập để quản lý cảm biến, thiết bị thuê và dữ liệu nông trại.</p>
-          <form onSubmit={(event) => event.preventDefault()}>
+          <form onSubmit={handleLogin}>
             <label>Email<input required name="email" type="email" autoComplete="email" placeholder="ban@email.com" /></label>
             <label>Mật khẩu<PasswordField required name="password" autoComplete="current-password" placeholder="Nhập mật khẩu" /></label>
             <a className="account-forgot" href="mailto:smartfarm@example.com">Quên mật khẩu?</a>
+            {loginError && <p className="account-message account-message--error" role="alert">{loginError}</p>}
             <button className="account-submit" type="submit">Đăng nhập</button>
           </form>
         </section>}

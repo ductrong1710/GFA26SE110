@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import Icon from '../components/Icon'
 import ConsultationButton from '../components/ConsultationButton'
@@ -17,8 +18,8 @@ const formatPrice = (price) => new Intl.NumberFormat('vi-VN').format(price) + '�
 function ProductCard({ product }) {
   return (
     <Reveal><article className="equipment-card">
-      <a className="equipment-product-link" href={`/thiet-bi/${product.id}`} aria-label={`Xem chi tiết ${product.name}`}><div className="equipment-image"><img src={product.image} alt="" loading="lazy" /><span className="equipment-tag">{product.tag}</span><span className="equipment-icon"><Icon name={product.icon} size={20} /></span></div></a>
-      <div className="equipment-card-copy"><h2><a className="equipment-product-title" href={'/thiet-bi/' + product.id}>{product.name}</a></h2><p>{product.description}</p><ul>{product.specs.map((spec) => <li key={spec}><span />{spec}</li>)}</ul><div className="equipment-card-prices"><span>Giá mua mẫu<strong>{formatPrice(exampleBasePrice)}</strong></span><span>Thuê từ<strong>{formatPrice(exampleBasePrice * .03)}/tháng</strong></span></div><div className="equipment-actions"><a className="equipment-buy" href={'/thiet-bi/' + product.id + '#product-inquiry'}>Mua ngay <Icon name="arrow" size={14} /></a><a className="equipment-rent" href={'/thiet-bi/' + product.id + '#product-inquiry'}>Thuê</a></div></div>
+      <Link className="equipment-product-link" to={`/thiet-bi/${product.id}`} aria-label={`Xem chi tiết ${product.name}`}><div className="equipment-image"><img src={product.image} alt="" loading="lazy" /><span className="equipment-tag">{product.tag}</span><span className="equipment-icon"><Icon name={product.icon} size={20} /></span></div></Link>
+      <div className="equipment-card-copy"><h2><Link className="equipment-product-title" to={'/thiet-bi/' + product.id}>{product.name}</Link></h2><p>{product.description}</p><ul>{product.specs.map((spec) => <li key={spec}><span />{spec}</li>)}</ul><div className="equipment-card-prices"><span>Giá mua mẫu<strong>{formatPrice(exampleBasePrice)}</strong></span><span>Thuê từ<strong>{formatPrice(exampleBasePrice * .03)}/tháng</strong></span></div><div className="equipment-actions"><Link className="equipment-buy" to={'/thiet-bi/' + product.id + '#product-inquiry'}>Mua ngay <Icon name="arrow" size={14} /></Link><Link className="equipment-rent" to={'/thiet-bi/' + product.id + '#product-inquiry'}>Thuê</Link></div></div>
     </article></Reveal>
   )
 }

@@ -60,6 +60,40 @@ Can:
 
 ---
 
+### Frontend demo: human UI roles and permissions
+
+The frontend mock-auth demo uses four human UI roles: `FARM_OWNER`,
+`ADMINISTRATOR`, `UAV_DEVICE_OPERATOR`, and `AGRICULTURAL_ENGINEER`.
+This frontend-only model does not change backend role records or introduce API
+authentication. The Sensor Collection Engine is a service/device actor, not a
+human UI role, and must not receive a dashboard.
+
+| Area | FARM_OWNER | ADMINISTRATOR | UAV_DEVICE_OPERATOR | AGRICULTURAL_ENGINEER |
+|---|---|---|---|---|
+| Dashboard | View | View | View | View |
+| Farms/zones | Read | Manage | None | Read |
+| Sensor nodes | Read | None | Manage | Read |
+| Sensor data | View | View | None | View and compare zones |
+| UAV/gateway | None | View status | Manage | None |
+| Missions | Read | View status | Create/manage/monitor | None |
+| Data sync | None | None | Manage | None |
+| Alerts | Read | Manage | View related alerts only | Read |
+| Reports | View/generate | View/generate | None | Read |
+| Users/roles and settings | None | Manage | None | None |
+
+A user may have multiple assigned roles, but only `activeRole` grants UI
+permissions. Read access must not imply create/manage permissions. Navigation,
+search, and direct route guards must use the same permission policy. An
+authenticated user opening a denied route sees Access Denied within the shared
+application shell.
+
+For mock demonstration only, the profile role switcher may preview any of the
+four human roles without modifying assigned memberships. This override must be
+disabled for real users. Future real alert queries must enforce related-record
+scope for operators; this demo has no backend or real domain data.
+
+---
+
 ## 3. Farm and Zone Rules
 
 1. A farm can contain many zones.
