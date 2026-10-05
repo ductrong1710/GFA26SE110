@@ -9,12 +9,17 @@ void NodeApp::begin() {
     wifi_.begin();
     api_.begin();
     lastSample_ = millis();
+    lastDhtLog_ = lastSample_;
 }
 void NodeApp::update() {
     time_.update(millis());
     api_.handleClient();
     wifi_.update();
     const uint32_t now = millis();
+    if (now - lastDhtLog_ >= Config::DHT_LOG_INTERVAL_MS) {
+        lastDhtLog_ = now;
+        sensors_.logDhtReading();
+    }
     if (maintenance_.due(now,1000)) { queue_.update(); maintenance_.mark(now); }
     if (now - lastSample_ >= Config::SENSOR_READ_INTERVAL_MS) {
         lastSample_ = now;

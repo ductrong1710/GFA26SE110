@@ -1,14 +1,35 @@
 #include "StorageManager.h"
 #include <LittleFS.h>
+#include <flash_hal.h>
+#include "FlashPartitionCheck.h"
 #include "Logger.h"
 bool StorageManager::begin() {
     LittleFSConfig options;
     options.setAutoFormat(false);
     LittleFS.setConfig(options);
     healthy_ = LittleFS.begin();
-    if (healthy_) healthy_ = (LittleFS.exists("/pending") || LittleFS.mkdir("/pending")) &&
+    if (!healthy_) {
+        const auto state = checkFlashPartition(FS_PHYS_ADDR, FS_PHYS_SIZE,
+            ESP.getFlashChipRealSize(),
+            [](uint32_t address, uint32_t* data, size_t size) {
+                return ESP.flashRead(address, data, size);
+            }, []() { yield(); });
+        if (state != FlashPartitionState::Blank) {
+            Logger::log("ERROR", state == FlashPartitionState::NonBlank
+                ? "LittleFS mount failed; nonblank partition preserved (no format)"
+                : "LittleFS mount failed; flash range/read check failed (no format)");
+            return false;
+        }
+        Logger::log("NODE", "LittleFS partition is entirely blank; initializing first-use filesystem");
+        healthy_ = LittleFS.format() && LittleFS.begin();
+        if (!healthy_) {
+            Logger::log("ERROR", "LittleFS first-use initialization failed");
+            return false;
+        }
+    }
+    healthy_ = (LittleFS.exists("/pending") || LittleFS.mkdir("/pending")) &&
         (LittleFS.exists("/acked") || LittleFS.mkdir("/acked"));
-    Logger::log(healthy_ ? "NODE" : "ERROR", healthy_ ? "LittleFS mounted" : "LittleFS mount failed; data preserved (no auto-format)");
+    Logger::log(healthy_ ? "NODE" : "ERROR", healthy_ ? "LittleFS mounted" : "LittleFS mounted but queue directories unavailable");
     return healthy_;
 }
 ReadResult StorageManager::read(const char* path, char* bytes, size_t capacity, size_t& length) {
@@ -29,6 +50,7 @@ bool StorageManager::writeAtomic(const char* path, const char* bytes, size_t len
     if (!file) { healthy_ = false; return false; }
     const size_t written = file.write(reinterpret_cast<const uint8_t*>(bytes),length);
     file.flush(); file.close();
+    Serial.printf("[STORAGE] Free stack watermark: %u bytes\n", ESP.getFreeContStack());
     // ESP8266 File::flush/close return void. Re-open and verify before publishing.
     file = LittleFS.open(temp,"r");
     bool valid = written == length && file && file.size() == length;

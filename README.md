@@ -6,15 +6,18 @@ AP when available, and exposes records for collection. Only an authenticated exa
 ACK transitions a measurement out of PENDING. A GET, registration, timeout or lost
 connection never ACKs data.
 
-Default: **DEMO_MODE=true**. No board was flashed and no hardware tests were performed
-during implementation. See [verification evidence](docs/VERIFICATION.md) and the
-[hardware acceptance procedures](docs/TESTING.md).
+The `nodemcuv2` environment uses **DEMO_MODE=true**. The current default environment,
+`nodemcuv2_physical`, uses physical sensors (currently DHT11).
+Initial implementation verification is recorded in [verification evidence](docs/VERIFICATION.md).
+The 2026-10-02 COM3 LittleFS fix and hardware checks are documented in
+[LittleFS recovery](docs/LITTLEFS_RECOVERY.md). See the
+[hardware acceptance procedures](docs/TESTING.md) for broader integration tests.
 
 ## Phase implementation
 
 | Phase | Implementation |
 |---|---|
-| 1 — Bootstrap + LittleFS | Pinned PlatformIO ESP8266 project, serial logger, configuration and ignored credentials, mount without auto-format. |
+| 1 — Bootstrap + LittleFS | Pinned PlatformIO ESP8266 project, serial logger, configuration and ignored credentials, mount with blank-partition-only first-use initialization. |
 | 2 — SensorManager + DEMO_MODE | Periodic sampling, simulated temperature/humidity/soil values, isolated DHT22 and analog input drivers, unavailable fields are null. |
 | 3 — Persistent queue | Checksummed per-record files, atomic publication and ACK rename, persistent block-reserved sequences, bounded sorted index, reboot recovery and storage-full protection. |
 | 4 — Local REST API | All five routes, device authentication, strict bounded JSON, oldest-first batches, idempotent exact-ID ACKs and real health data. |

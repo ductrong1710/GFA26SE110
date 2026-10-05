@@ -8,8 +8,9 @@ class SensorManager {
 public:
     bool begin();
     SensorReading readSensors();
+    void logDhtReading();
 private:
 #if !DEMO_MODE
-    DHT dht_{Config::DHT_PIN, DHT22};
+    DHT dht_{Config::DHT_PIN, DHT11};
 #endif
 };

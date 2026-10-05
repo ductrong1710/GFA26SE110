@@ -14,6 +14,7 @@ constexpr char FIRMWARE_VERSION[] = "1.0.0";
 constexpr char DEVICE_TYPE[] = "ESP8266_SENSOR";
 constexpr uint32_t SERIAL_BAUD_RATE = 115200;
 constexpr uint32_t SENSOR_READ_INTERVAL_MS = 60000;
+constexpr uint32_t DHT_LOG_INTERVAL_MS = 10000;
 constexpr char GATEWAY_SSID[] = "UAV_GATEWAY";
 constexpr char GATEWAY_BASE_URL[] = "http://192.168.4.1";
 constexpr char GATEWAY_REGISTER_ENDPOINT[] = "/api/gateway/nodes/register";

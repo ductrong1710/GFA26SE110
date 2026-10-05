@@ -10,6 +10,23 @@ bool SensorManager::begin() {
 #endif
     return true;
 }
+void SensorManager::logDhtReading() {
+#if DEMO_MODE
+    Logger::log("DHT11", "DEMO_MODE enabled; physical sensor is not read");
+#else
+    if (!Config::DHT_ENABLED) {
+        Logger::log("DHT11", "Sensor disabled");
+        return;
+    }
+    const float temperature = dht_.readTemperature();
+    const float humidity = dht_.readHumidity();
+    if (!isfinite(temperature) || !isfinite(humidity)) {
+        Logger::log("DHT11", "Read failed; check sensor wiring and power");
+        return;
+    }
+    Serial.printf("[DHT11] Temperature: %.1f C | Humidity: %.1f %%\n", temperature, humidity);
+#endif
+}
 SensorReading SensorManager::readSensors() {
     Logger::log("SENSOR", "Reading sensors");
     SensorReading reading;
@@ -23,7 +40,7 @@ SensorReading SensorManager::readSensors() {
         reading.humidity = dht_.readHumidity();
         if (!isfinite(reading.temperature) || reading.temperature < -40 || reading.temperature > 80) reading.temperature = NAN;
         if (!isfinite(reading.humidity) || reading.humidity < 0 || reading.humidity > 100) reading.humidity = NAN;
-        if (isnan(reading.temperature) || isnan(reading.humidity)) Logger::log("WARN", "DHT22 read failed; unavailable fields are null");
+        if (isnan(reading.temperature) || isnan(reading.humidity)) Logger::log("WARN", "DHT11 read failed; unavailable fields are null");
     }
     if (Config::SOIL_ENABLED) {
         reading.soilMoisture = SensorMath::soilPercent(analogRead(A0), Config::SOIL_DRY_ADC,

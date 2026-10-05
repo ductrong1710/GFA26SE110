@@ -22,9 +22,9 @@ bool temporaryRecord(const char* path) {
     const unsigned long long sequence = strtoull(path + 9,nullptr,10);
     return sequence > 0 && sequence <= UINT32_MAX;
 }
-ReadResult readFrame(RecordStore& store, const char* path, JsonDocument& doc) {
-    char buffer[Config::MAX_RECORD_BYTES]; size_t size = 0;
-    const ReadResult result = store.read(path,buffer,sizeof(buffer),size);
+ReadResult readFrame(RecordStore& store, const char* path, JsonDocument& doc, char* buffer) {
+    size_t size = 0;
+    const ReadResult result = store.read(path,buffer,Config::MAX_RECORD_BYTES,size);
     if (result != ReadResult::Ok) return result;
     if (size < 10 || buffer[8] != '\n') return ReadResult::Error;
     char hashText[9]; memcpy(hashText,buffer,8); hashText[8] = 0;
@@ -34,11 +34,10 @@ ReadResult readFrame(RecordStore& store, const char* path, JsonDocument& doc) {
     if (deserializeJson(doc,static_cast<const char*>(buffer + 9),size - 9,DeserializationOption::NestingLimit(3))) return ReadResult::Error;
     return doc.is<JsonObject>() ? ReadResult::Ok : ReadResult::Error;
 }
-bool writeFrame(RecordStore& store, const char* path, const JsonDocument& doc) {
-    char buffer[Config::MAX_RECORD_BYTES];
+bool writeFrame(RecordStore& store, const char* path, const JsonDocument& doc, char* buffer) {
     const size_t length = measureJson(doc);
-    if (doc.overflowed() || length + 9 >= sizeof(buffer)) return false;
-    serializeJson(doc,buffer + 9,sizeof(buffer) - 9);
+    if (doc.overflowed() || length + 9 >= Config::MAX_RECORD_BYTES) return false;
+    serializeJson(doc,buffer + 9,Config::MAX_RECORD_BYTES - 9);
     const uint32_t crc = crc32(buffer + 9,length);
     snprintf(buffer,10,"%08lx",static_cast<unsigned long>(crc)); buffer[8] = '\n';
     // snprintf terminates at byte 8; byte 9 still starts the JSON.
@@ -46,8 +45,8 @@ bool writeFrame(RecordStore& store, const char* path, const JsonDocument& doc) {
 }
 }
 bool MeasurementQueue::load(const char* path, Measurement& record) {
-    StaticJsonDocument<Config::RECORD_JSON_CAPACITY> doc;
-    return readFrame(store_,path,doc) == ReadResult::Ok && MeasurementCodec::fromJson(doc.as<JsonObjectConst>(),record);
+    recordDoc_.clear();
+    return readFrame(store_,path,recordDoc_,frame_) == ReadResult::Ok && MeasurementCodec::fromJson(recordDoc_.as<JsonObjectConst>(),record);
 }
 bool MeasurementQueue::scan(const char* path, void* context) {
     auto& q = *static_cast<MeasurementQueue*>(context);
@@ -67,7 +66,7 @@ bool MeasurementQueue::begin() {
     for (unsigned int i = 0; i < 2; ++i) {
         const char* path = i ? "/sequence1" : "/sequence0";
         StaticJsonDocument<256> doc;
-        const ReadResult status = readFrame(store_,path,doc);
+        const ReadResult status = readFrame(store_,path,doc,frame_);
         if (status == ReadResult::Error) return false; // Never roll back past corrupt metadata.
         if (status == ReadResult::Missing) continue;
         if (!doc["high"].is<uint32_t>() || !MeasurementCodec::textEquals(doc["deviceCode"],Config::DEVICE_CODE)) return false;
@@ -76,7 +75,7 @@ bool MeasurementQueue::begin() {
         ++found;
     }
     StaticJsonDocument<256> identity;
-    const ReadResult identityStatus = readFrame(store_,"/identity",identity);
+    const ReadResult identityStatus = readFrame(store_,"/identity",identity,frame_);
     if (identityStatus == ReadResult::Error || (identityStatus == ReadResult::Ok &&
         (found != 2 || !MeasurementCodec::textEquals(identity["deviceCode"],Config::DEVICE_CODE)))) return false;
     if (identityStatus == ReadResult::Missing) {
@@ -85,11 +84,11 @@ bool MeasurementQueue::begin() {
         if (found < 2) {
             if (reserved_ != 0) return false;
             identity["deviceCode"] = Config::DEVICE_CODE; identity["high"] = uint32_t(0);
-            if (!writeFrame(store_,"/sequence0",identity) || !writeFrame(store_,"/sequence1",identity)) return false;
+            if (!writeFrame(store_,"/sequence0",identity,frame_) || !writeFrame(store_,"/sequence1",identity,frame_)) return false;
             slot_ = 1;
         }
         identity.clear(); identity["deviceCode"] = Config::DEVICE_CODE;
-        if (!writeFrame(store_,"/identity",identity)) return false;
+        if (!writeFrame(store_,"/identity",identity,frame_)) return false;
     }
     if (!store_.visit("/pending",scan,this)) return false;
     std::sort(pending_,pending_ + count_);
@@ -105,7 +104,7 @@ bool MeasurementQueue::reserve() {
     const uint32_t high = reserved_ + amount;
     StaticJsonDocument<256> doc;
     doc["deviceCode"] = Config::DEVICE_CODE; doc["high"] = high;
-    if (!writeFrame(store_,slot_ ? "/sequence1" : "/sequence0",doc)) { healthy_ = false; return false; }
+    if (!writeFrame(store_,slot_ ? "/sequence1" : "/sequence0",doc,frame_)) { healthy_ = false; return false; }
     reserved_ = high; slot_ = 1 - slot_; return true;
 }
 SaveResult MeasurementQueue::append(Measurement& record) {
@@ -116,10 +115,10 @@ SaveResult MeasurementQueue::append(Measurement& record) {
     if (next_ == UINT32_MAX) return SaveResult::SequenceExhausted;
     if (next_ == reserved_ && !reserve()) return SaveResult::Error;
     record.sequence = ++next_; record.state = MeasurementState::Pending;
-    StaticJsonDocument<Config::RECORD_JSON_CAPACITY> doc;
-    MeasurementCodec::toJson(record,doc.to<JsonObject>());
+    recordDoc_.clear();
+    MeasurementCodec::toJson(record,recordDoc_.to<JsonObject>());
     char path[32]; pathFor(record.sequence,false,path,sizeof(path));
-    if (!writeFrame(store_,path,doc)) { healthy_ = false; return SaveResult::Error; }
+    if (!writeFrame(store_,path,recordDoc_,frame_)) { healthy_ = false; return SaveResult::Error; }
     pending_[count_++] = record.sequence; full_ = false; return SaveResult::Saved;
 }
 bool MeasurementQueue::readAt(size_t index, Measurement& record) {

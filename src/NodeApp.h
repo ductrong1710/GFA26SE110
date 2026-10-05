@@ -18,5 +18,6 @@ private:
     GatewayClient gateway_{wifi_};
     ApiServer api_{queue_,time_};
     uint32_t lastSample_ = 0;
+    uint32_t lastDhtLog_ = 0;
     RetryTimer maintenance_;
 };

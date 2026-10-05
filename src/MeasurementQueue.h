@@ -2,6 +2,7 @@
 #include "Config.h"
 #include "Models.h"
 #include "RecordStore.h"
+#include <ArduinoJson.h>
 enum class SaveResult { Saved, Full, Error, SequenceExhausted };
 enum class AckResult { Acked, NotPending, Error };
 class MeasurementQueue {
@@ -17,6 +18,10 @@ public:
     bool full() const { return full_; }
 private:
     RecordStore& store_;
+    // Queue operations run serially from setup/loop and HTTP handlers. Keeping
+    // scratch storage here leaves the 4 KB ESP8266 stack for LittleFS/Wi-Fi.
+    StaticJsonDocument<Config::RECORD_JSON_CAPACITY> recordDoc_;
+    char frame_[Config::MAX_RECORD_BYTES];
     uint32_t pending_[Config::MAX_LOCAL_RECORDS]{};
     size_t count_ = 0;
     bool healthy_ = false, full_ = false;
