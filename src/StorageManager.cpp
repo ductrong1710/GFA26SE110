@@ -1,15 +1,27 @@
 #include "StorageManager.h"
 #include <LittleFS.h>
 #include <mbedtls/sha256.h>
+#include <mbedtls/base64.h>
+#include <errno.h>
+#include <string.h>
 #include "Logger.h"
 
 String StorageManager::key(const String& device, uint32_t sequence) const {
     const String identity = device + ":" + String(sequence);
     unsigned char digest[32];
     mbedtls_sha256_ret(reinterpret_cast<const unsigned char*>(identity.c_str()), identity.length(), digest, 0);
-    char hex[65];
-    for (size_t i = 0; i < 32; ++i) snprintf(hex + i * 2, 3, "%02x", digest[i]);
-    return String(hex);
+    // SHA-256 is 44 Base64 characters including one '='; reserve the terminator.
+    // Base64URL without padding keeps all 256 bits in a filesystem-safe 43-byte name.
+    unsigned char encoded[45] = {};
+    size_t encodedLength = 0;
+    mbedtls_base64_encode(encoded, sizeof(encoded), &encodedLength, digest, sizeof(digest));
+    for (size_t i = 0; i < encodedLength; ++i) {
+        if (encoded[i] == '+') encoded[i] = '-';
+        else if (encoded[i] == '/') encoded[i] = '_';
+    }
+    while (encodedLength && encoded[encodedLength - 1] == '=') --encodedLength;
+    encoded[encodedLength] = '\0';
+    return String(reinterpret_cast<const char*>(encoded));
 }
 bool StorageManager::begin() {
     ready_ = false; pending_ = stored_ = pendingCursor_ = 0;
@@ -71,28 +83,65 @@ bool StorageManager::measurementExists(const String& device, uint32_t sequence) 
     return receiptExists(String("/receipts/") + hash, device, sequence);
 }
 bool StorageManager::writeVerified(const GatewayMeasurement& record, const String& destination) {
+    const auto fail = [&](const char* stage, size_t expected, size_t actual) {
+        Serial.printf("[STORAGE] writeVerified failed: stage=%s destination=%s expected=%u actual=%u heapFree=%u fsUsed=%u fsTotal=%u\n",
+            stage, destination.c_str(), unsigned(expected), unsigned(actual),
+            unsigned(ESP.getFreeHeap()), unsigned(LittleFS.usedBytes()), unsigned(LittleFS.totalBytes()));
+        return false;
+    };
     StaticJsonDocument<2048> doc;
     MeasurementCodec::toJson(record, doc.to<JsonObject>());
     const size_t length = measureJson(doc);
-    if (doc.overflowed() || length > Config::MAX_RECORD_FILE_BYTES) return false;
+    if (doc.overflowed()) return fail("json-capacity", doc.capacity(), doc.memoryUsage());
+    if (length > Config::MAX_RECORD_FILE_BYTES) return fail("record-too-large", Config::MAX_RECORD_FILE_BYTES, length);
     File file = LittleFS.open("/staging.tmp", "w");
-    if (!file) return false;
+    if (!file) return fail("staging-open-write", length, 0);
     const size_t written = serializeJson(doc, file); file.flush(); file.close();
+    if (written != length) return fail("staging-short-write", length, written);
     // Stream comparison keeps stack use small and checks every persisted byte.
     String expected;
-    if (!expected.reserve(length + 1)) return false;
-    serializeJson(doc, expected);
-    File verify = LittleFS.open("/staging.tmp", "r");
-    bool same = verify && written == length && verify.size() == length;
-    for (size_t i = 0; same && i < length; ++i) same = verify.read() == static_cast<unsigned char>(expected[i]);
-    verify.close();
-    if (!same || !LittleFS.rename("/staging.tmp", destination)) return false;
+    if (!expected.reserve(length + 1)) return fail("heap-reserve", length + 1, 0);
+    const size_t serialized = serializeJson(doc, expected);
+    if (serialized != length || expected.length() != length) return fail("expected-serialization", length, expected.length());
+    const auto verifyFile = [&](const char* path, const char* stage) {
+        File verify = LittleFS.open(path, "r");
+        if (!verify) {
+            Serial.printf("[STORAGE] %s: open-read failed\n", stage);
+            return fail(stage, length, 0);
+        }
+        const size_t actualSize = verify.size();
+        if (actualSize != length) {
+            verify.close();
+            Serial.printf("[STORAGE] %s: size mismatch\n", stage);
+            return fail(stage, length, actualSize);
+        }
+        for (size_t i = 0; i < length; ++i) {
+            const int actual = verify.read();
+            const unsigned char wanted = static_cast<unsigned char>(expected[i]);
+            if (actual != wanted) {
+                verify.close();
+                Serial.printf("[STORAGE] %s: byte mismatch offset=%u expectedByte=%u actualByte=%d (-1 means read failure/EOF)\n",
+                    stage, unsigned(i), unsigned(wanted), actual);
+                return fail(stage, length, i);
+            }
+        }
+        verify.close();
+        return true;
+    };
+    if (!verifyFile("/staging.tmp", "staging-verify")) return false;
+    errno = 0;
+    if (!LittleFS.rename("/staging.tmp", destination)) {
+        // Capture before logging or other filesystem calls can overwrite errno.
+        const int renameError = errno;
+        Serial.printf("[STORAGE] rename error: errno=%d message=%s destinationLength=%u filenameLength=%u\n",
+            renameError, renameError ? strerror(renameError) : "not set by filesystem wrapper",
+            unsigned(destination.length()), unsigned(destination.length() - destination.lastIndexOf('/') - 1));
+        Serial.printf("[STORAGE] rename failed: stagingExists=%u destinationExists=%u\n",
+            unsigned(LittleFS.exists("/staging.tmp")), unsigned(LittleFS.exists(destination)));
+        return fail("rename", length, 0);
+    }
     // Rename commit is verified without holding a second large JSON document.
-    File committed = LittleFS.open(destination, "r");
-    same = committed && committed.size() == length;
-    for (size_t i = 0; same && i < length; ++i) same = committed.read() == static_cast<unsigned char>(expected[i]);
-    committed.close();
-    return same;
+    return verifyFile(destination.c_str(), "committed-verify");
 }
 SaveResult StorageManager::saveMeasurement(const GatewayMeasurement& record) {
     if (!ready_ || !MeasurementCodec::valid(record)) return SaveResult::Failed;

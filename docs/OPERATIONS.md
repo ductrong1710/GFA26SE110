@@ -3,6 +3,12 @@
 ## Implementation and safety
 
 Phase 5 stores one JSON measurement per SHA-256 identity filename in `/pending`.
+Identity filenames encode the complete SHA-256 digest as unpadded Base64URL (43
+characters), keeping paths in `/pending`, `/synced`, and `/receipts` below 64
+characters. The previous 64-character hex names caused rename failures on the
+ESP32 filesystem. Upload firmware only for this fix; do not reformat LittleFS.
+Existing hex-named records from other filesystem configurations are not migrated
+automatically and must be preserved for explicit migration before using this build.
 Identity is `deviceCode + sequence`; `recordId` must be `deviceCode-sequence`.
 A staging file is flushed, closed, read back byte-for-byte, renamed, and checked
 again before a record is eligible for ACK. Failed saves are never ACKed.
