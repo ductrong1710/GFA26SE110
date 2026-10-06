@@ -802,7 +802,7 @@ Backend can store information from those systems, but should not own their low-l
 ## 35. Frontend Mock Scenario Vocabulary
 
 The frontend-only fixtures in `frontend/src/data/mock/` use the requested display states
-`READY`, `IN_PROGRESS`, `COMPLETED`, `PARTIAL`, and `FAILED`. These do not change the
+`DRAFT`, `SCHEDULED`, `READY`, `IN_PROGRESS`, `COMPLETED`, `PARTIAL`, `FAILED`, and `CANCELLED`. These do not change the
 backend mission transition rules or database enum. An API integration must explicitly
 map display states to backend states; in particular, a partial collection result is
 not implicitly a new backend mission state.
@@ -810,3 +810,49 @@ not implicitly a new backend mission state.
 The fixed snapshot includes locally buffered readings with no server receipt timestamp,
 collection retries, duplicate sync results referencing one canonical reading, rejected
 payloads, and alert lifecycle history. Fixture thresholds are illustrative only.
+
+Frontend mission planning is in-memory only. Operators can save incomplete drafts,
+resume them, and finalize valid plans as READY. Planning never starts a mission or
+sends flight commands. Targets must be enabled sensors in the selected farm and
+belong to exactly one collection point. The demo groups nearby sensors within 100 m
+and validates a maximum 150 m distance from target to collection point.
+Routes begin at farm home with TAKEOFF, visit every collection point, and end with
+RETURN_HOME then LAND. GPS coordinates or relative east/north meter offsets are
+supported; demo validation limits route extent to 5 km, altitude to 0–120 m, and
+collection/home waypoint proximity to 30 m. These are mock planning checks, not
+flight safety or radio coverage certification. UAVs must be READY/AVAILABLE with
+more than 20% battery, in the selected farm, and not on an active mission. Gateways
+must be ONLINE in the same farm, not on an active mission, and unassigned or paired
+with the selected UAV. GPS routes require GPS support. Optional schedules use
+Vietnam time and cannot precede the fixed demo snapshot. There is no scheduling
+engine or automatic equipment reservation in this frontend prototype.
+
+Frontend mission monitoring uses the fixed demo clock and recorded collection
+attempts, waypoints, and a mission-scoped UAV telemetry snapshot. There is no live
+stream. UAV_002 demonstrates unavailable telemetry. TIMEOUT is a presentation of
+SENSOR_TIMEOUT attempts; existing persisted FAILED attempt outcomes stay intact.
+Collection success rate is successful finished attempts divided by all finished
+attempts, including retries. Target progress counts successfully collected targets.
+
+Operators may append notes and report observed status changes with a required note.
+READY/SCHEDULED may be reported IN_PROGRESS only when their schedule is due and
+assigned equipment/plan remain eligible, or CANCELLED. IN_PROGRESS may become FAILED
+or CANCELLED; PARTIAL requires some but not all targets collected; COMPLETED requires
+all targets collected and every waypoint completed. Terminal states cannot reopen.
+Closing a mission marks pending targets/waypoints SKIPPED, preserves successes,
+failures and attempts, and appends an audit event with actor/time/reason. No status
+report changes device telemetry, generates sensor readings, or commands flight.
+Owners and administrators have read-only mission monitoring access. All updates
+remain in memory and reset on refresh/logout; backend transition rules are unchanged.
+
+The frontend sync workspace retains batch records locally during lost connectivity.
+Only operators can retry FAILED batches, and the gateway must be ONLINE or SYNCING.
+A provider-owned mock timer completes the retry even after route navigation. The
+interrupted-upload example retransmits three existing queued source keys; accepted
+receipts are keyed by source identity, and resending acknowledged data produces
+DUPLICATE outcomes rather than additional database entries. No backend is contacted.
+Invalid/rejected records remain rejected on retry. A retry is SUCCESS only if all
+records are accepted or duplicate; mixed acceptance/rejection is PARTIAL, and an
+all-rejected result remains FAILED. Initial errors and per-attempt retry outcomes
+remain in history. Queue counts deduplicate source keys, while batch rejection
+counts describe rejected payloads. All receipts and retries reset on refresh/logout.

@@ -184,6 +184,35 @@ mission. Gateway pairing requires an unoccupied UAV in the same farm. Local devi
 participate in farm deletion safeguards and update shared dashboard/farm counts.
 Run `npm run test:operations` to validate these rules and derived data.
 
+Mission planning is available at `/app/missions` and `/app/missions/create` for
+the UAV/device operator. The eight-step wizard supports farm-scoped sensor targets,
+editable collection groups, GPS/relative waypoints, route preview, equipment
+selection, and validation. Save Draft retains incomplete work across navigation;
+Resume Draft restores it. Save Mission validates and creates a READY record with
+linked targets and waypoints. The list supports status/farm/UAV/date/search filters,
+and `/app/missions/:id` displays the saved plan. Owners and administrators retain
+read-only mission access. Shared operational state survives route changes and resets
+on refresh/logout. This prototype does not send flight commands or reserve future
+equipment time slots. Run `node --test tests/mission-planning.test.js` for planning
+rules, permissions, and draft-to-ready persistence checks.
+
+Mission details now include a route/waypoint monitoring map, recorded UAV position,
+collection-attempt drawer, error/retry history, timeline, and operational notes.
+The active fixture shows 6/10 waypoints and 8/12 targets. UAV_002 has no telemetry
+support to demonstrate the manual-report fallback. Operators can append notes and
+report guarded status transitions; this never pilots a UAV or invents readings.
+Elapsed time uses the fixed demo snapshot, or the recorded end time for finished
+missions. Run `node --test tests/mission-monitoring.test.js` for monitoring rules.
+
+`/app/sync` shows farm-scoped batch KPIs, the offline storage/upload process, records,
+errors, and retry history. Retry `SYNC-2026-006` to demonstrate FAILED → SYNCING →
+SUCCESS after 1.8 seconds. Its source keys match queued readings; duplicate checks
+prevent storing retransmissions twice. `SYNC-2026-005` contains invalid signatures
+and stays FAILED after retry, with all rejected records preserved. Retries continue
+across route navigation within the shared app provider. Accepted mock receipts
+update gateway last-sync and farm activity; immutable fixture readings stay intact.
+No API calls are made. Run `node --test tests/sync.test.js` for sync behavior tests.
+
 Linked farm, sensor, device, mission, sync, alert, notification, and user fixtures
 are exported from `src/data/mock/index.js`. Use the shared selectors for relationship
 lookups and progress. See the [mock data guide](src/data/mock/README.md) for the fixed

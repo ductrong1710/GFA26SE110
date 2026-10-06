@@ -23,3 +23,26 @@ const node = getSensorNodeDetails(5)
 Mission `READY`, `IN_PROGRESS`, `COMPLETED`, `PARTIAL`, and `FAILED` are frontend demo display states, not a replacement for the backend transition enum. No backend mapping is assumed. Alert lifecycle and severity are separate fields. Thresholds are illustrative fixture values, not agronomic recommendations; light readings follow a day/night pattern, so future threshold evaluation should account for daylight windows. Historical exports and imported samples are deliberately downsampled; they are not a complete five-minute archive.
 
 Run `npm run test:mock-data` to validate relationships, counts, timestamps, retry/sync semantics, and selector behavior.
+
+`missionPlanning.js` extends the shared in-memory operations state with DRAFT,
+SCHEDULED, and CANCELLED examples. New READY plans normalize targets and waypoints
+with stable integer IDs. Draft plans retain incomplete configuration separately.
+Use `missionPlanProgress(mission, operations)` for current planning state rather
+than the immutable historical fixture selectors. The operator and administrator
+dashboards read the same mission collection as the list. Grouping, availability,
+coordinate conversion, and final validation live here rather than inside pages.
+
+`missionMonitoring.js` derives attempt counts, collected records, retry errors,
+elapsed time, and timeline events from the linked records. `missionTelemetry` is a
+fixed, mission-scoped recorded position for the active fixture, not a live stream.
+Local notes/status reports append `missionEvents` with actor and timestamp.
+Collection TIMEOUT labels retain the original FAILED/SENSOR_TIMEOUT evidence.
+Successful attempts / finished attempts defines the displayed success rate.
+UAV_002 has telemetry support disabled in operational state to exercise the
+no-telemetry view; unreported positions and battery values remain unavailable.
+
+`syncState.js` extends the batch fixtures with an interrupted retransmission example
+and keeps local retry history and accepted receipts in the shared operations state.
+Batch 6 references the same canonical readings/source keys as part of batch 2.
+Queued copies can outlive another batch's acknowledgement; only unique valid source
+keys create mock receipts. Rejected payloads never become accepted through retry.

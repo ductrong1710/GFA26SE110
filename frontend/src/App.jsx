@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import EquipmentPage from './pages/EquipmentPage'
@@ -19,11 +20,16 @@ import { OperationsProvider } from './context/OperationsProvider'
 import SensorsPage from './pages/app/SensorsPage'
 import SensorDetailPage from './pages/app/SensorDetailPage'
 import DevicesPage from './pages/app/DevicesPage'
+import MissionsPage from './pages/app/MissionsPage'
+import CreateMissionPage from './pages/app/CreateMissionPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { appRoutes } from './config/appRoutes'
 import './App.css'
 
-const applicationPages = { dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage /> }
+const MissionDetailPage = lazy(() => import('./pages/app/MissionDetailPage'))
+const SyncPage = lazy(() => import('./pages/app/SyncPage'))
+
+const applicationPages = { dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage /> }
 
 function ProductDetailRoute() {
   const { id } = useParams()
@@ -47,7 +53,7 @@ export default function App() {
         <Route element={<OperationsProvider><ManagementProvider><AppShell /></ManagementProvider></OperationsProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           {appRoutes.map(({ path, title, permissions }) => <Route key={path} path={path} element={
-            <ProtectedRoute permissions={permissions}>{applicationPages[path] ?? <AppPlaceholderPage title={title} />}</ProtectedRoute>
+            <ProtectedRoute permissions={permissions}><Suspense fallback={<p role="status">Loading page…</p>}>{applicationPages[path] ?? <AppPlaceholderPage title={title} />}</Suspense></ProtectedRoute>
           } />)}
           <Route path="*" element={<NotFoundPage application />} />
         </Route>

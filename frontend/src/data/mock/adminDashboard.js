@@ -9,13 +9,14 @@ import { alerts } from './alerts.js'
 export function getAdminDashboard(workspace, management, operations = { sensorNodes, uavs, gateways }) {
   const directory = management?.users ?? users
   const currentAlerts = management?.alerts ?? alerts
+  const currentMissions = operations.missions ?? missions
   const devices = [...operations.sensorNodes, ...operations.uavs, ...operations.gateways]
   const unresolved = currentAlerts.filter(({ status }) => status !== 'CLOSED')
   return {
     totalUsers: directory.length, totalSensors: operations.sensorNodes.length,
     offlineDevices: devices.filter(({ status, isActive }) => status === 'OFFLINE' && isActive !== false).length,
-    openAlerts: unresolved.length, activeMissions: missions.filter(({ status }) => status === 'IN_PROGRESS').length,
-    pendingSync: syncBatches.filter(({ status }) => ['PENDING', 'SYNCING'].includes(status)).length,
+    openAlerts: unresolved.length, activeMissions: currentMissions.filter(({ status }) => status === 'IN_PROGRESS').length,
+    pendingSync: (operations.syncBatches ?? syncBatches).filter(({ status }) => ['PENDING', 'SYNCING'].includes(status)).length,
     criticalAlerts: unresolved.filter(({ severity }) => severity === 'CRITICAL').sort((a, b) => b.openedAt.localeCompare(a.openedAt)),
     farms: workspace.farms.map((farm) => {
       const zones = workspace.zones.filter(({ farmId }) => farmId === farm.id)
@@ -26,7 +27,7 @@ export function getAdminDashboard(workspace, management, operations = { sensorNo
       name, total: records.length, offline: records.filter(({ status }) => status === 'OFFLINE').length,
       lowBattery: records.filter(({ batteryPercent }) => batteryPercent <= (management?.settings.lowBatteryPercent ?? 20)).length,
     })),
-    missions: [...missions].sort((a, b) => Number(b.status === 'IN_PROGRESS') - Number(a.status === 'IN_PROGRESS') || b.scheduledStartAt.localeCompare(a.scheduledStartAt)),
+    missions: [...currentMissions].sort((a, b) => Number(b.status === 'IN_PROGRESS') - Number(a.status === 'IN_PROGRESS') || (b.scheduledStartAt ?? '').localeCompare(a.scheduledStartAt ?? '')),
     activity: [
       ...(management?.activity ?? []).map((event) => ({ ...event, id: `management-${event.id}` })),
       ...workspace.activity.map((event) => ({ ...event, id: `local-${event.id}` })),

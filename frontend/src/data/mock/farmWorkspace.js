@@ -21,7 +21,7 @@ export function getDeletionBlock(state, kind, id, operations = { sensorNodes, ua
   if (kind === 'zone') return operations.sensorNodes.some(({ zoneId }) => zoneId === id)
     ? 'This zone has linked sensors. Remove or reassign those sensors before deleting the zone.' : null
   if (state.zones.some(({ farmId }) => farmId === id)) return 'This farm contains zones. Delete its empty zones first.'
-  if ([...missions, ...operations.uavs, ...operations.gateways].some(({ farmId }) => farmId === id)) return 'This farm has linked devices or mission history and cannot be deleted.'
+  if ([...(operations.missions ?? missions), ...operations.uavs, ...operations.gateways].some(({ farmId }) => farmId === id)) return 'This farm has linked devices or mission history and cannot be deleted.'
   return null
 }
 

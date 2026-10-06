@@ -29,7 +29,7 @@ export default function DevicesPage() {
     { key: 'code', header: 'Code' }, { key: 'name', header: 'Name' }, { key: 'uavId', header: 'Assigned UAV', render: (id) => operations.uavs.find((uav) => uav.id === id)?.code ?? 'Unassigned' },
     { key: 'gatewayType', header: 'Device Type', render: (type) => type.replaceAll('_', ' ') }, { key: 'softwareVersion', header: 'Software Version' },
     { key: 'status', header: 'Status', render: (status) => <StatusBadge status={status} /> }, { key: 'lastSeenAt', header: 'Last Seen', render: displayTime },
-    { key: 'lastSync', header: 'Last Sync', render: (_, row) => displayTime(getGatewayLastSync(row.id)) }, actions,
+    { key: 'lastSync', header: 'Last Sync', render: (_, row) => displayTime(getGatewayLastSync(row.id, operations.syncBatches)) }, actions,
   ]
   const rows = (tab === 'uav' ? operations.uavs : operations.gateways).filter((record) => !farmId || record.farmId === Number(farmId))
   return <div className="app-ui operations-page">

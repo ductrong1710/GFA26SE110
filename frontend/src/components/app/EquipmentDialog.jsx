@@ -17,7 +17,7 @@ export default function EquipmentDialog({ kind, record, mode = 'edit', workspace
   const text = (key, name, props = {}) => <label>{name}<input value={values[key] ?? ''} onChange={(event) => change(key, event.target.value)} maxLength={120} {...props} /></label>
   const select = (key, name, options, props = {}) => <label>{name}<select aria-label={name} value={values[key] ?? ''} onChange={(event) => change(key, event.target.value)} {...props}>{options.map(([value, title]) => <option key={value} value={value}>{title}</option>)}</select></label>
   const zones = workspace.zones.filter((zone) => zone.farmId === Number(values.farmId))
-  const assignmentLocked = kind === 'gateway' && record && deviceAssignmentLocked('gateway', record.id)
+  const assignmentLocked = kind === 'gateway' && record && deviceAssignmentLocked('gateway', record.id, operations.missions)
   const chooseFarm = <label>Farm<select aria-label="Farm" required disabled={Boolean(record)} value={values.farmId} onChange={(event) => setValues({ ...values, farmId: event.target.value, zoneId: workspace.zones.find((zone) => zone.farmId === Number(event.target.value))?.id ?? '' })}>{workspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
   return <ManagementDialog title={title} onClose={onClose}><form onSubmit={(event) => { event.preventDefault(); try { onSave(values) } catch (err) { setError(err.message) } }}>
     <div className="management-form">

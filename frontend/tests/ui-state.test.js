@@ -4,11 +4,11 @@ import { getStatusMeta, getBatteryState, getProgress } from '../src/components/a
 
 test('every agreed status has the correct semantic color', () => {
   const groups = {
-    success: 'ACTIVE ONLINE SUCCESS COMPLETED CLOSED',
-    info: 'READY IN_PROGRESS SYNCING INFO ACKNOWLEDGED',
+    success: 'ACTIVE ONLINE SUCCESS COMPLETED CLOSED COLLECTED',
+    info: 'READY SCHEDULED IN_PROGRESS SYNCING INFO ACKNOWLEDGED',
     warning: 'PENDING PARTIAL WARNING LOW_BATTERY MAINTENANCE OPEN',
-    danger: 'FAILED ERROR CRITICAL OFFLINE',
-    neutral: 'DRAFT INACTIVE CANCELLED',
+    danger: 'FAILED ERROR CRITICAL OFFLINE TIMEOUT',
+    neutral: 'DRAFT INACTIVE CANCELLED SKIPPED',
   }
   for (const [tone, statuses] of Object.entries(groups)) {
     for (const status of statuses.split(' ')) assert.equal(getStatusMeta(status).tone, tone, status)

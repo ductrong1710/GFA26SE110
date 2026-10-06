@@ -1,9 +1,9 @@
 const statusGroups = {
-  success: ['ACTIVE', 'ONLINE', 'SUCCESS', 'COMPLETED', 'CLOSED'],
-  info: ['READY', 'IN_PROGRESS', 'SYNCING', 'INFO', 'ACKNOWLEDGED'],
+  success: ['ACTIVE', 'ONLINE', 'SUCCESS', 'COMPLETED', 'CLOSED', 'COLLECTED', 'ACCEPTED'],
+  info: ['READY', 'SCHEDULED', 'IN_PROGRESS', 'SYNCING', 'INFO', 'ACKNOWLEDGED', 'DUPLICATE', 'PROCESSING'],
   warning: ['PENDING', 'PARTIAL', 'WARNING', 'LOW_BATTERY', 'MAINTENANCE', 'OPEN'],
-  danger: ['FAILED', 'ERROR', 'CRITICAL', 'OFFLINE'],
-  neutral: ['DRAFT', 'INACTIVE', 'CANCELLED'],
+  danger: ['FAILED', 'ERROR', 'CRITICAL', 'OFFLINE', 'TIMEOUT', 'REJECTED'],
+  neutral: ['DRAFT', 'INACTIVE', 'CANCELLED', 'SKIPPED'],
 }
 
 export const STATUS_TONES = Object.freeze(Object.fromEntries(

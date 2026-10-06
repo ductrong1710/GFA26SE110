@@ -5,6 +5,9 @@ import { missions } from './missions.js'
 import { missionTargets } from './missionTargets.js'
 import { hasPermission, PERMISSIONS } from '../../config/permissions.js'
 import { MOCK_NOW } from './scenario.js'
+import { createMissionPlanning } from './missionPlanning.js'
+import { createMissionMonitoring } from './missionMonitoring.js'
+import { createSyncState } from './syncState.js'
 
 export const SENSOR_PROTOCOLS = ['LORA', 'BLE', 'WIFI']
 export const UAV_PLATFORMS = ['MULTIROTOR', 'FIXED_WING', 'VTOL']
@@ -12,9 +15,12 @@ export const GATEWAY_TYPES = ['RASPBERRY_PI', 'ESP32', 'MOBILE_COMPUTER']
 
 export function createOperationsState() {
   return {
+    ...createMissionPlanning(),
+    ...createMissionMonitoring(),
+    ...createSyncState(),
     sensorNodes: sensorNodes.map((node) => ({ ...node, protocol: node.zoneId === 2 ? 'BLE' : 'LORA',
       serialNumber: `SN-NODE-${String(node.id).padStart(4, '0')}`, macAddress: node.zoneId === 2 ? `02:00:00:00:00:${node.id.toString(16).padStart(2, '0').toUpperCase()}` : '' })),
-    uavs: uavs.map((uav) => ({ ...uav, platform: 'MULTIROTOR', gpsSupport: true, telemetrySupport: true })),
+    uavs: uavs.map((uav) => ({ ...uav, platform: 'MULTIROTOR', gpsSupport: true, telemetrySupport: uav.id === 1 })),
     gateways: gateways.map((gateway) => ({ ...gateway, softwareVersion: gateway.firmwareVersion })),
     nextSensorId: Math.max(...sensorNodes.map(({ id }) => id)) + 1,
     nextUavId: Math.max(...uavs.map(({ id }) => id)) + 1,
@@ -23,8 +29,8 @@ export function createOperationsState() {
 }
 
 export const sensorDisplayStatus = (node) => node.isActive ? node.status : 'INACTIVE'
-export function deviceAssignmentLocked(kind, id) {
-  return missions.some((mission) => mission.status === 'IN_PROGRESS' && (kind === 'uav' ? mission.uavId === id : mission.gatewayId === id))
+export function deviceAssignmentLocked(kind, id, records = missions) {
+  return records.some((mission) => mission.status === 'IN_PROGRESS' && (kind === 'uav' ? mission.uavId === id : mission.gatewayId === id))
 }
 
 export function changeOperationsState(state, change, workspace, actor) {
@@ -37,7 +43,7 @@ export function changeOperationsState(state, change, workspace, actor) {
   if (change.action === 'assign') {
     if (change.kind !== 'gateway' || !existing) throw new Error('Choose an existing gateway.')
     const uavId = values.uavId === '' || values.uavId === null ? null : Number(values.uavId)
-    if (deviceAssignmentLocked('gateway', existing.id) || (existing.uavId && deviceAssignmentLocked('uav', existing.uavId)) || (uavId && deviceAssignmentLocked('uav', uavId))) throw new Error('Assignments are locked while a linked mission is in progress.')
+    if (deviceAssignmentLocked('gateway', existing.id, state.missions) || (existing.uavId && deviceAssignmentLocked('uav', existing.uavId, state.missions)) || (uavId && deviceAssignmentLocked('uav', uavId, state.missions))) throw new Error('Assignments are locked while a linked mission is in progress.')
     const uav = state.uavs.find(({ id }) => id === uavId)
     if (uavId !== null && (!uav || uav.farmId !== existing.farmId)) throw new Error('Select a UAV in the same farm.')
     if (uavId !== null && state.gateways.some((gateway) => gateway.id !== existing.id && gateway.uavId === uavId)) throw new Error('This UAV already has a gateway. Unassign it first.')
@@ -64,7 +70,7 @@ export function changeOperationsState(state, change, workspace, actor) {
     if (serialNumber.length > 80 || (macAddress && !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(macAddress))) throw new Error('Enter a valid serial number or six-pair MAC address.')
     if (state.sensorNodes.some((node) => node.id !== existing?.id && ((serialNumber && node.serialNumber.toLowerCase() === serialNumber.toLowerCase()) || (macAddress && node.macAddress === macAddress)))) throw new Error('This MAC address or serial number is already registered.')
     if (typeof values.isActive !== 'boolean') throw new Error('Choose whether the sensor is enabled.')
-    const inProgress = existing && missionTargets.some((target) => target.sensorNodeId === existing.id && missions.some((mission) => mission.id === target.missionId && mission.status === 'IN_PROGRESS'))
+    const inProgress = existing && (state.missionTargets ?? missionTargets).some((target) => target.sensorNodeId === existing.id && (state.missions ?? missions).some((mission) => mission.id === target.missionId && mission.status === 'IN_PROGRESS'))
     if (inProgress && (zone.id !== existing.zoneId || values.isActive !== existing.isActive || values.protocol !== existing.protocol || serialNumber !== existing.serialNumber || macAddress !== existing.macAddress)) throw new Error('Assignment and collection settings are locked for sensors in an active mission.')
     record = { status: 'OFFLINE', batteryPercent: null, lastSeenAt: null, installedAt: MOCK_NOW, firmwareVersion: null, ...record,
       zoneId: zone.id, protocol: values.protocol, serialNumber, macAddress, isActive: values.isActive,

@@ -9,6 +9,7 @@ import { alerts } from './alerts.js'
 import { syncBatches } from './syncBatches.js'
 import { MOCK_NOW } from './scenario.js'
 import { getMissionDetails, getLatestReading } from './selectors.js'
+import { missionPlanProgress } from './missionPlanning.js'
 
 export function formatSnapshotAge(timestamp) {
   if (!timestamp) return 'Not available'
@@ -20,21 +21,24 @@ export function formatSnapshotAge(timestamp) {
 }
 
 // One farm-scoped view model. All counts and readings come from domain fixtures.
-export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZones }, alertRecords = alerts, nodeRecords = sensorNodes) {
+export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZones }, alertRecords = alerts, nodeRecords = sensorNodes, operations) {
   const farm = workspace.farms.find(({ id }) => id === farmId)
   if (!farm) return null
   const zones = workspace.zones.filter((zone) => zone.farmId === farmId)
   const nodes = nodeRecords.filter(({ zoneId }) => zones.some(({ id }) => id === zoneId))
   const nodeIds = new Set(nodes.map(({ id }) => id))
   const channels = sensorChannels.filter(({ sensorNodeId }) => nodeIds.has(sensorNodeId))
-  const farmMissions = missions.filter((mission) => mission.farmId === farmId)
+  const farmMissions = (operations?.missions ?? missions).filter((mission) => mission.farmId === farmId)
   const missionIds = new Set(farmMissions.map(({ id }) => id))
   const activeMissions = farmMissions.filter(({ status }) => status === 'IN_PROGRESS')
   const openAlerts = alertRecords.filter((alert) => alert.farmId === farmId && alert.status !== 'CLOSED')
   const importantAlerts = openAlerts.filter(({ severity }) => ['CRITICAL', 'WARNING'].includes(severity))
     .sort((a, b) => Number(b.severity === 'CRITICAL') - Number(a.severity === 'CRITICAL') || Date.parse(b.openedAt) - Date.parse(a.openedAt))
-  const batches = syncBatches.filter(({ missionId }) => missionIds.has(missionId))
-  const received = sensorReadings.filter((reading) => reading.receivedAt && channels.some(({ id }) => id === reading.sensorChannelId))
+  const batches = (operations?.syncBatches ?? syncBatches).filter(({ missionId }) => missionIds.has(missionId))
+  const received = sensorReadings.map((reading) => {
+    const receipt = operations?.syncReceipts?.find(({ readingId }) => readingId === reading.id)
+    return receipt ? { ...reading, receivedAt: receipt.receivedAt } : reading
+  }).filter((reading) => reading.receivedAt && channels.some(({ id }) => id === reading.sensorChannelId))
   const latestSyncAt = received.reduce((latest, reading) => !latest || reading.receivedAt > latest ? reading.receivedAt : latest, null)
   const environment = [1, 2, 3, 5].map((typeId) => {
     const type = sensorTypes.find(({ id }) => id === typeId)
@@ -61,7 +65,12 @@ export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZon
     ...alertRecords.filter((alert) => alert.farmId === farmId && alert.acknowledgedAt).map((alert) => ({ id: `alert-${alert.id}`, title: 'Alert acknowledged', description: alert.title, at: alert.acknowledgedAt, icon: 'check' })),
   ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 7)
   return { farm, zones, nodes, onlineSensors: nodes.filter(({ status, isActive }) => status === 'ONLINE' && isActive).length,
-    activeMissionCount: activeMissions.length, currentMission: activeMissions.length ? getMissionDetails(activeMissions[0].id) : null,
+    activeMissionCount: activeMissions.length, currentMission: activeMissions.length ? operations ? {
+      ...activeMissions[0], uav: operations.uavs.find(({ id }) => id === activeMissions[0].uavId), gateway: operations.gateways.find(({ id }) => id === activeMissions[0].gatewayId),
+      progress: { ...missionPlanProgress(activeMissions[0], operations), batteryPercent: operations.uavs.find(({ id }) => id === activeMissions[0].uavId)?.batteryPercent },
+      waypoints: operations.missionWaypoints.filter(({ missionId }) => missionId === activeMissions[0].id),
+      targets: operations.missionTargets.filter(({ missionId }) => missionId === activeMissions[0].id).map((target) => ({ ...target, sensorNode: nodeRecords.find(({ id }) => id === target.sensorNodeId) })),
+    } : getMissionDetails(activeMissions[0].id) : null,
     openAlertCount: openAlerts.length, importantAlerts, environment, activity, latestSyncAt,
     health: importantAlerts.some(({ severity }) => severity === 'CRITICAL') ? 'Needs attention' : openAlerts.length ? 'Watch closely' : nodes.length ? 'Good' : 'No data' }
 }

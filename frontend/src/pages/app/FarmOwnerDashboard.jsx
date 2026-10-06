@@ -32,7 +32,7 @@ export default function FarmOwnerDashboard() {
   const { user } = useAuth()
   const { management } = useManagement()
   const { operations } = useOperations()
-  const overview = useMemo(() => getFarmOwnerDashboard(currentFarm.id, farmWorkspace, management.alerts, operations.sensorNodes), [currentFarm.id, farmWorkspace, management.alerts, operations.sensorNodes])
+  const overview = useMemo(() => getFarmOwnerDashboard(currentFarm.id, farmWorkspace, management.alerts, operations.sensorNodes, operations), [currentFarm.id, farmWorkspace, management.alerts, operations])
   if (!overview) return <EmptyState title="Farm unavailable" description="Choose another farm from the selector above." />
   const { farm, zones, nodes, currentMission: mission, environment, importantAlerts, activity } = overview
   const firstName = user.fullName.trim().split(/\s+/)[0]
