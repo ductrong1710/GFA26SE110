@@ -1,5 +1,12 @@
 # React + Vite
 
+## Application UI primitives
+
+The 13 reusable authenticated-app components live in `src/components/app/ui`.
+See [component APIs and usage](src/components/app/ui/README.md) for table/card
+composition, accessibility, state handling, and the scoped `--ui-*` design tokens.
+Run `npm run test:ui` for status and telemetry presentation checks.
+
 ## Routing foundation
 
 `src/main.jsx` supplies `BrowserRouter`; `src/App.jsx` declares the routes.
@@ -118,6 +125,36 @@ The farm selector uses `src/data/mock/farms.js`, preserves its selection during
 navigation, and exposes `currentFarm` through Outlet context for future pages.
 Search currently finds workspace pages. Connection status shows demo/offline
 state, and notifications have an empty state; these do not simulate live data.
+
+### Centralized domain fixtures
+
+The Farm Owner preview at `/app/dashboard` uses the existing shared shell and farm
+selector. It includes farm-scoped indicators, a schematic SVG map, environment
+trends, mission progress, unresolved alerts, and recent activity. All navigation
+is read-only. Operator and engineer dashboards remain placeholders. Totals come from
+the linked fixtures (Green Valley: 11/12 online sensors, one active mission, six
+unresolved alerts); times use the fixed demo snapshot. The greeting uses the
+signed-in user's name. Mission details still use the existing placeholder route.
+
+The Administrator dashboard shows all-farm user/device/alert/mission/sync indicators,
+system status, farm coverage, device health, mission status, and recorded user activity.
+It exposes monitoring links without mission creation or UAV controls.
+
+`/app/farms` is one shared page. `FARMS_MANAGE` enables the four add/edit dialogs and
+confirmed deletion; owners and engineers see the same hierarchy and details read-only.
+Local farm/zone state lives in the existing shell, survives internal navigation and
+demo role switching, and resets on refresh/logout. Edits update the topbar selector
+and dashboard farm summaries. Seed fixtures are never mutated. Linked sensors,
+zones, devices, and mission history prevent deletion until dependencies are removed;
+new empty records can be deleted. Maps are schematic, not surveyed polygons.
+Run `npm run test:farms` for validation, deletion safeguards, permissions, and state tests.
+
+Linked farm, sensor, device, mission, sync, alert, notification, and user fixtures
+are exported from `src/data/mock/index.js`. Use the shared selectors for relationship
+lookups and progress. See the [mock data guide](src/data/mock/README.md) for the fixed
+snapshot, accepted versus buffered readings, and frontend status vocabulary.
+Run `npm run test:mock-data` to check fixture integrity. The existing four demo
+login credentials are preserved; public pages and shell styling are unchanged.
 
 Router reference: [React Router declarative routing](https://reactrouter.com/start/declarative/routing).
 

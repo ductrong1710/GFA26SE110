@@ -9,6 +9,8 @@ import RouteScroll from './components/RouteScroll'
 import PublicLayout from './layouts/PublicLayout'
 import AppShell from './layouts/AppShell'
 import AppPlaceholderPage from './pages/app/AppPlaceholderPage'
+import DashboardPage from './pages/app/DashboardPage'
+import FarmsPage from './pages/app/FarmsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { appRoutes } from './config/appRoutes'
 import './App.css'
@@ -35,7 +37,7 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           {appRoutes.map(({ path, title, permissions }) => <Route key={path} path={path} element={
-            <ProtectedRoute permissions={permissions}><AppPlaceholderPage title={title} /></ProtectedRoute>
+            <ProtectedRoute permissions={permissions}>{path === 'dashboard' ? <DashboardPage /> : path === 'farms' ? <FarmsPage /> : <AppPlaceholderPage title={title} />}</ProtectedRoute>
           } />)}
           <Route path="*" element={<NotFoundPage application />} />
         </Route>

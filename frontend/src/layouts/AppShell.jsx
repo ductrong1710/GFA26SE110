@@ -2,12 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import AppSidebar from '../components/app/AppSidebar'
 import AppTopbar from '../components/app/AppTopbar'
-import { mockFarms } from '../data/mock/farms'
+import { createFarmWorkspace, updateFarmWorkspace } from '../data/mock/farmWorkspace'
+import { useAuth } from '../context/AuthContext'
+import { PERMISSIONS } from '../config/permissions'
 import '../styles/app-shell.css'
+import '../styles/app-tokens.css'
 
 const mobileQuery = '(max-width: 1023px)'
 
 export default function AppShell() {
+  const { user, can } = useAuth()
+  const [farmWorkspace, setFarmWorkspace] = useState(createFarmWorkspace)
+  const mockFarms = farmWorkspace.farms
   const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [farmId, setFarmId] = useState(mockFarms[0].id)
@@ -22,7 +28,12 @@ export default function AppShell() {
     setDrawerOpen(false)
   }
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
-  const currentFarm = mockFarms.find((farm) => farm.id === farmId)
+  const currentFarm = mockFarms.find((farm) => farm.id === farmId) ?? mockFarms[0] ?? { id: '', name: 'No farms' }
+  const changeFarmRecord = (change) => {
+    const next = updateFarmWorkspace(farmWorkspace, { ...change, userId: user.id }, can(PERMISSIONS.FARMS_MANAGE))
+    setFarmWorkspace(next)
+    return next
+  }
   const showDrawer = mobile && drawerOpen
 
   useEffect(() => {
@@ -67,7 +78,7 @@ export default function AppShell() {
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
         farms={mockFarms} currentFarm={currentFarm} onFarmChange={setFarmId} />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
-        <Outlet context={{ currentFarm }} />
+        <Outlet context={{ currentFarm, selectFarm: setFarmId, farmWorkspace, changeFarmRecord }} />
       </main>
     </div>
   </div>

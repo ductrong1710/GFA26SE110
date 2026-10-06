@@ -798,3 +798,15 @@ Do not add these to backend unless explicitly requested later:
 - low-level MAVLink flight-control logic
 
 Backend can store information from those systems, but should not own their low-level control logic.
+
+## 35. Frontend Mock Scenario Vocabulary
+
+The frontend-only fixtures in `frontend/src/data/mock/` use the requested display states
+`READY`, `IN_PROGRESS`, `COMPLETED`, `PARTIAL`, and `FAILED`. These do not change the
+backend mission transition rules or database enum. An API integration must explicitly
+map display states to backend states; in particular, a partial collection result is
+not implicitly a new backend mission state.
+
+The fixed snapshot includes locally buffered readings with no server receipt timestamp,
+collection retries, duplicate sync results referencing one canonical reading, rejected
+payloads, and alert lifecycle history. Fixture thresholds are illustrative only.

@@ -8,6 +8,9 @@
     "build": "vite build",
     "lint": "oxlint",
     "test:permissions": "node --test tests/permissions.test.js",
+    "test:ui": "node --test tests/ui-state.test.js",
+    "test:mock-data": "node --test tests/mock-data.test.js",
+    "test:farms": "node --test tests/farm-workspace.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
