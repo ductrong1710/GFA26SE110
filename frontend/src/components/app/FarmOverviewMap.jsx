@@ -31,7 +31,7 @@ export default function FarmOverviewMap({ zones, nodes, mission }) {
   return <div className="owner-map">
     <svg viewBox="0 0 632 360" role="img" aria-labelledby={`${id}-title ${id}-description`}>
       <title id={`${id}-title`}>Farm overview map</title>
-      <desc id={`${id}-description`}>Schematic of {zones.map(({ name }) => name).join(', ')}. {nodes.filter(({ status }) => status === 'ONLINE').length} online and {nodes.filter(({ status }) => status === 'OFFLINE').length} offline sensors.{mission ? ` UAV location shown at the last collected target on ${mission.name}.` : ' No mission is running.'}</desc>
+      <desc id={`${id}-description`}>Schematic of {zones.map(({ name }) => name).join(', ')}. {nodes.filter(({ status, isActive }) => status === 'ONLINE' && isActive).length} online, {nodes.filter(({ status, isActive }) => status === 'OFFLINE' && isActive).length} offline, and {nodes.filter(({ isActive }) => !isActive).length} disabled sensors.{mission ? ` UAV location shown at the last collected target on ${mission.name}.` : ' No mission is running.'}</desc>
       <defs>
         <pattern id={`${id}-rows`} width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-12)"><path d="M0 0V18" stroke="#b9cfa7" strokeWidth="5" opacity=".45" /></pattern>
         <pattern id={`${id}-grid`} width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#d8e2d6" strokeWidth=".7" /></pattern>
@@ -53,9 +53,9 @@ export default function FarmOverviewMap({ zones, nodes, mission }) {
       {route.length > 0 && <polyline points={coordinates(route)} fill="none" stroke="#739686" strokeWidth="2" strokeDasharray="6 6" />}
       {completedRoute.length > 0 && <polyline points={coordinates(completedRoute)} fill="none" stroke="#176346" strokeWidth="3" strokeLinejoin="round" />}
       {points.map((point) => <g key={point.id}>
-        <title>{point.deviceCode}: {point.status === 'ONLINE' ? 'Online' : 'Offline'}</title>
+        <title>{point.deviceCode}: {!point.isActive ? 'Disabled' : point.status === 'ONLINE' ? 'Online' : 'Offline'}</title>
         <circle cx={point.x} cy={point.y} r="8" fill="white" />
-        <circle cx={point.x} cy={point.y} r="5" fill={point.status === 'ONLINE' ? '#176346' : '#be4940'} />
+        <circle cx={point.x} cy={point.y} r="5" fill={!point.isActive ? '#718078' : point.status === 'ONLINE' ? '#176346' : '#be4940'} />
         {point.status === 'OFFLINE' && <path d={`M${point.x - 2} ${point.y - 2}l4 4m0-4-4 4`} stroke="white" strokeWidth="1.2" />}
       </g>)}
       {currentPosition && <g transform={`translate(${currentPosition.x},${currentPosition.y - 20})`}>
@@ -66,6 +66,6 @@ export default function FarmOverviewMap({ zones, nodes, mission }) {
       <g transform="translate(607 22)"><path d="M0 23V4m-4 7 4-7 4 7" stroke="#60796b" fill="none" /><text y="0" textAnchor="middle" className="owner-map-crop">N</text></g>
       <text x="40" y="340" className="owner-map-crop">Farm schematic · not to scale</text>
     </svg>
-    <div className="owner-map-legend"><span><i />Online sensor</span><span><i className="is-offline" />Offline sensor</span>{mission && <><span><i className="is-route" />Active route</span><span><i className="is-uav" />UAV · last collected location</span></>}</div>
+    <div className="owner-map-legend"><span><i />Online sensor</span><span><i className="is-offline" />Offline sensor</span>{nodes.some(({ isActive }) => !isActive) && <span><i className="is-disabled" />Disabled sensor</span>}{mission && <><span><i className="is-route" />Active route</span><span><i className="is-uav" />UAV · last collected location</span></>}</div>
   </div>
 }

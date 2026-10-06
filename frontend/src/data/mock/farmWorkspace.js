@@ -17,22 +17,22 @@ export function createFarmWorkspace() {
   }
 }
 
-export function getDeletionBlock(state, kind, id) {
-  if (kind === 'zone') return sensorNodes.some(({ zoneId }) => zoneId === id)
+export function getDeletionBlock(state, kind, id, operations = { sensorNodes, uavs, gateways }) {
+  if (kind === 'zone') return operations.sensorNodes.some(({ zoneId }) => zoneId === id)
     ? 'This zone has linked sensors. Remove or reassign those sensors before deleting the zone.' : null
   if (state.zones.some(({ farmId }) => farmId === id)) return 'This farm contains zones. Delete its empty zones first.'
-  if ([...missions, ...uavs, ...gateways].some(({ farmId }) => farmId === id)) return 'This farm has linked devices or mission history and cannot be deleted.'
+  if ([...missions, ...operations.uavs, ...operations.gateways].some(({ farmId }) => farmId === id)) return 'This farm has linked devices or mission history and cannot be deleted.'
   return null
 }
 
-export function updateFarmWorkspace(state, { kind, id, values, remove = false, userId }, canManage) {
+export function updateFarmWorkspace(state, { kind, id, values, remove = false, userId }, canManage, operations) {
   if (!canManage) throw new Error('You do not have permission to manage farms and zones.')
   if (!['farm', 'zone'].includes(kind)) throw new Error('Unknown record type.')
   const key = kind === 'farm' ? 'farms' : 'zones'
   const existing = state[key].find((record) => record.id === id)
   if (id !== undefined && !existing) throw new Error('This record no longer exists.')
   if (remove) {
-    const blocked = getDeletionBlock(state, kind, id)
+    const blocked = getDeletionBlock(state, kind, id, operations)
     if (blocked) throw new Error(blocked)
     return { ...state, [key]: state[key].filter((record) => record.id !== id),
       activity: [{ id: state.activity.length + 1, userId, at: MOCK_NOW, title: `Deleted ${kind}`, description: existing.name }, ...state.activity] }

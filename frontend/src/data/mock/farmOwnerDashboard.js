@@ -20,17 +20,17 @@ export function formatSnapshotAge(timestamp) {
 }
 
 // One farm-scoped view model. All counts and readings come from domain fixtures.
-export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZones }) {
+export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZones }, alertRecords = alerts, nodeRecords = sensorNodes) {
   const farm = workspace.farms.find(({ id }) => id === farmId)
   if (!farm) return null
   const zones = workspace.zones.filter((zone) => zone.farmId === farmId)
-  const nodes = sensorNodes.filter(({ zoneId }) => zones.some(({ id }) => id === zoneId))
+  const nodes = nodeRecords.filter(({ zoneId }) => zones.some(({ id }) => id === zoneId))
   const nodeIds = new Set(nodes.map(({ id }) => id))
   const channels = sensorChannels.filter(({ sensorNodeId }) => nodeIds.has(sensorNodeId))
   const farmMissions = missions.filter((mission) => mission.farmId === farmId)
   const missionIds = new Set(farmMissions.map(({ id }) => id))
   const activeMissions = farmMissions.filter(({ status }) => status === 'IN_PROGRESS')
-  const openAlerts = alerts.filter((alert) => alert.farmId === farmId && alert.status !== 'CLOSED')
+  const openAlerts = alertRecords.filter((alert) => alert.farmId === farmId && alert.status !== 'CLOSED')
   const importantAlerts = openAlerts.filter(({ severity }) => ['CRITICAL', 'WARNING'].includes(severity))
     .sort((a, b) => Number(b.severity === 'CRITICAL') - Number(a.severity === 'CRITICAL') || Date.parse(b.openedAt) - Date.parse(a.openedAt))
   const batches = syncBatches.filter(({ missionId }) => missionIds.has(missionId))
@@ -39,7 +39,7 @@ export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZon
   const environment = [1, 2, 3, 5].map((typeId) => {
     const type = sensorTypes.find(({ id }) => id === typeId)
     const matching = channels.filter((channel) => channel.sensorTypeId === typeId
-      && nodes.find(({ id }) => id === channel.sensorNodeId).status === 'ONLINE')
+      && nodes.some((node) => node.id === channel.sensorNodeId && node.status === 'ONLINE' && node.isActive))
     const readings = matching.map((channel) => getLatestReading(channel.id)).filter(Boolean)
     const average = (values) => values.length ? Number((values.reduce((sum, reading) => sum + reading.value, 0) / values.length).toFixed(type.precision)) : null
     const series = Array.from({ length: 13 }, (_, index) => {
@@ -58,9 +58,9 @@ export function getFarmOwnerDashboard(farmId, workspace = { farms, zones: allZon
         .filter(Boolean).sort().at(-1), icon: 'database',
     })),
     ...farmMissions.filter(({ status }) => status === 'COMPLETED').map((mission) => ({ id: `mission-${mission.id}`, title: 'Mission completed', description: mission.name, at: mission.completedAt, icon: 'mission' })),
-    ...alerts.filter((alert) => alert.farmId === farmId && alert.acknowledgedAt).map((alert) => ({ id: `alert-${alert.id}`, title: 'Alert acknowledged', description: alert.title, at: alert.acknowledgedAt, icon: 'check' })),
+    ...alertRecords.filter((alert) => alert.farmId === farmId && alert.acknowledgedAt).map((alert) => ({ id: `alert-${alert.id}`, title: 'Alert acknowledged', description: alert.title, at: alert.acknowledgedAt, icon: 'check' })),
   ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 7)
-  return { farm, zones, nodes, onlineSensors: nodes.filter(({ status }) => status === 'ONLINE').length,
+  return { farm, zones, nodes, onlineSensors: nodes.filter(({ status, isActive }) => status === 'ONLINE' && isActive).length,
     activeMissionCount: activeMissions.length, currentMission: activeMissions.length ? getMissionDetails(activeMissions[0].id) : null,
     openAlertCount: openAlerts.length, importantAlerts, environment, activity, latestSyncAt,
     health: importantAlerts.some(({ severity }) => severity === 'CRITICAL') ? 'Needs attention' : openAlerts.length ? 'Watch closely' : nodes.length ? 'Good' : 'No data' }

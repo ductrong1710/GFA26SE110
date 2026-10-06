@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useManagement } from '../../context/ManagementContext'
+import { useOperations } from '../../context/OperationsContext'
 import { getFarmOwnerDashboard, formatSnapshotAge } from '../../data/mock/farmOwnerDashboard'
 import { MOCK_NOW } from '../../data/mock/scenario'
 import AppIcon from '../../components/app/AppIcon'
@@ -28,7 +30,9 @@ function EnvironmentTrend({ metric }) {
 export default function FarmOwnerDashboard() {
   const { currentFarm, farmWorkspace } = useOutletContext()
   const { user } = useAuth()
-  const overview = useMemo(() => getFarmOwnerDashboard(currentFarm.id, farmWorkspace), [currentFarm.id, farmWorkspace])
+  const { management } = useManagement()
+  const { operations } = useOperations()
+  const overview = useMemo(() => getFarmOwnerDashboard(currentFarm.id, farmWorkspace, management.alerts, operations.sensorNodes), [currentFarm.id, farmWorkspace, management.alerts, operations.sensorNodes])
   if (!overview) return <EmptyState title="Farm unavailable" description="Choose another farm from the selector above." />
   const { farm, zones, nodes, currentMission: mission, environment, importantAlerts, activity } = overview
   const firstName = user.fullName.trim().split(/\s+/)[0]
@@ -43,7 +47,7 @@ export default function FarmOwnerDashboard() {
 
     <section className="owner-kpis" aria-label="Farm key indicators">
       <StatCard label="Farm Health" value={overview.health} icon={<AppIcon name="sun" />} className="owner-health" data-health={overview.health} description={overview.openAlertCount ? 'Review the important alerts below' : 'No unresolved alerts'} />
-      <StatCard label="Online Sensors" value={`${overview.onlineSensors}/${nodes.length}`} icon={<AppIcon name="sensor" />} description={`${nodes.length - overview.onlineSensors} offline · ${zones.length} zones`} />
+      <StatCard label="Online Sensors" value={`${overview.onlineSensors}/${nodes.length}`} icon={<AppIcon name="sensor" />} description={`${nodes.filter(({ status, isActive }) => status === 'OFFLINE' && isActive).length} offline · ${nodes.some(({ isActive }) => !isActive) ? `${nodes.filter(({ isActive }) => !isActive).length} disabled` : `${zones.length} zones`}`} />
       <StatCard label="Active Missions" value={overview.activeMissionCount} icon={<AppIcon name="drone" />} description={mission ? 'Collecting your farm’s data' : 'No collection in progress'} />
       <StatCard label="Open Alerts" value={overview.openAlertCount} icon={<AppIcon name="alert" />} description="Including acknowledged alerts" />
       <StatCard label="Latest Sync" value={formatSnapshotAge(overview.latestSyncAt)} icon={<AppIcon name="cloud" />} className="owner-sync" description="Latest sensor data received" />

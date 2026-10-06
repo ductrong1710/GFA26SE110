@@ -4,6 +4,7 @@ import AppSidebar from '../components/app/AppSidebar'
 import AppTopbar from '../components/app/AppTopbar'
 import { createFarmWorkspace, updateFarmWorkspace } from '../data/mock/farmWorkspace'
 import { useAuth } from '../context/AuthContext'
+import { useOperations } from '../context/OperationsContext'
 import { PERMISSIONS } from '../config/permissions'
 import '../styles/app-shell.css'
 import '../styles/app-tokens.css'
@@ -12,6 +13,7 @@ const mobileQuery = '(max-width: 1023px)'
 
 export default function AppShell() {
   const { user, can } = useAuth()
+  const { operations } = useOperations()
   const [farmWorkspace, setFarmWorkspace] = useState(createFarmWorkspace)
   const mockFarms = farmWorkspace.farms
   const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches)
@@ -30,7 +32,7 @@ export default function AppShell() {
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
   const currentFarm = mockFarms.find((farm) => farm.id === farmId) ?? mockFarms[0] ?? { id: '', name: 'No farms' }
   const changeFarmRecord = (change) => {
-    const next = updateFarmWorkspace(farmWorkspace, { ...change, userId: user.id }, can(PERMISSIONS.FARMS_MANAGE))
+    const next = updateFarmWorkspace(farmWorkspace, { ...change, userId: user.id }, can(PERMISSIONS.FARMS_MANAGE), operations)
     setFarmWorkspace(next)
     return next
   }

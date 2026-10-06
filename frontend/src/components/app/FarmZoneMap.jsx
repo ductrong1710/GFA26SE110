@@ -15,11 +15,11 @@ export default function FarmZoneMap({ zones, selectedZoneId, onSelect, nodes }) 
           <rect x={x} y={y} width="290" height="130" rx="12" fill={`url(#${patternId})`} />
           <text x={x + 18} y={y + 30} className="farm-map-name">{zone.name.length > 30 ? `${zone.name.slice(0, 29)}…` : zone.name}</text>
           <text x={x + 18} y={y + 54} className="farm-map-caption">{zone.areaHectares} ha · {zoneNodes.length} sensors</text>
-          {zoneNodes.slice(0, 12).map((node, nodeIndex) => <circle key={node.id} cx={x + 25 + nodeIndex % 8 * 32} cy={y + 84 + Math.floor(nodeIndex / 8) * 22} r="6" fill={node.status === 'ONLINE' ? '#176346' : '#b42318'} stroke="white" strokeWidth="2"><title>{node.deviceCode}: {node.status}</title></circle>)}
+          {zoneNodes.slice(0, 12).map((node, nodeIndex) => <circle key={node.id} cx={x + 25 + nodeIndex % 8 * 32} cy={y + 84 + Math.floor(nodeIndex / 8) * 22} r="6" fill={!node.isActive ? '#718078' : node.status === 'ONLINE' ? '#176346' : '#b42318'} stroke="white" strokeWidth="2"><title>{node.deviceCode}: {node.isActive ? node.status : 'DISABLED'}</title></circle>)}
         </g>
       })}
       {!zones.length && <text x="330" y="125" textAnchor="middle" className="farm-map-caption">No zones in this farm yet</text>}
     </svg>
-    <p>Illustrative boundaries · Green: online · Red: offline · Select a zone to inspect it</p>
+    <p>Illustrative boundaries · Green: online · Red: offline · Gray: disabled · Select a zone to inspect it</p>
   </div>
 }

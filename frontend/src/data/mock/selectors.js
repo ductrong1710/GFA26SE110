@@ -79,12 +79,12 @@ export function getMissionDetails(missionId) {
 }
 
 // Demo filtering only; a future backend must enforce authorization independently.
-export function getAlertsForUser(userId, activeRole) {
+export function getAlertsForUser(userId, activeRole, alertRecords = alerts) {
   const user = users.find(({ id }) => id === userId)
   if (!user) return []
   const scope = getAlertScope(activeRole ?? user.activeRole)
   if (!scope) return []
-  return alerts.filter((alert) => {
+  return alertRecords.filter((alert) => {
     if (!user.farmIds.includes(alert.farmId)) return false
     if (scope === 'all') return true
     if (alert.missionId) return missions.find(({ id }) => id === alert.missionId)?.operatorUserId === userId

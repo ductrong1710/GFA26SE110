@@ -11,6 +11,8 @@
     "test:ui": "node --test tests/ui-state.test.js",
     "test:mock-data": "node --test tests/mock-data.test.js",
     "test:farms": "node --test tests/farm-workspace.test.js",
+    "test:management": "node --test tests/management.test.js",
+    "test:operations": "node --test tests/operations.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

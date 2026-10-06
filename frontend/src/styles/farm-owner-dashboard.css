@@ -29,6 +29,7 @@
 .owner-map-legend > span { display: inline-flex; align-items: center; gap: 6px; }
 .owner-map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--ui-primary); }
 .owner-map-legend .is-offline { background: #be4940; }
+.owner-map-legend .is-disabled { background: #718078; }
 .owner-map-legend .is-route { width: 17px; height: 0; border-top: 2px dashed var(--ui-primary); border-radius: 0; }
 .owner-map-legend .is-uav { border-radius: 2px; transform: rotate(45deg); }
 .owner-subtle-label { color: var(--ui-muted); font-size: 11px; }

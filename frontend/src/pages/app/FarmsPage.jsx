@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { PERMISSIONS } from '../../config/permissions'
-import { sensorNodes } from '../../data/mock/sensorNodes'
+import { useOperations } from '../../context/OperationsContext'
 import { getDeletionBlock } from '../../data/mock/farmWorkspace'
 import { PageHeader, SectionCard, EmptyState, StatusBadge } from '../../components/app/ui'
 import FarmRecordDialog from '../../components/app/FarmRecordDialog'
@@ -12,6 +12,8 @@ import '../../styles/admin-workspace.css'
 export default function FarmsPage() {
   const { currentFarm, selectFarm, farmWorkspace, changeFarmRecord } = useOutletContext()
   const { can } = useAuth()
+  const { operations } = useOperations()
+  const { sensorNodes } = operations
   const canManage = can(PERMISSIONS.FARMS_MANAGE)
   const [selectedZoneId, setSelectedZoneId] = useState(null)
   const [dialog, setDialog] = useState(null)
@@ -60,6 +62,6 @@ export default function FarmsPage() {
         </> : <EmptyState title="No farm selected" description="Add a farm to start organizing zones." />}
       </div>
     </div>
-    {canManage && dialog && <FarmRecordDialog key={`${dialog.kind}-${dialog.record?.id ?? 'new'}-${dialog.remove}`} {...dialog} farm={farm} farms={farms} onSave={save} onClose={() => setDialog(null)} blocked={dialog.remove ? getDeletionBlock(farmWorkspace, dialog.kind, dialog.record.id) : null} />}
+    {canManage && dialog && <FarmRecordDialog key={`${dialog.kind}-${dialog.record?.id ?? 'new'}-${dialog.remove}`} {...dialog} farm={farm} farms={farms} onSave={save} onClose={() => setDialog(null)} blocked={dialog.remove ? getDeletionBlock(farmWorkspace, dialog.kind, dialog.record.id, operations) : null} />}
   </div>
 }

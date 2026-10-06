@@ -30,7 +30,7 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
     <form onSubmit={submit}>
       <header><div><p className="farm-dialog-eyebrow">LOCAL DEMO</p><h2 id={titleId}>{title}</h2></div><button type="button" className="app-ui-button" aria-label="Close dialog" onClick={onClose}>×</button></header>
       {remove ? <div className="farm-dialog-fields"><p>Delete <strong>{record.name}</strong> from this demo session?</p><p>{blocked ?? 'This removes the record from the hierarchy. Cancel to keep it.'}</p></div> : <div className="farm-dialog-fields">
-        {kind === 'zone' && <label>Farm<select name="farmId" value={values.farmId} onChange={change} disabled={Boolean(record)} required>{farms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {kind === 'zone' && <label>Farm<select aria-label="Farm" name="farmId" value={values.farmId} onChange={change} disabled={Boolean(record)} required>{farms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         {field('name', 'Name', { required: true, maxLength: 120 })}
         <label>Description<textarea name="description" value={values.description} onChange={change} maxLength={500} rows={3} /></label>
         {kind === 'farm' && field('location', 'Location', { maxLength: 160 })}

@@ -1,5 +1,7 @@
 import { Link, useOutletContext } from 'react-router-dom'
 import { getAdminDashboard } from '../../data/mock/adminDashboard'
+import { useManagement } from '../../context/ManagementContext'
+import { useOperations } from '../../context/OperationsContext'
 import { formatSnapshotAge } from '../../data/mock/farmOwnerDashboard'
 import { PageHeader, StatCard, SectionCard, StatusBadge, AlertSeverityBadge, DataTable, EmptyState, ProgressBar } from '../../components/app/ui'
 import AppIcon from '../../components/app/AppIcon'
@@ -7,7 +9,9 @@ import '../../styles/admin-workspace.css'
 
 export default function AdminDashboard() {
   const { farmWorkspace } = useOutletContext()
-  const data = getAdminDashboard(farmWorkspace)
+  const { management } = useManagement()
+  const { operations } = useOperations()
+  const data = getAdminDashboard(farmWorkspace, management, operations)
   const kpis = [['Total Users', data.totalUsers, 'users'], ['Total Sensors', data.totalSensors, 'sensor'], ['Offline Devices', data.offlineDevices, 'drone'], ['Open Alerts', data.openAlerts, 'alert'], ['Active Missions', data.activeMissions, 'mission'], ['Pending Sync', data.pendingSync, 'cloud']]
   return <div className="app-ui admin-dashboard">
     <PageHeader eyebrow="ADMINISTRATION" title="System overview" description="Account access, farm coverage, and operational health across all farms."
@@ -29,7 +33,7 @@ export default function AdminDashboard() {
       <SectionCard title="Recent Critical Alerts" description="Unresolved incidents requiring attention" actions={<Link className="admin-link" to="/app/alerts">View alerts →</Link>}>
         {data.criticalAlerts.length ? <ul className="admin-alert-list">{data.criticalAlerts.map((alert) => <li key={alert.id}><AlertSeverityBadge severity={alert.severity} /><h3>{alert.title}</h3><p>{alert.message}</p><small>{formatSnapshotAge(alert.openedAt)} · {alert.status === 'ACKNOWLEDGED' ? 'Acknowledged' : 'Open'}</small></li>)}</ul> : <EmptyState title="No critical alerts" />}
       </SectionCard>
-      <SectionCard title="Device Health Summary" description="Connectivity and battery exceptions" actions={<Link className="admin-link" to="/app/devices">View device status →</Link>}>
+      <SectionCard title="Device Health Summary" description="Enabled sensors and device connectivity / battery exceptions" actions={<Link className="admin-link" to="/app/devices">View device status →</Link>}>
         <div className="admin-device-groups">{data.deviceGroups.map((group) => <div key={group.name}><ProgressBar value={group.total - group.offline} max={group.total} label={`${group.name} · ${group.total - group.offline}/${group.total} connected`} tone={group.offline ? 'warning' : 'success'} /><p>{group.offline} offline · {group.lowBattery} low battery</p></div>)}</div>
       </SectionCard>
       <SectionCard title="Mission Overview" description="Status visibility across scheduled and recent collections" className="admin-wide" actions={<Link className="admin-link" to="/app/missions">View missions →</Link>}>

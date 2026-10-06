@@ -149,6 +149,41 @@ zones, devices, and mission history prevent deletion until dependencies are remo
 new empty records can be deleted. Maps are schematic, not surveyed polygons.
 Run `npm run test:farms` for validation, deletion safeguards, permissions, and state tests.
 
+### Administrator management
+
+- `/app/users`: local user directory with add/edit, activation, and multiple human role assignments. Email uniqueness and role validity are checked. Directory changes do not alter the separate demo login credentials or currently previewed role.
+- `/app/alerts`: role-scoped incident list, six filters, summary cards, and a keyboard-accessible detail drawer. Administrators can acknowledge, add notes, close, and reopen alerts. Owners/engineers are read-only; operators see related alerts only. Actions append history and update dashboard counts. Filter dates and “Closed Today” use Vietnam time and the fixed snapshot.
+- `/app/settings`: validated sensor defaults, timeout/battery limits, notification preferences, and system information. Preferences do not send email or web notifications; defaults do not rewrite historical alert thresholds or existing sensor configurations.
+
+`ManagementProvider` wraps the existing shell route without changing its markup or
+appearance. Data stays in memory across route/role changes and resets on refresh or
+sign-out. No backend calls are made. `npm run test:management` covers user validation,
+alert lifecycle/history, role restrictions, filters, and settings validation.
+
+### Operator inventory and readiness
+
+The operator dashboard follows the shared farm selector and derives readiness,
+active mission progress, failed targets, pending sync batches, and scheduled work
+from linked fixtures. Recovered collection retries remain in sensor history but
+are excluded from the failed-target list.
+
+`/app/sensors` supports farm/zone/status/protocol/search filters, registration,
+editing, zone assignment, and enable/disable. `/app/sensors/:id` shows identity,
+channels, latest collected readings (including buffered data), and collection
+attempts. Owners and engineers use the same pages read-only.
+
+`/app/devices` has UAV and Mobile Gateway tabs, capability metadata, registration,
+editing, and gateway assignment/unassignment. Administrators can monitor this page
+without inventory mutation actions. There are no flight controls or device commands.
+
+`OperationsProvider` holds local inventory across navigation/role changes, resetting
+on refresh or logout. New registrations have no fabricated telemetry or channels.
+Codes remain stable; serial/MAC values are unique. Existing sensors stay within
+their farm, and collection settings/assignments cannot change during an active
+mission. Gateway pairing requires an unoccupied UAV in the same farm. Local devices
+participate in farm deletion safeguards and update shared dashboard/farm counts.
+Run `npm run test:operations` to validate these rules and derived data.
+
 Linked farm, sensor, device, mission, sync, alert, notification, and user fixtures
 are exported from `src/data/mock/index.js`. Use the shared selectors for relationship
 lookups and progress. See the [mock data guide](src/data/mock/README.md) for the fixed
