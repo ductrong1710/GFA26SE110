@@ -9,7 +9,7 @@ import { mockAccounts } from '../src/data/mock/accounts.js'
 const expectedModules = {
   FARM_OWNER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'missions', 'alerts', 'reports'],
   ADMINISTRATOR: ['dashboard', 'farms', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users', 'settings'],
-  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'devices', 'missions', 'sync', 'alerts'],
+  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'sensor-data', 'devices', 'missions', 'sync', 'alerts', 'reports'],
   AGRICULTURAL_ENGINEER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'alerts', 'reports'],
 }
 

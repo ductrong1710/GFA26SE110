@@ -9,7 +9,6 @@ import ProtectedRoute from './components/app/ProtectedRoute'
 import RouteScroll from './components/RouteScroll'
 import PublicLayout from './layouts/PublicLayout'
 import AppShell from './layouts/AppShell'
-import AppPlaceholderPage from './pages/app/AppPlaceholderPage'
 import DashboardPage from './pages/app/DashboardPage'
 import FarmsPage from './pages/app/FarmsPage'
 import UsersPage from './pages/app/UsersPage'
@@ -28,8 +27,10 @@ import './App.css'
 
 const MissionDetailPage = lazy(() => import('./pages/app/MissionDetailPage'))
 const SyncPage = lazy(() => import('./pages/app/SyncPage'))
+const SensorDataPage = lazy(() => import('./pages/app/SensorDataPage'))
+const ReportsPage = lazy(() => import('./pages/app/ReportsPage'))
 
-const applicationPages = { dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage /> }
+const applicationPages = { dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage />, 'sensor-data': <SensorDataPage />, 'sensor-data/compare-zones': <SensorDataPage compareOnly />, reports: <ReportsPage /> }
 
 function ProductDetailRoute() {
   const { id } = useParams()
@@ -52,8 +53,8 @@ export default function App() {
       <Route path="/app" element={<ProtectedRoute />}>
         <Route element={<OperationsProvider><ManagementProvider><AppShell /></ManagementProvider></OperationsProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          {appRoutes.map(({ path, title, permissions }) => <Route key={path} path={path} element={
-            <ProtectedRoute permissions={permissions}><Suspense fallback={<p role="status">Loading page…</p>}>{applicationPages[path] ?? <AppPlaceholderPage title={title} />}</Suspense></ProtectedRoute>
+          {appRoutes.map(({ path, permissions }) => <Route key={path} path={path} element={
+            <ProtectedRoute permissions={permissions}><Suspense fallback={<p role="status">Loading page…</p>}>{applicationPages[path] ?? <NotFoundPage application />}</Suspense></ProtectedRoute>
           } />)}
           <Route path="*" element={<NotFoundPage application />} />
         </Route>

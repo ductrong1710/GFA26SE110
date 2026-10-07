@@ -46,3 +46,15 @@ and keeps local retry history and accepted receipts in the shared operations sta
 Batch 6 references the same canonical readings/source keys as part of batch 2.
 Queued copies can outlive another batch's acknowledgement; only unique valid source
 keys create mock receipts. Rejected payloads never become accepted through retry.
+
+`sensorAnalytics.js` centralizes enriched readings, Vietnam-time filters, hourly
+channel means, latest-reading aggregates, sensor availability, and zone comparisons.
+Synchronized data is the default; operator technical views may explicitly include
+buffered measurements. It overlays local sync receipts without mutating fixtures.
+Missing coverage stays null; stale/offline channels are excluded from current KPI
+averages but remain visible in historical analysis. Thresholds come from channels.
+
+`reportSelectors.js` produces detached, role-scoped previews from current shared
+operations and management state. Report definitions explain the date field and
+aggregation used by each type. `reportCsv.js` exports only the columns represented
+by that preview, checks the active role, and quotes/neutralizes spreadsheet text.

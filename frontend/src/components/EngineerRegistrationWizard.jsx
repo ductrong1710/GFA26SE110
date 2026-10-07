@@ -74,7 +74,7 @@ export default function EngineerRegistrationWizard({ onBack }) {
   </section>
 
   return <section className="account-form-content engineer-wizard">
-    <button className="account-step-back" type="button" onClick={() => { setError(''); step === 1 ? onBack() : setStep((value) => value - 1) }}>← {step === 1 ? 'Chọn loại tài khoản' : 'Quay lại bước trước'}</button>
+    <button className="account-step-back" type="button" onClick={() => { setError(''); if (step === 1) onBack(); else setStep((value) => value - 1) }}>← {step === 1 ? 'Chọn loại tài khoản' : 'Quay lại bước trước'}</button>
     <div className="engineer-progress" aria-label={`Bước ${step} trên 3`}>{[1, 2, 3].map((item) => <span className={item <= step ? 'is-active' : ''} key={item}><i>{item}</i><b>{['Tài khoản', 'Chuyên môn', 'Xác minh'][item - 1]}</b></span>)}</div>
     {step === 1 && <form className="engineer-step-form" onSubmit={goNext}>
       <h1>Thông tin tài khoản</h1>

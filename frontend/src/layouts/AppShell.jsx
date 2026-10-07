@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import AppSidebar from '../components/app/AppSidebar'
 import AppTopbar from '../components/app/AppTopbar'
+import AppPageBoundary from '../components/app/AppPageBoundary'
 import { createFarmWorkspace, updateFarmWorkspace } from '../data/mock/farmWorkspace'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../context/OperationsContext'
@@ -12,7 +13,7 @@ import '../styles/app-tokens.css'
 const mobileQuery = '(max-width: 1023px)'
 
 export default function AppShell() {
-  const { user, can } = useAuth()
+  const { user, can, activeRole } = useAuth()
   const { operations } = useOperations()
   const [farmWorkspace, setFarmWorkspace] = useState(createFarmWorkspace)
   const mockFarms = farmWorkspace.farms
@@ -62,7 +63,8 @@ export default function AppShell() {
       const focusable = getFocusable()
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      if (!sidebar.contains(document.activeElement)) { event.preventDefault(); first?.focus() }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -80,7 +82,9 @@ export default function AppShell() {
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
         farms={mockFarms} currentFarm={currentFarm} onFarmChange={setFarmId} />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
-        <Outlet context={{ currentFarm, selectFarm: setFarmId, farmWorkspace, changeFarmRecord }} />
+        <AppPageBoundary key={`${location.pathname}:${activeRole}`}>
+          <Outlet context={{ currentFarm, selectFarm: setFarmId, farmWorkspace, changeFarmRecord }} />
+        </AppPageBoundary>
       </main>
     </div>
   </div>

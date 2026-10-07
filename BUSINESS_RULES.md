@@ -68,17 +68,24 @@ This frontend-only model does not change backend role records or introduce API
 authentication. The Sensor Collection Engine is a service/device actor, not a
 human UI role, and must not receive a dashboard.
 
+Demo login resolves the active role from a public mock account and always opens
+`/app/dashboard`. The profile dropdown can preview all four human roles. Only the
+fixture ID and active preview role persist in localStorage; logout clears the
+session and returns to `/dang-nhap`. Public registration workflows do not assign
+application permissions or create authenticated sessions. This is a frontend
+simulation to be replaced by backend authentication, not a security boundary.
+
 | Area | FARM_OWNER | ADMINISTRATOR | UAV_DEVICE_OPERATOR | AGRICULTURAL_ENGINEER |
 |---|---|---|---|---|
 | Dashboard | View | View | View | View |
 | Farms/zones | Read | Manage | None | Read |
 | Sensor nodes | Read | None | Manage | Read |
-| Sensor data | View | View | None | View and compare zones |
+| Sensor data | View | View | Technical read-only view | View and compare zones |
 | UAV/gateway | None | View status | Manage | None |
 | Missions | Read | View status | Create/manage/monitor | None |
 | Data sync | None | None | Manage | None |
 | Alerts | Read | Manage | View related alerts only | Read |
-| Reports | View/generate | View/generate | None | Read |
+| Reports | Summary view/generate | Full view/generate | Mission/device view/generate | Sensor/environment preview |
 | Users/roles and settings | None | Manage | None | None |
 
 A user may have multiple assigned roles, but only `activeRole` grants UI
@@ -856,3 +863,41 @@ records are accepted or duplicate; mixed acceptance/rejection is PARTIAL, and an
 all-rejected result remains FAILED. Initial errors and per-attempt retry outcomes
 remain in history. Queue counts deduplicate source keys, while batch rejection
 counts describe rejected payloads. All receipts and retries reset on refresh/logout.
+
+Frontend environmental analytics is read-only. Engineers receive environmental
+dashboards and zone comparison; owners see a simplified view, administrators can
+inspect readings, and operators can inspect technical provenance and optionally
+include buffered gateway readings. Only engineers have the zone-comparison route.
+The default dataset includes valid synchronized readings, including local mock sync
+receipts; receipt overlays never duplicate the underlying source reading.
+Date filters apply to measuredAt in Vietnam time, with a maximum 31-day window.
+KPI averages use each online, enabled channel's latest synchronized reading within
+its data-timeout limit. Historical charts average measurements within each channel
+per hour, then average contributing channels equally. Missing buckets and missing
+zone/type coverage remain null, not zero. Min/max/average tables summarize individual
+measurements; historical records remain available for currently offline sensors.
+Warning bands use existing channel thresholds, not validation ranges or newly edited
+system defaults. These demo charts provide no AI diagnosis, imagery analysis, or
+operational/device-management actions for engineers.
+
+Frontend reports use local shared data, with no backend integration. Owners receive
+aggregate summaries for all four report types; administrators receive full reports;
+operators receive mission/device reports; engineers receive read-only sensor and
+environmental-alert previews. Engineer export/generation permissions remain disabled;
+Update Preview applies local filters without creating persisted reports. Allowed
+generating roles may export CSV. PDF export is explicitly a prototype, not a download.
+
+Report filters are staged until Generate Report / Update Preview. A preview is a
+detached snapshot; CSV exports that same snapshot and all detail rows, not just the
+visible page. Changed filters disable export until the preview is refreshed. Role
+changes clear the preview. Report-type checks apply to generation and export helpers.
+CSV fields are quoted, Unicode is preserved, and formula prefixes in text are escaped.
+
+Sensor report dates use measurement time and accepted synchronization receipts;
+statistics keep units separate and zone comparisons honor the selected zone. Mission
+dates use actual start or scheduled time; unscheduled drafts are excluded. Mission
+success rate uses finished attempts in scope, including retries. Device dates filter
+last-seen time and show latest-known status, not fabricated historical status;
+never-seen devices are counted separately and excluded. UAV/gateway zone membership
+comes from mission targets. Alert dates use detection time with current lifecycle
+status. Engineer alert scope includes sensor thresholds and data-timeout alerts only.

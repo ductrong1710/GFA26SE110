@@ -9,6 +9,10 @@ Run `npm run test:ui` for status and telemetry presentation checks.
 
 ## Routing foundation
 
+See [the frontend audit](FRONTEND_AUDIT.md) for verified routes, permissions,
+accessibility/responsive checks, changed files and backend integration points.
+The repeatable browser audit is `scripts/audit-frontend.cjs`.
+
 `src/main.jsx` supplies `BrowserRouter`; `src/App.jsx` declares the routes.
 Existing public pages remain in `src/pages` and retain their CSS and forms:
 `/`, `/thiet-bi`, `/thiet-bi/:id`, `/gio-hang`, `/dang-nhap`, and `/dang-ky`.
@@ -18,13 +22,13 @@ existing product-not-found view.
 Application paths are listed in `src/config/appRoutes.js` beneath `/app`:
 `dashboard`, `farms`, `sensors`, `sensors/:id`, `sensor-data`, `sensor-data/compare-zones`, `devices`,
 `missions`, `missions/create`, `missions/:id`, `sync`, `alerts`, `reports`,
-`users`, and `settings`. These render placeholders in `AppShell`; `/app`
+`users`, and `settings`. These render implemented, permission-aware pages in one `AppShell`; `/app`
 redirects to `/app/dashboard` after authentication.
 
 `AuthProvider` supplies the current user and login/logout actions. `ProtectedRoute`
 redirects guests to `/dang-nhap`, preserving the requested location (including
-query and hash) in `location.state.from`. Successful login returns to that `/app`
-location, or `/app/dashboard` for a direct login.
+query and hash) in `location.state.from`. Successful demo login always opens
+`/app/dashboard`, where the account's active role determines the content.
 
 ### Mock accounts for frontend testing
 
@@ -44,8 +48,9 @@ the active role; the profile dropdown includes logout and a clearly labeled
 **Demo only · Preview role** selector for all four role experiences.
 
 The mock session stores only the fixture ID and active preview role in
-`sessionStorage`, survives reloads in the same tab, and is removed on logout.
-Existing sessions using the old fixture-ID key still work. Passwords and fabricated JWTs are not
+`localStorage`, survives reloads and reopening the browser, and is removed on logout.
+Previous tab-scoped sessions and the old fixture-ID key migrate automatically;
+logout also clears those legacy keys. Passwords and fabricated JWTs are not
 stored in the session. Invalid credentials display an error. Registration forms
 remain unchanged and do not create additional mock accounts.
 
@@ -212,6 +217,33 @@ and stays FAILED after retry, with all rejected records preserved. Retries conti
 across route navigation within the shared app provider. Accepted mock receipts
 update gateway last-sync and farm activity; immutable fixture readings stay intact.
 No API calls are made. Run `node --test tests/sync.test.js` for sync behavior tests.
+
+Agricultural engineers now have a read-only environmental dashboard with six Recharts
+trends, fresh-reading KPI averages, farm/zone selection, sensor health, environmental
+alerts, and zone comparison. `/app/sensor-data` supports farm, zone, sensor, type,
+and Vietnam-time date filters, latest readings, historical hourly trends, threshold
+bands, statistics, and paginated measurements. Engineers can use
+`/app/sensor-data/compare-zones`; owners see a simplified view, administrators can
+view readings, and operators can inspect source keys and opt into buffered values.
+Missing readings are not imputed. Shared selectors in `sensorAnalytics.js` incorporate
+mock sync receipts and existing channel warning limits. Analytics pages and Recharts
+are loaded on demand. Run `node --test tests/sensor-analytics.test.js` for data checks.
+
+Chart references: [Recharts ResponsiveContainer](https://recharts.github.io/en-US/api/ResponsiveContainer/)
+and [ReferenceArea](https://recharts.github.io/en-US/api/ReferenceArea/).
+
+`/app/reports` builds local sensor, mission, device, and alert previews. Filters are
+applied on Generate Report (or Update Preview for engineers); editing filters marks
+the preview out of date and disables export. Owners get aggregate summaries,
+administrators full details, operators mission/device reports, and engineers
+sensor/environment previews. Existing engineer read-only export restrictions remain.
+CSV downloads include the complete generated preview, all detail rows, report scope,
+and definitions. Text fields are escaped against spreadsheet formula execution.
+Export PDF (Prototype) only displays an explanatory message and creates no file.
+Device reports use latest-known statuses filtered by last-seen time; they do not
+claim historical inventory state. Shared selectors and CSV helpers live in
+`src/data/mock/reportSelectors.js` and `reportCsv.js`. Run
+`node --test tests/reports.test.js` to verify report scope and CSV behavior.
 
 Linked farm, sensor, device, mission, sync, alert, notification, and user fixtures
 are exported from `src/data/mock/index.js`. Use the shared selectors for relationship

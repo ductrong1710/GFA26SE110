@@ -35,10 +35,8 @@ export default function AccountPage({ register = false }) {
       return
     }
 
-    const from = location.state?.from
-    const pathname = from?.pathname
-    const isAppPath = typeof pathname === 'string' && (pathname === '/app' || pathname.startsWith('/app/'))
-    navigate(isAppPath ? { pathname, search: from.search, hash: from.hash } : '/app/dashboard', { replace: true })
+    // DEMO ONLY: the account resolves activeRole; all roles share this dashboard URL.
+    navigate('/app/dashboard', { replace: true })
   }
 
   const switchMode = (nextRegister) => {

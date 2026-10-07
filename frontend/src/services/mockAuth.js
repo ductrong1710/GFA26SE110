@@ -5,6 +5,15 @@ import { isHumanRole } from '../config/roles'
 const sessionKey = 'smartfarm-mock-session'
 const legacySessionKey = 'smartfarm-mock-user-id'
 
+// DEMO ONLY: localStorage identifies a public fixture, not an authenticated identity.
+// Replace this service and AuthProvider session handling with backend/JWT auth later.
+// Neither the stored role nor frontend permission checks provide real security.
+function removeLegacySession() {
+  for (const key of [sessionKey, legacySessionKey]) {
+    try { window.sessionStorage.removeItem(key) } catch { /* Storage may be unavailable. */ }
+  }
+}
+
 function toUser(account, activeRole = account.activeRole) {
   return {
     id: account.id,
@@ -19,12 +28,16 @@ function toUser(account, activeRole = account.activeRole) {
 export function getMockSession() {
   if (!mockAuthEnabled) return null
   try {
-    const stored = window.sessionStorage.getItem(sessionKey)
-    const session = stored ? JSON.parse(stored) : { id: Number(window.sessionStorage.getItem(legacySessionKey)) }
+    const persistent = window.localStorage.getItem(sessionKey)
+    // Migrate previous tab-scoped demos once, without overriding a persistent session.
+    const stored = persistent ?? window.sessionStorage.getItem(sessionKey)
+    const session = stored !== null ? JSON.parse(stored) : { id: Number(window.sessionStorage.getItem(legacySessionKey)) }
     const account = mockAccounts.find((item) => item.id === session?.id)
     if (!account) return null
     if (session.activeRole !== undefined && !isHumanRole(session.activeRole)) return null
-    return toUser(account, isHumanRole(session.activeRole) ? session.activeRole : account.activeRole)
+    const user = toUser(account, isHumanRole(session.activeRole) ? session.activeRole : account.activeRole)
+    saveMockActiveRole(user.id, user.activeRole)
+    return user
   } catch {
     return null
   }
@@ -46,13 +59,14 @@ export function loginWithMockAccount(email, password) {
 export function saveMockActiveRole(userId, activeRole) {
   if (!mockAuthEnabled || !isHumanRole(activeRole) || !mockAccounts.some(({ id }) => id === userId)) return
   try {
-    window.sessionStorage.setItem(sessionKey, JSON.stringify({ id: userId, activeRole }))
-    window.sessionStorage.removeItem(legacySessionKey)
+    window.localStorage.setItem(sessionKey, JSON.stringify({ id: userId, activeRole }))
+    removeLegacySession()
   } catch { /* In-memory demo login/switching still works if storage is unavailable. */ }
 }
 
 export function clearMockSession() {
   for (const key of [sessionKey, legacySessionKey]) {
-    try { window.sessionStorage.removeItem(key) } catch { /* The provider still clears its in-memory session. */ }
+    try { window.localStorage.removeItem(key) } catch { /* The provider still clears its in-memory session. */ }
   }
+  removeLegacySession()
 }
