@@ -65,11 +65,77 @@ void ApiServer::setupRoutes() {
     server_.on("/api/gateway/nodes/register", HTTP_POST,
                [this]() { handleNodeRegistration(); });
     server_.onNotFound([this]() { handleNotFound(); });
+    server_.on("/api/tello/status", HTTP_GET, [this]() { handleTelloStatus(); });
+    server_.on("/api/tello/prepare", HTTP_POST, [this]() { handleTelloPrepare(); });
+    server_.on("/api/tello/takeoff", HTTP_POST, [this]() { sendFlightResult(flight_.takeoff()); });
+    server_.on("/api/tello/land", HTTP_POST, [this]() { sendFlightResult(flight_.land()); });
+    server_.on("/api/tello/move", HTTP_POST, [this]() { handleTelloControl("move"); });
+    server_.on("/api/tello/rotate", HTTP_POST, [this]() { handleTelloControl("rotate"); });
+    server_.on("/api/tello/rc", HTTP_POST, [this]() { handleTelloControl("rc"); });
+    server_.on("/api/tello/disconnect", HTTP_POST, [this]() { sendFlightResult(flight_.disconnect()); });
+}
+
+bool ApiServer::readControlBody(JsonDocument& doc) {
+    const String body=server_.arg("plain");
+    if(body.length()>Config::MAX_API_BODY_BYTES) { sendError(413,"BODY_TOO_LARGE","Control body too large"); return false; }
+    JsonBodyReader reader(body);
+    const auto error=deserializeJson(doc,reader,DeserializationOption::NestingLimit(2));
+    bool trailing=false;
+    for(int ch=reader.read();ch>=0;ch=reader.read()) if(!isspace(static_cast<unsigned char>(ch))) trailing=true;
+    if(error || trailing || !doc.is<JsonObject>() || body.length()!=static_cast<size_t>(server_.clientContentLength())) {
+        sendError(400,"INVALID_JSON","Expected one JSON object"); return false;
+    }
+    return true;
+}
+void ApiServer::handleTelloControl(const char* action) {
+    StaticJsonDocument<512> doc;
+    if(!readControlBody(doc)) return;
+    if(!strcmp(action,"rc")) {
+        if(!doc["leftRight"].is<int>() || !doc["forwardBack"].is<int>() || !doc["upDown"].is<int>() || !doc["yaw"].is<int>() ||
+            !TelloController::validRc(doc["leftRight"],doc["forwardBack"],doc["upDown"],doc["yaw"])) {
+            sendError(400,"INVALID_RC","Four integer channels in -100..100 required"); return;
+        }
+        sendFlightResult(flight_.rc(doc["leftRight"],doc["forwardBack"],doc["upDown"],doc["yaw"])); return;
+    }
+    const bool move=!strcmp(action,"move");
+    const char* field=move ? "distanceCm" : "degrees";
+    const char* direction=doc["direction"].as<const char*>();
+    if(!direction || doc["direction"].as<JsonString>().size()!=strlen(direction) || !doc[field].is<int>() ||
+        !(move ? TelloController::validMove(direction,doc[field]) : TelloController::validRotation(direction,doc[field]))) {
+        sendError(400,"INVALID_COMMAND_ARGUMENTS",move ? "Direction and integer distanceCm 20..500 required" : "cw/ccw and integer degrees 1..3600 required"); return;
+    }
+    sendFlightResult(move ? flight_.move(direction,doc[field]) : flight_.rotate(direction,doc[field]));
+}
+
+void ApiServer::sendFlightResult(bool accepted) {
+    if (!accepted) { sendError(409, flight_.error(), "Flight request rejected; inspect Tello status"); return; }
+    StaticJsonDocument<256> doc;
+    doc["success"]=true; doc["state"]=flight_.stateName();
+    sendJson(202,doc);
+}
+void ApiServer::handleTelloPrepare() { sendFlightResult(flight_.prepare()); }
+void ApiServer::handleTelloStatus() {
+    StaticJsonDocument<1024> doc;
+    doc["success"]=true;
+    doc["staTarget"]=GatewayWiFiManager::targetName(wifi_.staTarget());
+    doc["telloWifiConnected"]=wifi_.isTelloConnected();
+    doc["sdkReady"]=tello_.isSdkReady(); doc["flightState"]=flight_.stateName();
+    const auto& t=tello_.telemetry();
+    doc["battery"]=tello_.batteryPercent(); doc["heightCm"]=t.heightCm;
+    doc["tofCm"]=t.tofCm; doc["flightTimeSec"]=t.flightTimeSec;
+    doc["verticalVelocity"]=t.verticalVelocity;
+    doc["pitch"]=t.pitch; doc["roll"]=t.roll; doc["yaw"]=t.yaw;
+    doc["telemetryFresh"]=tello_.hasFreshTelemetry();
+    doc["commandPending"]=tello_.commandPending();
+    doc["lastResponse"]=tello_.lastResponse(); doc["errorCode"]=flight_.error();
+    doc["landingEvidence"]=flight_.landingEvidence();
+    doc["pendingUploadRecords"]=storage_.getPendingCount();
+    sendJson(200,doc);
 }
 
 void ApiServer::handleGatewayStatus() {
     Logger::api("GET /api/gateway/status");
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<768> doc;
     doc["success"] = true;
     doc["gatewayCode"] = Config::GATEWAY_CODE;
     doc["status"] = "ONLINE";
@@ -79,6 +145,9 @@ void ApiServer::handleGatewayStatus() {
     doc["connectedStations"] = WiFi.softAPgetStationNum();
     doc["internetConnected"] = wifi_.isInternetConnected();
     doc["staConnected"] = wifi_.isStaConnected();
+    doc["staTarget"] = GatewayWiFiManager::targetName(wifi_.staTarget());
+    doc["backendNetworkReady"] = wifi_.isBackendNetworkReady();
+    doc["flightState"] = flight_.stateName();
     doc["staIp"] = wifi_.getStaIp().toString();
     doc["connectedNodes"] = registry_.onlineCount();
     doc["timeSynced"] = time_.isTimeSynced();
@@ -274,7 +343,7 @@ void ApiServer::handleNotFound() {
 }
 
 void ApiServer::sendJson(int status, const JsonDocument& document) {
-    char output[512];
+    char output[1024];
     if (document.overflowed() || measureJson(document) >= sizeof(output)) {
         server_.send(500, "application/json",
                      "{\"success\":false,\"errorCode\":\"JSON_OVERFLOW\","

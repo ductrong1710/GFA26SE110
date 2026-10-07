@@ -1,5 +1,10 @@
 # ESP32 gateway: phases 5–8
 
+The current branch also includes the isolated Tello extension. See
+[Tello operations](TELLO_OPERATIONS.md) for STA target switching, ground/flight
+tests and post-land synchronization. Internet reconnect/NTP/backend now run only
+for the INTERNET STA target; these original data-storage procedures still apply.
+
 ## Implementation and safety
 
 Phase 5 stores one JSON measurement per SHA-256 identity filename in `/pending`.

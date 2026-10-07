@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "Logger.h"
 #include "Secrets.h"
+#include <esp_sntp.h>
 
 static_assert(sizeof(Secrets::GATEWAY_AP_PASSWORD) >= 9 &&
               sizeof(Secrets::GATEWAY_AP_PASSWORD) <= 64,
@@ -36,17 +37,57 @@ bool GatewayWiFiManager::begin() {
     Logger::info((String("AP IP: ") + WiFi.softAPIP().toString()).c_str());
     started_ = true;
     WiFi.setAutoReconnect(false);
-    lastReconnect_ = millis() - Config::INTERNET_RECONNECT_INTERVAL_MS;
+    requestStaTarget(StaTarget::Internet);
     return true;
 }
 
-bool GatewayWiFiManager::isStaConnected() const { return WiFi.status() == WL_CONNECTED; }
-bool GatewayWiFiManager::isInternetConnected() const { return isStaConnected() && internetReachable_; }
+const char* GatewayWiFiManager::targetName(StaTarget target) {
+    switch (target) {
+    case StaTarget::Tello: return "TELLO";
+    case StaTarget::Internet: return "INTERNET";
+    default: return "NONE";
+    }
+}
+const char* GatewayWiFiManager::targetSsid() const {
+    return target_ == StaTarget::Tello ? Secrets::TELLO_SSID :
+        target_ == StaTarget::Internet ? Secrets::INTERNET_SSID : "";
+}
+bool GatewayWiFiManager::targetConfigured(StaTarget target) const {
+    return target == StaTarget::Tello ? Secrets::TELLO_SSID[0] :
+        target == StaTarget::Internet ? Secrets::INTERNET_SSID[0] : true;
+}
+void GatewayWiFiManager::requestStaTarget(StaTarget target) {
+    if (target_ == target) return;
+    // Stop background SNTP before changing the network; system time is retained.
+    if (target_ == StaTarget::Internet) sntp_stop();
+    target_ = target;
+    internetReachable_ = wasConnected_ = false;
+    disconnecting_ = true;
+    transitionAt_ = millis();
+    WiFi.disconnect(false, false);
+    Serial.printf("[WIFI] STA target=%s; SoftAP remains enabled\n", targetName(target));
+}
+bool GatewayWiFiManager::isStaConnected() const {
+    return !disconnecting_ && target_ != StaTarget::None && targetSsid()[0] &&
+        WiFi.status() == WL_CONNECTED && WiFi.SSID() == targetSsid() &&
+        WiFi.localIP() != IPAddress();
+}
+bool GatewayWiFiManager::isTelloConnected() const { return target_ == StaTarget::Tello && isStaConnected(); }
+bool GatewayWiFiManager::isInternetStaConnected() const { return target_ == StaTarget::Internet && isStaConnected(); }
+bool GatewayWiFiManager::isInternetNetworkReady() const { return isInternetStaConnected(); }
+bool GatewayWiFiManager::isInternetConnected() const { return isInternetNetworkReady() && internetReachable_; }
 IPAddress GatewayWiFiManager::getStaIp() const { return isStaConnected() ? WiFi.localIP() : IPAddress(); }
 
 void GatewayWiFiManager::update() {
-    if (!started_ || !Secrets::INTERNET_SSID[0]) return;
+    if (!started_) return;
     const uint32_t now = millis();
+    if (disconnecting_) {
+        // Wait for disconnect to be observable, not merely for disconnect() to return.
+        if (WiFi.status() == WL_CONNECTED || now - transitionAt_ < 100) return;
+        disconnecting_ = false;
+        lastReconnect_ = now - Config::INTERNET_RECONNECT_INTERVAL_MS;
+    }
+    if (target_ == StaTarget::None || !targetSsid()[0]) return;
     const bool connected = isStaConnected();
     if (connected != wasConnected_) {
         Logger::info(connected ? "STA connected" : "STA disconnected; AP remains active");
@@ -57,10 +98,10 @@ void GatewayWiFiManager::update() {
     if (!connected && now - lastReconnect_ >= Config::INTERNET_RECONNECT_INTERVAL_MS) {
         lastReconnect_ = now;
         WiFi.disconnect(false, false);
-        WiFi.begin(Secrets::INTERNET_SSID, Secrets::INTERNET_PASSWORD);
+        WiFi.begin(targetSsid(), target_ == StaTarget::Tello ? Secrets::TELLO_PASSWORD : Secrets::INTERNET_PASSWORD);
         Logger::info("STA connection attempt; AP remains active");
     }
-    if (connected && now - lastProbe_ >= Config::INTERNET_PROBE_INTERVAL_MS) {
+    if (isInternetNetworkReady() && now - lastProbe_ >= Config::INTERNET_PROBE_INTERVAL_MS) {
         lastProbe_ = now;
         WiFiClient probe;
         const bool reachable = probe.connect(IPAddress(Config::INTERNET_PROBE_IP),

@@ -4,6 +4,28 @@
 #include <stddef.h>
 
 namespace Config {
+constexpr bool TELLO_ENABLED = true;
+constexpr uint8_t TELLO_IP[] = {192, 168, 10, 1};
+constexpr uint16_t TELLO_COMMAND_PORT = 8889;
+constexpr uint16_t TELLO_STATE_PORT = 8890;
+constexpr uint32_t TELLO_COMMAND_TIMEOUT_MS = 7000;
+constexpr uint32_t TELLO_FLIGHT_COMMAND_TIMEOUT_MS = 20000;
+constexpr uint32_t TELLO_CONNECT_TIMEOUT_MS = 30000;
+constexpr uint32_t TELLO_RECOVERY_RETRY_MS = 15000;
+constexpr unsigned TELLO_COMMAND_RETRY_COUNT = 1; // Read/SDK commands only.
+constexpr uint32_t TELLO_COMMAND_GAP_MS = 300;
+constexpr uint32_t TELLO_RESPONSE_QUARANTINE_MS = 3000;
+constexpr int TELLO_MIN_TAKEOFF_BATTERY_PERCENT = 25;
+constexpr uint32_t TELLO_BATTERY_MAX_AGE_MS = 30000;
+constexpr uint32_t TELLO_LAND_SETTLE_MS = 5000;
+constexpr uint32_t TELLO_LAND_ACK_ONLY_SETTLE_MS = 20000;
+constexpr uint32_t TELLO_LAND_CONFIRM_TIMEOUT_MS = 60000;
+constexpr uint32_t TELLO_TELEMETRY_TIMEOUT_MS = 2000;
+constexpr unsigned TELLO_LAND_STABLE_SAMPLES = 10;
+constexpr int TELLO_LAND_MAX_HEIGHT_CM = 15;
+constexpr int TELLO_LAND_MAX_VERTICAL_SPEED = 5;
+constexpr uint32_t TELLO_RC_INTERVAL_MS = 100;
+constexpr uint32_t TELLO_RC_MAX_AGE_MS = 500;
 constexpr char GATEWAY_CODE[] = "GATEWAY-001";
 constexpr uint16_t HTTP_PORT = 80;
 constexpr size_t MAX_LOCAL_RECORDS = 1000;

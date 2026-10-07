@@ -3,6 +3,9 @@
 #include "Secrets.h"
 #include "Logger.h"
 static_assert(Config::BACKEND_BATCH_SIZE <= Config::STORAGE_BATCH_SIZE, "Backend batch exceeds storage batch");
+bool BackendSyncManager::isConfigured() const {
+    return Secrets::BACKEND_BASE_URL[0] && Secrets::BACKEND_API_KEY[0] && Config::BACKEND_GATEWAY_ID>0;
+}
 
 void BackendSyncManager::retry(size_t count) {
     const uint32_t scheduled = retryMs_;
@@ -15,9 +18,9 @@ void BackendSyncManager::update() {
         lastCleanup_ = now;
         if (!storage_.cleanup()) Logger::warn("Synced cleanup failed; data retained");
     }
-    if (!Secrets::BACKEND_BASE_URL[0] || !Secrets::BACKEND_API_KEY[0] || Config::BACKEND_GATEWAY_ID <= 0) return;
+    if (!isConfigured()) return;
     // A private LAN backend can be reachable without the public Internet probe.
-    if (!wifi_.isStaConnected() || now - lastAttempt_ < retryMs_ || !storage_.getPendingCount()) return;
+    if (!wifi_.isBackendNetworkReady() || now - lastAttempt_ < retryMs_ || !storage_.getPendingCount()) return;
     lastAttempt_ = now;
     const size_t count = storage_.loadPendingBatch(batch_, Config::BACKEND_BATCH_SIZE);
     if (!count) return;

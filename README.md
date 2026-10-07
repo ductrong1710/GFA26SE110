@@ -5,7 +5,8 @@ ESP32 Dev Module (4 MB), PlatformIO, Arduino, LittleFS, ArduinoJson 6.21.5.
 Implemented: AP + optional STA, authenticated in-memory node registry, local REST
 APIs, persistent measurement deduplication, save-before-ACK sensor collection,
 NTP time and repository-compatible backend synchronization. No ESP8266 firmware
-or flight-control code is included.
+is included. The isolated Tello extension adds single-ESP32 flight control and
+post-landing Internet synchronization; see [Tello ground and flight tests](docs/TELLO_OPERATIONS.md).
 
 Start with [configuration, build/upload commands and complete test runbook](docs/OPERATIONS.md).
 See [file inventory](docs/FILES.md) and [Phase 4 registration API tests](docs/PHASE4.md).

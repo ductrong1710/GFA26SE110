@@ -8,6 +8,7 @@ public:
     BackendSyncManager(StorageManager& storage, GatewayWiFiManager& wifi)
         : storage_(storage), wifi_(wifi), document_(Config::BACKEND_JSON_CAPACITY) {}
     void update();
+    bool isConfigured() const;
 private:
     StorageManager& storage_;
     GatewayWiFiManager& wifi_;

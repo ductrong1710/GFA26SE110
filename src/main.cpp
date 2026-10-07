@@ -19,7 +19,9 @@ TimeManager timeManager;
 SensorNodeClient sensorClient(nodeAuthenticator);
 CollectionManager collectionManager(nodeRegistry, sensorClient, storage, timeManager);
 BackendSyncManager backendSyncManager(storage, wifiManager);
-ApiServer apiServer(nodeRegistry, nodeAuthenticator, storage, wifiManager, timeManager);
+TelloController telloController(wifiManager);
+FlightStateManager flightStateManager(wifiManager, telloController);
+ApiServer apiServer(nodeRegistry, nodeAuthenticator, storage, wifiManager, timeManager, telloController, flightStateManager);
 }
 
 void setup() {
@@ -45,7 +47,9 @@ void loop() {
     StorageDiagnostics::update(storage);
     wifiManager.update();
     apiServer.handleClient();
-    timeManager.update(wifiManager.isStaConnected());
+    telloController.update();
+    flightStateManager.update(storage.getPendingCount(), storage.isReady(), backendSyncManager.isConfigured());
+    timeManager.update(wifiManager.isInternetNetworkReady());
     nodeRegistry.update();
 #ifndef STORAGE_DIAGNOSTICS
     collectionManager.update();
