@@ -32,11 +32,12 @@ public class ThresholdTests(ApiFactory factory)
         };
         db.SensorChannels.Add(channel);
         await db.SaveChangesAsync();
+        await factory.AssignFarmAsync(channel.SensorNode.Zone.FarmId, "owner@example.com");
         return channel.Id;
     }
 
     [Fact]
-    public async Task Administrator_upserts_threshold_with_bounds_and_operator_cannot_write()
+    public async Task Administrator_upserts_threshold_with_bounds_and_owner_cannot_write()
     {
         var id = await CreateChannel();
         using var admin = await Login("admin@example.com");
@@ -52,7 +53,7 @@ public class ThresholdTests(ApiFactory factory)
         Assert.Equal(40m, current.GetProperty("maxValue").GetDecimal());
         Assert.Equal(JsonValueKind.Null, current.GetProperty("minValue").ValueKind);
         Assert.False(current.GetProperty("isEnabled").GetBoolean());
-        using var op = await Login("operator@example.com");
+        using var op = await Login("owner@example.com");
         Assert.Equal(HttpStatusCode.OK, (await op.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await op.PutAsJsonAsync(path, new { maxValue = 50 })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync(path, new { minValue = 40, maxValue = 10 })).StatusCode);

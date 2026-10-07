@@ -21,7 +21,7 @@ public sealed class UserRolesValidator : AbstractValidator<UserRolesRequest>
         RuleFor(x => x.Roles).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Distinct(StringComparer.Ordinal).Count() == x.Length)
             .WithMessage("Roles must be unique.").OverridePropertyName("roles");
-        RuleForEach(x => x.Roles).Must(x => x is RoleNames.FarmAdministrator or RoleNames.UavDeviceOperator)
+        RuleForEach(x => x.Roles).Must(RoleNames.IsSupported)
             .WithMessage("Unknown role.").OverridePropertyName("roles");
     }
 }

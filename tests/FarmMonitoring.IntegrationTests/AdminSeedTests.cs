@@ -42,7 +42,7 @@ public class AdminSeedTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => seed.SeedAsync("first@example.com", null, default));
         var user = new User { Email = "existing@example.com", FullName = "Existing", CreatedAt = DateTimeOffset.UtcNow };
         user.PasswordHash = scope.ServiceProvider.GetRequiredService<IPasswordService>().Hash(user, "Existing-test-password!");
-        user.UserRoles.Add(new UserRole { RoleId = 2 });
+        user.UserRoles.Add(new UserRole { RoleId = 3 });
         db.Users.Add(user);
         await db.SaveChangesAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => seed.SeedAsync(user.Email, "A-different-password!", default));

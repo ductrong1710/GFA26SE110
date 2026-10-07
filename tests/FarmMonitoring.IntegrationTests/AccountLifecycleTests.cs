@@ -25,7 +25,7 @@ public class AccountLifecycleTests(ApiFactory factory)
             .HashPassword(user, "Lifecycle-password!");
         var oldHash = user.PasswordHash;
         user.UserRoles.Add(new UserRole { RoleId = 1 });
-        user.UserRoles.Add(new UserRole { RoleId = 2 });
+        user.UserRoles.Add(new UserRole { RoleId = 3 });
         db.Users.Add(user);
         await db.SaveChangesAsync();
         using var client = factory.CreateApiClient();

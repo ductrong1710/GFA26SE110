@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
@@ -5,7 +6,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Telemetry;
 
-public sealed class TelemetryService(ITelemetryRepository repository, IMissionRepository missions,
+public sealed class TelemetryService(FarmAccessService access, ITelemetryRepository repository, IMissionRepository missions,
     IValidator<TelemetryRequest> validator, IValidator<TelemetryQuery> queries, TimeProvider clock)
 {
     public async Task<TelemetryResponse> RecordAsync(int authenticatedGateway, TelemetryRequest request, CancellationToken ct)
@@ -47,6 +48,6 @@ public sealed class TelemetryService(ITelemetryRepository repository, IMissionRe
     }
     private async Task RequireMission(int id, CancellationToken ct)
     {
-        if (await missions.FindAsync(id, false, ct) is null) throw new NotFoundException("Mission not found.");
+        await access.EnsureAsync(FarmResource.Mission, id, ct);
     }
 }

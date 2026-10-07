@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Sensors;
 using FarmMonitoring.Domain.Entities;
@@ -12,7 +13,7 @@ public interface ISensorRepository
     Task<bool> ConflictsWithMissionAsync(int nodeId, int destinationZoneId, CancellationToken ct);
     Task<bool> HasReadingsAsync(int channelId, CancellationToken ct);
     Task<PagedResult<SensorTypeResponse>> ListTypesAsync(PageQuery query, CancellationToken ct);
-    Task<PagedResult<SensorNodeResponse>> ListNodesAsync(SensorNodeQuery query, CancellationToken ct);
+    Task<PagedResult<SensorNodeResponse>> ListNodesAsync(SensorNodeQuery query, FarmAccessScope scope, CancellationToken ct);
     Task<PagedResult<SensorChannelResponse>> ListChannelsAsync(int nodeId, PageQuery query, CancellationToken ct);
     Task<SensorNode?> FindNodeAsync(int id, CancellationToken ct);
     Task<SensorChannel?> FindChannelAsync(int id, CancellationToken ct);

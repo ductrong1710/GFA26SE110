@@ -9,9 +9,9 @@ namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
 public sealed class FarmRepository(AppDbContext db) : IFarmRepository
 {
-    public async Task<PagedResult<FarmResponse>> ListFarmsAsync(PageQuery query, CancellationToken ct)
+    public async Task<PagedResult<FarmResponse>> ListFarmsAsync(PageQuery query, FarmAccessScope scope, CancellationToken ct)
     {
-        var rows = db.Farms.AsNoTracking();
+        var rows = db.Farms.AsNoTracking().ForFarms(db, scope, x => x.Id);
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim().ToLowerInvariant();

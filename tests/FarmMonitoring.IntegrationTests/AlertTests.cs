@@ -110,7 +110,7 @@ public class AlertTests(ApiFactory factory)
         var notifications = (await admin.GetFromJsonAsync<JsonElement>($"/api/notifications?alertId={id}")).GetProperty("data");
         Assert.Single(notifications.EnumerateArray());
         var notificationId = notifications[0].GetProperty("id").GetInt32();
-        using var op = await Login("operator@example.com");
+        using var op = await Login("owner@example.com");
         Assert.Equal(HttpStatusCode.NotFound, (await op.PatchAsJsonAsync($"/api/notifications/{notificationId}/read", new { })).StatusCode);
         (await admin.PatchAsJsonAsync($"/api/notifications/{notificationId}/read", new { })).EnsureSuccessStatusCode();
         (await device.PostAsJsonAsync($"/api/device/gateways/{gatewayId}/sync", Batch("alert-three"))).EnsureSuccessStatusCode();

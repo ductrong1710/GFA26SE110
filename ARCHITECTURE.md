@@ -18,7 +18,7 @@ High-level architecture:
 ```text
 ┌──────────────────────────────┐
 │ Web Application / Devices    │
-│ Admin UI / Operator UI       │
+│ Admin / Owner / Engineer UI  │
 │ Gateway / UAV Companion      │
 └──────────────┬───────────────┘
                │ HTTPS / API
@@ -146,8 +146,26 @@ Responsibilities:
 
 Actors:
 
-- Farm Administrator
-- UAV and Device Operator
+- FarmAdministrator
+- FarmOwner
+- FarmEngineer
+
+| Policy | FarmAdministrator | FarmOwner | FarmEngineer |
+|---|---|---|---|
+| ManageUsers | Yes | No | No |
+| ManageFarms | Yes | Yes | No |
+| ReadFarmData | Yes | Yes | Yes |
+| ManageDevices | Yes | Yes | No |
+| ConfigureThresholds | Yes | No | Yes |
+| ManageMissions | Yes | Yes | No |
+
+Human users authenticate with JWT Bearer. Gateway/device endpoints use independent Device Authentication with both `X-Api-Key` and `X-Gateway-Code`; human JWTs never substitute for device credentials. Device credentials do not grant access to human endpoints.
+
+All three human roles may read farms/zones, sensor data/history, alerts, dashboard and reports. Only FarmAdministrator manages users. FarmAdministrator/FarmOwner manage farms/zones, device metadata and missions. FarmAdministrator/FarmEngineer configure thresholds. Alert handling also requires farm access; private notification APIs retain recipient ownership checks.
+
+FarmAdministrator has global farm access without membership. FarmOwner and FarmEngineer require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+
+UAV Operator may describe an external/use-case actor, but is NOT an authenticated backend user role and cannot receive JWTs as an operator. Historical mission fields such as `operatorNotes` describe operational notes, not authorization roles.
 
 ---
 
@@ -256,7 +274,7 @@ Mission execution is tracked by the platform, but actual direct UAV flight contr
 ## 5. Mission Flow
 
 ```text
-Operator
+FarmAdministrator / FarmOwner
    │
    ▼
 Create Mission
@@ -288,7 +306,7 @@ RUNNING
    └──────── cancel ─────────► CANCELLED
 ```
 
-Backend may receive automatic progress from a gateway/UAV companion or accept manual operator updates.
+Backend may receive automatic progress from a gateway/UAV companion or accept manual updates from users authorized by ManageMissions.
 
 ---
 
@@ -520,7 +538,7 @@ Device APIs
   /api/device/sync
 ```
 
-Device authentication should be independent from human JWT login when possible.
+Device Authentication is independent from human JWT login. Existing /api/device/... endpoints require X-Api-Key and X-Gateway-Code; JWT-only requests are rejected.
 
 ---
 
@@ -590,3 +608,31 @@ Initial scope excludes:
 - advanced AI
 - crop image analysis
 - autonomous obstacle avoidance implemented by the backend
+
+
+## Farm-level access control
+
+ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
+
+- FarmAdministrator has global access, with no `user_farms` row required.
+- FarmOwner and FarmEngineer access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
+- Assignment requires an existing active FarmOwner/FarmEngineer user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
+- Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
+- Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
+- Alerts resolve their farm through SensorChannel -> SensorNode -> Zone -> Farm, otherwise SensorNode -> Zone -> Farm, otherwise Mission -> Farm. Alerts without such an association are administrator-only. Gateway/UAV identity alone does not establish a farm.
+- New alert notifications target administrators and eligible members of the resolved farm. Notification APIs retain user-specific ownership checks, including historical notifications after membership removal; they never expose another user's notification.
+- Historical mission target IDs, outcome/status and sequence remain part of mission history. If a target sensor has since moved outside the viewer's accessible farms, its current `sensorName` is null rather than exposing live metadata from another farm.
+
+UAV/Gateway entities are not directly farm-owned in the current schema. Direct per-farm device authorization requires a future explicit device-to-farm assignment model.
+
+Direct UAV/Gateway catalog APIs retain existing global role permissions. Farm-scoped device reports/dashboard counts include only equipment referenced by missions in accessible farms (or the requested authorized farm); this is a mission association, not device ownership. An administrator's unfiltered aggregate remains global. Sensor-type definitions are a global catalog.
+
+Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` is only for human users and is never applied to device identity or required for telemetry/sync ingestion. Human telemetry reads require mission-farm access.
+
+Response conventions: 401 without valid authentication; 403 for denied role/farm access; 404 for nonexistent resources; 409 for duplicate membership; 400 for invalid request data; 422 for ineligible membership targets.
+
+### Farm access implementation boundaries
+
+`ICurrentUser` is implemented by the API; `FarmAccessService` enforces current database roles and resource-to-farm resolution in Application. `IFarmAccessRepository` and SQL-translatable `ForFarms` query scoping are implemented in Infrastructure. List filtering precedes counting, pagination and aggregation. Device ingestion does not invoke human farm-access checks.

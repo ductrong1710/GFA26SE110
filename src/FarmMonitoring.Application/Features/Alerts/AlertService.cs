@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
@@ -5,7 +6,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Alerts;
 
-public sealed class AlertService(IAlertRepository repository, IValidator<AlertQuery> queries, IValidator<PageQuery> pages, TimeProvider clock, EmailDeliverySettings emailSettings)
+public sealed class AlertService(FarmAccessService access, IAlertRepository repository, IValidator<AlertQuery> queries, IValidator<PageQuery> pages, TimeProvider clock, EmailDeliverySettings emailSettings)
 {
     // Called inside the caller's transaction: readings, alerts, histories and web notifications commit together.
     public async Task EvaluateReadingAsync(SensorReading reading, CancellationToken ct)
@@ -28,7 +29,7 @@ public sealed class AlertService(IAlertRepository repository, IValidator<AlertQu
             Message = signal.Message, TriggeredValue = signal.Value, OpenedAt = now,
             History = [new AlertHistory { Action = AlertAction.CREATED, Note = signal.Message, CreatedAt = now }] };
         repository.Add(alert);
-        foreach (var userId in await repository.RecipientsAsync(ct))
+        foreach (var userId in await repository.RecipientsAsync(signal, ct))
         {
             repository.AddNotification(new Notification { Alert = alert, UserId = userId, Channel = NotificationChannel.WEB,
                 Subject = signal.Type.ToString(), Message = signal.Message, Status = NotificationStatus.UNREAD, CreatedAt = now, SentAt = now });
@@ -40,15 +41,24 @@ public sealed class AlertService(IAlertRepository repository, IValidator<AlertQu
     public async Task<PagedResult<AlertResponse>> ListAsync(AlertQuery query, CancellationToken ct)
     {
         await queries.ValidateAndThrowAsync(query, ct);
-        return await repository.ListAsync(query, ct);
+        await access.CheckFilterAsync(FarmResource.Farm, query.FarmId, ct);
+        await access.CheckFilterAsync(FarmResource.Zone, query.ZoneId, ct);
+        await access.CheckFilterAsync(FarmResource.SensorNode, query.SensorNodeId, ct);
+        await access.CheckFilterAsync(FarmResource.Mission, query.MissionId, ct);
+        return await repository.ListAsync(query, await access.GetScopeAsync(ct), ct);
     }
-    public async Task<AlertResponse> GetAsync(int id, CancellationToken ct) => Map(await repository.FindAsync(id, false, ct) ?? throw new NotFoundException("Alert not found."));
+    public async Task<AlertResponse> GetAsync(int id, CancellationToken ct)
+    {
+        await access.EnsureAsync(FarmResource.Alert, id, ct);
+        return Map(await repository.FindAsync(id, false, ct) ?? throw new NotFoundException("Alert not found."));
+    }
     public async Task<AlertResponse> HandleAsync(int id, AlertAction action, AlertNoteRequest request, int userId, CancellationToken ct)
     {
         if (request.Note?.Length > 10000 || request.Note?.Contains('\0') == true || (action == AlertAction.NOTE_ADDED && string.IsNullOrWhiteSpace(request.Note)))
             throw new ValidationException("Provide a valid note of at most 10000 characters.");
         return await repository.InTransactionAsync(async () =>
         {
+            await access.EnsureAsync(FarmResource.Alert, id, ct);
             var alert = await repository.FindAsync(id, true, ct) ?? throw new NotFoundException("Alert not found.");
             var now = clock.GetUtcNow();
             if (action == AlertAction.ACKNOWLEDGED)

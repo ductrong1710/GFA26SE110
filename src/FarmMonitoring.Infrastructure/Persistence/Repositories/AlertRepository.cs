@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using System.Linq.Expressions;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Alerts;
@@ -57,21 +58,33 @@ public sealed class AlertRepository(AppDbContext db) : IAlertRepository
     }
     public Task<SensorThreshold?> ThresholdAsync(int channelId, CancellationToken ct) => db.SensorThresholds
         .Include(x => x.SensorChannel).ThenInclude(x => x.SensorNode).SingleOrDefaultAsync(x => x.SensorChannelId == channelId, ct);
-    public Task<int[]> RecipientsAsync(CancellationToken ct) => db.Users.AsNoTracking().Where(x => x.IsActive && x.UserRoles.Any(r =>
-        r.Role.Name == RoleNames.FarmAdministrator || r.Role.Name == RoleNames.UavDeviceOperator)).Select(x => x.Id).ToArrayAsync(ct);
+    public async Task<int[]> RecipientsAsync(AlertSignal signal, CancellationToken ct)
+    {
+        int? farmId = signal.SensorChannelId.HasValue
+            ? await db.SensorChannels.Where(x => x.Id == signal.SensorChannelId).Select(x => (int?)x.SensorNode.Zone.FarmId).SingleOrDefaultAsync(ct)
+            : signal.SensorNodeId.HasValue
+                ? await db.SensorNodes.Where(x => x.Id == signal.SensorNodeId).Select(x => (int?)x.Zone.FarmId).SingleOrDefaultAsync(ct)
+                : await db.Missions.Where(x => x.Id == signal.MissionId).Select(x => (int?)x.FarmId).SingleOrDefaultAsync(ct);
+        return await db.Users.AsNoTracking().Where(x => x.IsActive &&
+            (x.UserRoles.Any(r => r.Role.Name == RoleNames.FarmAdministrator) ||
+                (farmId.HasValue && x.UserFarms.Any(f => f.FarmId == farmId) &&
+                    x.UserRoles.Any(r => r.Role.Name == RoleNames.FarmOwner || r.Role.Name == RoleNames.FarmEngineer))))
+            .Select(x => x.Id).ToArrayAsync(ct);
+    }
     public void Add(Alert alert) => db.Alerts.Add(alert);
     public void AddNotification(Notification notification) => db.Notifications.Add(notification);
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
-    public async Task<PagedResult<AlertResponse>> ListAsync(AlertQuery query, CancellationToken ct)
+    public async Task<PagedResult<AlertResponse>> ListAsync(AlertQuery query, FarmAccessScope scope, CancellationToken ct)
     {
-        var rows = db.Alerts.AsNoTracking();
+        var rows = db.Alerts.AsNoTracking().ForFarms(db, scope, FarmAccessQuery.AlertFarm);
         if (query.Status is not null) { var value = Enum.Parse<AlertStatus>(query.Status); rows = rows.Where(x => x.Status == value); }
         if (query.Severity is not null) { var value = Enum.Parse<AlertSeverity>(query.Severity); rows = rows.Where(x => x.Severity == value); }
         if (query.AlertType is not null) { var value = Enum.Parse<AlertType>(query.AlertType); rows = rows.Where(x => x.AlertType == value); }
         if (query.SensorNodeId.HasValue) rows = rows.Where(x => x.SensorNodeId == query.SensorNodeId);
         if (query.GatewayId.HasValue) rows = rows.Where(x => x.GatewayId == query.GatewayId);
         if (query.MissionId.HasValue) rows = rows.Where(x => x.MissionId == query.MissionId);
-        if (query.FarmId.HasValue) rows = rows.Where(x => (x.SensorNode != null && x.SensorNode.Zone.FarmId == query.FarmId) || (x.Mission != null && x.Mission.FarmId == query.FarmId));
+        if (query.FarmId.HasValue) rows = rows.Where(x => (x.SensorChannel != null ? (int?)x.SensorChannel.SensorNode.Zone.FarmId :
+            x.SensorNode != null ? x.SensorNode.Zone.FarmId : x.Mission != null ? x.Mission.FarmId : null) == query.FarmId);
         if (query.ZoneId.HasValue) rows = rows.Where(x => x.SensorNode != null && x.SensorNode.ZoneId == query.ZoneId);
         if (query.From.HasValue) { var from = query.From.Value.ToUniversalTime(); rows = rows.Where(x => x.OpenedAt >= from); }
         if (query.To.HasValue) { var to = query.To.Value.ToUniversalTime(); rows = rows.Where(x => x.OpenedAt <= to); }

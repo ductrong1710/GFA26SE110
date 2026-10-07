@@ -5,6 +5,8 @@ using FarmMonitoring.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -19,6 +21,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
     public string DeviceKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
     public bool SeedAccounts { get; init; } = true;
+    public string? InitialMigration { get; init; }
     private bool databaseCreated;
     public string ConnectionString => new NpgsqlConnectionStringBuilder(adminConnection) { Database = databaseName }.ConnectionString;
 
@@ -38,6 +41,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["DeviceAuthentication:Credentials:2:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
             ["DeviceAuthentication:Credentials:3:GatewayCode"] = "alerts-gateway",
             ["DeviceAuthentication:Credentials:3:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
+            ["DeviceAuthentication:Credentials:4:GatewayCode"] = "role-matrix-gateway",
+            ["DeviceAuthentication:Credentials:4:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
             ["SEED_ADMIN_EMAIL"] = "", ["SEED_ADMIN_PASSWORD"] = "",
             ["Logging:LogLevel:Default"] = "Warning",
             ["Monitoring:Enabled"] = "false"
@@ -55,10 +60,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         databaseCreated = true;
         await using var scope = Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.Database.MigrateAsync();
+        await db.GetService<IMigrator>().MigrateAsync(InitialMigration);
         if (!SeedAccounts) return;
         var passwords = scope.ServiceProvider.GetRequiredService<IPasswordService>();
-        foreach (var (email, active, roleId) in new[] { ("admin@example.com", true, 1), ("disabled@example.com", false, 1), ("operator@example.com", true, 2) })
+        foreach (var (email, active, roleId) in new[] { ("admin@example.com", true, 1), ("disabled@example.com", false, 1), ("owner@example.com", true, 3), ("engineer@example.com", true, 4) })
         {
             var user = new User { Email = email, FullName = "Test Account", IsActive = active, CreatedAt = DateTimeOffset.UtcNow };
             user.PasswordHash = passwords.Hash(user, "Test-password-123!");
@@ -81,6 +86,25 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await command.ExecuteNonQueryAsync();
         databaseCreated = false;
     }
+
+    public async Task AssignFarmAsync(int farmId, params string[] emails)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ids = await db.Users.Where(x => emails.Contains(x.Email)).Select(x => x.Id).ToArrayAsync();
+        Assert.Equal(emails.Length, ids.Length);
+        foreach (var id in ids) db.UserFarms.Add(new UserFarm { FarmId = farmId, UserId = id, CreatedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+    }
+
+    // Direct application integrity tests supply an actor, but still use real DB role/membership checks.
+    public static T HumanService<T>(IServiceProvider services, int userId) where T : class
+    {
+        var access = new FarmMonitoring.Application.Features.Farms.FarmAccessService(
+            services.GetRequiredService<IFarmAccessRepository>(), services.GetRequiredService<IAuthRepository>(), new TestUser(userId));
+        return ActivatorUtilities.CreateInstance<T>(services, access);
+    }
+    private sealed record TestUser(int Id) : ICurrentUser { public int? UserId => Id; }
 
     public HttpClient CreateApiClient() => CreateClient(new WebApplicationFactoryClientOptions
     {

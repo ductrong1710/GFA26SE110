@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Alerts;
 using FarmMonitoring.Domain.Entities;
@@ -11,11 +12,11 @@ public interface IAlertRepository
     Task<Alert?> FindActiveAsync(AlertSignal signal, CancellationToken ct);
     Task<Alert?> FindAsync(int id, bool forUpdate, CancellationToken ct);
     Task<SensorThreshold?> ThresholdAsync(int channelId, CancellationToken ct);
-    Task<int[]> RecipientsAsync(CancellationToken ct);
+    Task<int[]> RecipientsAsync(AlertSignal signal, CancellationToken ct);
     void Add(Alert alert);
     void AddNotification(Notification notification);
     Task SaveAsync(CancellationToken ct);
-    Task<PagedResult<AlertResponse>> ListAsync(AlertQuery query, CancellationToken ct);
+    Task<PagedResult<AlertResponse>> ListAsync(AlertQuery query, FarmAccessScope scope, CancellationToken ct);
     Task<PagedResult<NotificationResponse>> NotificationsAsync(int userId, NotificationQuery query, CancellationToken ct);
     Task<Notification?> ReadNotificationAsync(int userId, int id, CancellationToken ct);
 }

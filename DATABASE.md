@@ -62,7 +62,7 @@ Operational history such as readings, mission logs, telemetry, alert history, an
 
 ## 3. Core Database Tables
 
-The current baseline contains 23 tables.
+The current baseline contains 24 tables, including the new `user_farms` assignment table.
 
 ### Identity and access
 
@@ -70,6 +70,8 @@ The current baseline contains 23 tables.
 2. `roles`
 3. `user_roles`
 4. `refresh_tokens`
+
+Farm access additionally uses `user_farms` (section 5.24).
 
 ### Farm and sensor management
 
@@ -111,37 +113,37 @@ The current baseline contains 23 tables.
 
 ```text
 roles
-  └──< user_roles >── users
-                       └──< refresh_tokens
+  â””â”€â”€< user_roles >â”€â”€ users
+                       â””â”€â”€< refresh_tokens
 
 farms
-  └──< zones
-       └──< sensor_nodes
-             └──< sensor_channels >── sensor_types
-                    ├──< sensor_thresholds
-                    └──< sensor_readings
+  â””â”€â”€< zones
+       â””â”€â”€< sensor_nodes
+             â””â”€â”€< sensor_channels >â”€â”€ sensor_types
+                    â”œâ”€â”€< sensor_thresholds
+                    â””â”€â”€< sensor_readings
 
 uavs
-  └──< missions
+  â””â”€â”€< missions
 
 gateways
-  └──< missions
+  â””â”€â”€< missions
 
 missions
-  ├──< mission_waypoints
-  ├──< mission_targets >── sensor_nodes
-  ├──< collection_attempts
-  ├──< mission_logs
-  └──< telemetry_records
+  â”œâ”€â”€< mission_waypoints
+  â”œâ”€â”€< mission_targets >â”€â”€ sensor_nodes
+  â”œâ”€â”€< collection_attempts
+  â”œâ”€â”€< mission_logs
+  â””â”€â”€< telemetry_records
 
 gateways
-  └──< sync_batches
+  â””â”€â”€< sync_batches
 
 alerts
-  └──< alert_histories
+  â””â”€â”€< alert_histories
 
 alerts
-  └──< notifications
+  â””â”€â”€< notifications
 ```
 
 ---
@@ -174,11 +176,12 @@ UNIQUE(email)
 
 ## 5.2 roles
 
-Suggested values:
+Supported human role values:
 
 ```text
 FarmAdministrator
-UavDeviceOperator
+FarmOwner
+FarmEngineer
 ```
 
 Columns:
@@ -190,6 +193,14 @@ description         varchar(255) NULL
 ```
 
 ---
+
+Migration `20261007041338_HumanUserRoles` removes memberships referencing the deprecated `UavDeviceOperator` role by name, deletes that role, and inserts missing FarmOwner/FarmEngineer roles. Users and password hashes are preserved; no account is automatically reassigned. Role IDs are internal identifiers, not an authorization contract. Existing target roles and their memberships are preserved. Rolling back cannot recover removed role assignments.
+
+An account with no supported role cannot log in, refresh or access `/api/auth/me` until an administrator assigns a valid role. Protected business policies read current database roles rather than trusting stale JWT roles.
+
+FarmAdministrator has global farm access without membership. FarmOwner and FarmEngineer require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+
+Human users use JWT Bearer; gateway/device communication uses X-Api-Key + X-Gateway-Code independently. See API.md for the six-policy authorization matrix.
 
 ## 5.3 user_roles
 
@@ -734,6 +745,21 @@ EMAIL
 
 ---
 
+## 5.24 user_farms
+
+Many-to-many human user assignments to farms. No farm-specific role is stored here.
+
+```text
+id          int identity primary key
+user_id     int NOT NULL FK users(id) ON DELETE RESTRICT
+farm_id     int NOT NULL FK farms(id) ON DELETE RESTRICT
+created_at  timestamptz NOT NULL (UTC)
+```
+
+Indexes: unique `(user_id, farm_id)` and nonunique `(farm_id)` for membership queries. The application controls eligibility; a stale membership cannot substitute for a current eligible global role.
+
+Migration `20261007094620_AddUserFarmAssignments` adds only the table, keys and indexes and updates the generated EF snapshot. It does not insert assignments or modify users, roles, farms or prior migrations. Migration verification covers upgrades with existing users/farms, uniqueness, foreign keys and empty initial membership data.
+
 ## 6. Delete Behavior
 
 Recommended behavior:
@@ -771,6 +797,8 @@ At minimum:
 
 ```text
 users(email)
+user_farms(user_id, farm_id) UNIQUE
+user_farms(farm_id)
 
 sensor_nodes(device_code)
 sensor_nodes(zone_id)
@@ -857,3 +885,27 @@ Each schema change must:
 6. add/update tests
 
 Never edit production schema manually without also creating the matching migration.
+
+
+## Farm-level access control
+
+ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
+
+- FarmAdministrator has global access, with no `user_farms` row required.
+- FarmOwner and FarmEngineer access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
+- Assignment requires an existing active FarmOwner/FarmEngineer user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
+- Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
+- Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
+- Alerts resolve their farm through SensorChannel -> SensorNode -> Zone -> Farm, otherwise SensorNode -> Zone -> Farm, otherwise Mission -> Farm. Alerts without such an association are administrator-only. Gateway/UAV identity alone does not establish a farm.
+- New alert notifications target administrators and eligible members of the resolved farm. Notification APIs retain user-specific ownership checks, including historical notifications after membership removal; they never expose another user's notification.
+- Historical mission target IDs, outcome/status and sequence remain part of mission history. If a target sensor has since moved outside the viewer's accessible farms, its current `sensorName` is null rather than exposing live metadata from another farm.
+
+UAV/Gateway entities are not directly farm-owned in the current schema. Direct per-farm device authorization requires a future explicit device-to-farm assignment model.
+
+Direct UAV/Gateway catalog APIs retain existing global role permissions. Farm-scoped device reports/dashboard counts include only equipment referenced by missions in accessible farms (or the requested authorized farm); this is a mission association, not device ownership. An administrator's unfiltered aggregate remains global. Sensor-type definitions are a global catalog.
+
+Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` is only for human users and is never applied to device identity or required for telemetry/sync ingestion. Human telemetry reads require mission-farm access.
+
+Response conventions: 401 without valid authentication; 403 for denied role/farm access; 404 for nonexistent resources; 409 for duplicate membership; 400 for invalid request data; 422 for ineligible membership targets.

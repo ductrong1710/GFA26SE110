@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Missions;
 using FarmMonitoring.Application.Interfaces;
@@ -26,7 +27,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         var query = db.Missions.AsQueryable();
         if (!forUpdate) query = query.AsNoTracking();
         return await query.Include(x => x.Farm).Include(x => x.Uav).Include(x => x.Gateway)
-            .Include(x => x.Targets).ThenInclude(x => x.SensorNode).Include(x => x.Waypoints)
+            .Include(x => x.Targets).ThenInclude(x => x.SensorNode).ThenInclude(x => x.Zone).Include(x => x.Waypoints)
             .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
     }
     public Task<Farm?> GetFarmAsync(int id, CancellationToken ct) => db.Farms.SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -70,9 +71,9 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
     public void Add(Mission mission) => db.Missions.Add(mission);
     public void AddLog(MissionLog log) => db.MissionLogs.Add(log);
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
-    public async Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, CancellationToken ct)
+    public async Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, FarmAccessScope scope, CancellationToken ct)
     {
-        var missions = db.Missions.AsNoTracking();
+        var missions = db.Missions.AsNoTracking().ForFarms(db, scope, x => x.FarmId);
         if (query.FarmId.HasValue) missions = missions.Where(x => x.FarmId == query.FarmId);
         if (query.UavId.HasValue) missions = missions.Where(x => x.UavId == query.UavId);
         if (query.GatewayId.HasValue) missions = missions.Where(x => x.GatewayId == query.GatewayId);

@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using System.Linq.Expressions;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.SensorData;
@@ -12,9 +13,9 @@ public sealed class SensorDataRepository(AppDbContext db) : ISensorDataRepositor
     private static readonly Expression<Func<SensorReading, ReadingResponse>> Projection = x => new(x.Id, x.SensorChannelId,
         x.SensorChannel.SensorNodeId, x.SensorChannel.ChannelCode, x.SensorChannel.SensorType.Unit, x.GatewayId, x.MissionId,
         x.SourceRecordKey, x.Value, x.MeasuredAt, x.CollectedAt, x.ReceivedAt, x.QualityStatus, x.IsValid, x.ValidationError);
-    public async Task<PagedResult<ReadingResponse>> ListAsync(ReadingQuery query, int? channelId, CancellationToken ct)
+    public async Task<PagedResult<ReadingResponse>> ListAsync(ReadingQuery query, int? channelId, FarmAccessScope scope, CancellationToken ct)
     {
-        var rows = db.SensorReadings.AsNoTracking();
+        var rows = db.SensorReadings.AsNoTracking().ForFarms(db, scope, x => x.SensorChannel.SensorNode.Zone.FarmId);
         var channel = channelId ?? query.SensorChannelId;
         if (channel.HasValue) rows = rows.Where(x => x.SensorChannelId == channel);
         if (query.SensorNodeId.HasValue) rows = rows.Where(x => x.SensorChannel.SensorNodeId == query.SensorNodeId);

@@ -1,6 +1,7 @@
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
+using FarmMonitoring.Domain.Constants;
 using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Auth;
@@ -14,7 +15,7 @@ public sealed class AuthService(
         await loginValidator.ValidateAndThrowAsync(request, ct);
         var user = await repository.GetUserByEmailAsync(request.Email.Trim().ToLowerInvariant(), ct);
         var check = passwords.Verify(user, request.Password);
-        if (user is null || !check.Succeeded || !user.IsActive)
+        if (user is null || !check.Succeeded || !user.IsActive || !user.UserRoles.Any(x => RoleNames.IsSupported(x.Role.Name)))
             throw new AuthException("Invalid email or password.");
 
         var now = clock.GetUtcNow();
@@ -49,7 +50,7 @@ public sealed class AuthService(
     public async Task<UserResponse> GetCurrentUserAsync(int userId, CancellationToken ct)
     {
         var user = await repository.GetUserByIdAsync(userId, ct);
-        if (user is null || !user.IsActive)
+        if (user is null || !user.IsActive || !user.UserRoles.Any(x => RoleNames.IsSupported(x.Role.Name)))
             throw new AuthException("Authentication required.");
         return ToResponse(user);
     }
@@ -64,5 +65,5 @@ public sealed class AuthService(
         new() { UserId = userId, TokenHash = material.Hash, CreatedAt = now, ExpiresAt = material.ExpiresAt };
 
     private static UserResponse ToResponse(User user) => new(user.Id, user.Email, user.FullName,
-        user.UserRoles.Select(x => x.Role.Name).Distinct().Order().ToArray());
+        user.UserRoles.Select(x => x.Role.Name).Where(RoleNames.IsSupported).Distinct().Order().ToArray());
 }

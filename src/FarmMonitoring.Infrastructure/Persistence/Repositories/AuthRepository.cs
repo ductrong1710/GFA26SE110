@@ -1,5 +1,6 @@
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
+using FarmMonitoring.Domain.Constants;
 using Microsoft.EntityFrameworkCore;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
@@ -30,7 +31,7 @@ public sealed class AuthRepository(AppDbContext db, TimeProvider clock) : IAuthR
         if (old is null || old.RevokedAt is not null || old.ExpiresAt <= now)
             return null;
         var user = await GetUserByIdAsync(old.UserId, ct);
-        if (user is null || !user.IsActive)
+        if (user is null || !user.IsActive || !user.UserRoles.Any(x => RoleNames.IsSupported(x.Role.Name)))
             return null;
 
         replacement.UserId = old.UserId;

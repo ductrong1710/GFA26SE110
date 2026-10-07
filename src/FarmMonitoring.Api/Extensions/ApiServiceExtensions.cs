@@ -34,6 +34,10 @@ public static class ApiServiceExtensions
     {
         services.AddScoped<AuthService>();
         services.AddScoped<UserService>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<FarmMonitoring.Application.Interfaces.ICurrentUser, CurrentUser>();
+        services.AddScoped<FarmAccessService>();
+        services.AddScoped<FarmMembershipService>();
         services.AddScoped<FarmService>();
         services.AddScoped<SensorService>();
         services.AddScoped<EquipmentService>();
@@ -119,15 +123,15 @@ public static class ApiServiceExtensions
             options.AddPolicy(AccessPolicies.ManageUsers, policy => policy.RequireAuthenticatedUser()
                 .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
             options.AddPolicy(AccessPolicies.ManageFarms, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
             options.AddPolicy(AccessPolicies.ReadFarmData, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.UavDeviceOperator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.FarmEngineer)));
             options.AddPolicy(AccessPolicies.ManageDevices, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.UavDeviceOperator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
             options.AddPolicy(AccessPolicies.ConfigureThresholds, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmEngineer)));
             options.AddPolicy(AccessPolicies.ManageMissions, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.UavDeviceOperator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
         });
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(options =>

@@ -5,13 +5,13 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Farms;
 
-public sealed class FarmService(IFarmRepository repository, TimeProvider clock, IValidator<FarmRequest> farmValidator,
+public sealed class FarmService(FarmAccessService access, IFarmRepository repository, TimeProvider clock, IValidator<FarmRequest> farmValidator,
     IValidator<ZoneRequest> zoneValidator, IValidator<FarmStatusRequest> statusValidator, IValidator<PageQuery> pageValidator)
 {
     public async Task<PagedResult<FarmResponse>> ListFarmsAsync(PageQuery query, CancellationToken ct)
     {
         await pageValidator.ValidateAndThrowAsync(query, ct);
-        return await repository.ListFarmsAsync(query, ct);
+        return await repository.ListFarmsAsync(query, await access.GetScopeAsync(ct), ct);
     }
 
     public async Task<PagedResult<ZoneResponse>> ListZonesAsync(int farmId, PageQuery query, CancellationToken ct)
@@ -29,6 +29,9 @@ public sealed class FarmService(IFarmRepository repository, TimeProvider clock, 
         await farmValidator.ValidateAndThrowAsync(request, ct);
         var farm = new Farm { CreatedAt = clock.GetUtcNow() };
         Apply(farm, request);
+        var scope = await access.GetScopeAsync(ct);
+        if (!scope.IsAdministrator) farm.UserFarms.Add(new UserFarm { UserId = scope.UserId, CreatedAt = farm.CreatedAt });
+        // EF commits the farm and creator assignment in the same SaveChanges transaction.
         repository.AddFarm(farm);
         await repository.SaveAsync(ct);
         return ToResponse(farm);
@@ -75,10 +78,16 @@ public sealed class FarmService(IFarmRepository repository, TimeProvider clock, 
         return ToResponse(zone);
     }
 
-    private async Task<Farm> RequireFarmAsync(int id, CancellationToken ct) =>
-        await repository.FindFarmAsync(id, ct) ?? throw new NotFoundException("Farm not found.");
-    private async Task<Zone> RequireZoneAsync(int id, CancellationToken ct) =>
-        await repository.FindZoneAsync(id, ct) ?? throw new NotFoundException("Zone not found.");
+    private async Task<Farm> RequireFarmAsync(int id, CancellationToken ct)
+    {
+        await access.EnsureAsync(FarmResource.Farm, id, ct);
+        return await repository.FindFarmAsync(id, ct) ?? throw new NotFoundException("Farm not found.");
+    }
+    private async Task<Zone> RequireZoneAsync(int id, CancellationToken ct)
+    {
+        await access.EnsureAsync(FarmResource.Zone, id, ct);
+        return await repository.FindZoneAsync(id, ct) ?? throw new NotFoundException("Zone not found.");
+    }
     private static void Apply(Farm farm, FarmRequest request)
     {
         farm.Name = request.Name.Trim();

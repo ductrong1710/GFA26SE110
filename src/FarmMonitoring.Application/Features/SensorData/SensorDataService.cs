@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using System.Globalization;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
@@ -5,7 +6,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.SensorData;
 
-public sealed class SensorDataService(ISensorDataRepository repository, ISensorRepository sensors, IMissionRepository missions,
+public sealed class SensorDataService(FarmAccessService access, ISensorDataRepository repository, ISensorRepository sensors,
     IValidator<ReadingQuery> queries, IValidator<PageQuery> pages, TimeProvider clock)
 {
     public async Task<PagedResult<ReadingResponse>> ListAsync(ReadingQuery query, int? channelId, CancellationToken ct)
@@ -14,17 +15,22 @@ public sealed class SensorDataService(ISensorDataRepository repository, ISensorR
         if (channelId.HasValue && await sensors.FindChannelAsync(channelId.Value, ct) is null) throw new NotFoundException("Sensor channel not found.");
         if (channelId.HasValue && query.SensorChannelId.HasValue && query.SensorChannelId != channelId)
             throw new ValidationException("Channel filter does not match the route.");
-        return await repository.ListAsync(query, channelId, ct);
+        await access.CheckFilterAsync(FarmResource.Farm, query.FarmId, ct);
+        await access.CheckFilterAsync(FarmResource.Zone, query.ZoneId, ct);
+        await access.CheckFilterAsync(FarmResource.SensorNode, query.SensorNodeId, ct);
+        await access.CheckFilterAsync(FarmResource.SensorChannel, channelId ?? query.SensorChannelId, ct);
+        await access.CheckFilterAsync(FarmResource.Mission, query.MissionId, ct);
+        return await repository.ListAsync(query, channelId, await access.GetScopeAsync(ct), ct);
     }
     public async Task<IReadOnlyList<LatestChannelResponse>> LatestAsync(int nodeId, CancellationToken ct)
     {
-        if (await sensors.FindNodeAsync(nodeId, ct) is null) throw new NotFoundException("Sensor node not found.");
+        await access.EnsureAsync(FarmResource.SensorNode, nodeId, ct);
         return await repository.LatestAsync(nodeId, ct);
     }
     public async Task<PagedResult<CollectionAttemptResponse>> AttemptsAsync(int missionId, PageQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);
-        if (await missions.FindAsync(missionId, false, ct) is null) throw new NotFoundException("Mission not found.");
+        await access.EnsureAsync(FarmResource.Mission, missionId, ct);
         return await repository.AttemptsAsync(missionId, query, ct);
     }
     public async Task<IReadOnlyList<ZoneComparisonResponse>> CompareAsync(ZoneComparisonQuery query, CancellationToken ct)
@@ -36,6 +42,7 @@ public sealed class SensorDataService(ISensorDataRepository repository, ISensorR
         var to = (query.To ?? clock.GetUtcNow()).ToUniversalTime();
         var from = (query.From ?? (to >= DateTimeOffset.MinValue.AddDays(30) ? to.AddDays(-30) : DateTimeOffset.MinValue)).ToUniversalTime();
         if (from > to || to - from > TimeSpan.FromDays(366)) throw new ValidationException("Comparison range must be chronological and at most 366 days.");
+        await access.EnsureManyAsync(FarmResource.Zone, ids, ct);
         return await repository.CompareAsync(ids, query.SensorTypeId, from, to, ct);
     }
 }

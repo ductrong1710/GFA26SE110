@@ -291,14 +291,15 @@ Do not implement unrelated modules unless they are part of the user's current ta
 
 Follow the roles defined by project documentation.
 
-Primary business roles currently include:
+The supported human account roles are exactly:
 
 ```text
 FarmAdministrator
-UavDeviceOperator
+FarmOwner
+FarmEngineer
 ```
 
-The Sensor Collection Engine is a system actor/service, not necessarily a login user role.
+UAV Operator and Sensor Collection Engine are external/system actors, not authenticated backend user roles. Human users use JWT Bearer; gateway/device requests use X-Api-Key + X-Gateway-Code independently. Follow the current policy matrix in AGENTS.md and API.md.
 
 Role names in code must be centralized as constants or another safe reusable mechanism.
 

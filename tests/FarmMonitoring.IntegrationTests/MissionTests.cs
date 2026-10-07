@@ -12,7 +12,7 @@ namespace FarmMonitoring.IntegrationTests;
 [Collection("PostgreSQL Auth")]
 public class MissionTests(ApiFactory factory)
 {
-    private async Task<HttpClient> Login(string email = "operator@example.com")
+    private async Task<HttpClient> Login(string email = "owner@example.com")
     {
         var client = factory.CreateApiClient();
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" });
@@ -32,6 +32,7 @@ public class MissionTests(ApiFactory factory)
         var gateway = new Gateway { Code = Guid.NewGuid().ToString("N"), Name = "Mission gateway", GatewayType = "ESP32", Uav = uav, Status = "ONLINE", CreatedAt = DateTimeOffset.UtcNow };
         db.SensorNodes.Add(node); db.Gateways.Add(gateway);
         await db.SaveChangesAsync();
+        await factory.AssignFarmAsync(farm.Id, "owner@example.com");
         return (farm.Id, node.Id, uav.Id, gateway.Id);
     }
 
@@ -165,7 +166,7 @@ public class MissionTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Planning_requires_correct_farm_and_ready_equipment_and_operator()
+    public async Task Planning_requires_correct_farm_and_ready_equipment_and_authorized_user()
     {
         var setup = await Setup();
         var other = await Setup();
@@ -178,6 +179,7 @@ public class MissionTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, (await op.PostAsJsonAsync("/api/missions", new { name = "Duplicate", farmId = setup.farm, sensorNodeIds = new[] { setup.sensor, setup.sensor }, waypoints = Array.Empty<object>() })).StatusCode);
         using var admin = await Login("admin@example.com");
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/missions")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/missions", Plan(setup))).StatusCode);
+        using var engineer = await Login("engineer@example.com");
+        Assert.Equal(HttpStatusCode.Forbidden, (await engineer.PostAsJsonAsync("/api/missions", Plan(setup))).StatusCode);
     }
 }

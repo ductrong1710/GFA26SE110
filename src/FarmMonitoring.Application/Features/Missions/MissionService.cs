@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Alerts;
 using FarmMonitoring.Application.Interfaces;
@@ -6,17 +7,18 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Missions;
 
-public sealed class MissionService(IMissionRepository repository, IValidator<MissionRequest> plans,
+public sealed class MissionService(FarmAccessService access, IMissionRepository repository, IValidator<MissionRequest> plans,
     IValidator<ScheduleMissionRequest> schedules, IValidator<MissionActionRequest> actions,
     IValidator<MissionQuery> queries, IValidator<PageQuery> pages, TimeProvider clock, AlertService alerts)
 {
     public async Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, CancellationToken ct)
     {
         await queries.ValidateAndThrowAsync(query, ct);
-        return await repository.ListAsync(query, ct);
+        await access.CheckFilterAsync(FarmResource.Farm, query.FarmId, ct);
+        return await repository.ListAsync(query, await access.GetScopeAsync(ct), ct);
     }
 
-    public async Task<MissionResponse> GetAsync(int id, CancellationToken ct) => Map(await Find(id, false, ct));
+    public async Task<MissionResponse> GetAsync(int id, CancellationToken ct) => await MapAsync(await Find(id, false, ct), ct);
 
     public async Task<MissionResponse> CreateAsync(MissionRequest request, int actor, CancellationToken ct)
     {
@@ -28,7 +30,7 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
             repository.Add(mission);
             Log(mission, actor, "CREATED", "Mission created.");
             await repository.SaveAsync(ct);
-            return Map(mission);
+            return await MapAsync(mission, ct);
         }, ct);
     }
 
@@ -44,12 +46,14 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
             mission.UpdatedAt = clock.GetUtcNow();
             Log(mission, actor, "UPDATED", "Mission plan updated.");
             await repository.SaveAsync(ct);
-            return Map(mission);
+            return await MapAsync(mission, ct);
         }, ct);
     }
 
     private async Task ApplyPlan(Mission mission, MissionRequest request, CancellationToken ct)
     {
+        await access.EnsureFarmAccessAsync(request.FarmId, ct);
+        await access.EnsureManyAsync(FarmResource.SensorNode, request.SensorNodeIds, ct);
         // Validate and reserve resources before mutating the tracked plan or flushing child replacements.
         var candidate = new Mission
         {
@@ -103,7 +107,7 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
             mission.UpdatedAt = clock.GetUtcNow();
             Log(mission, actor, "SCHEDULED", "Mission scheduled.");
             await repository.SaveAsync(ct);
-            return Map(mission);
+            return await MapAsync(mission, ct);
         }, ct);
     }
 
@@ -147,7 +151,7 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
             Log(mission, actor, status == MissionStatus.RUNNING ? "STARTED" : status.ToString(),
                 request.FailureReason ?? request.Reason ?? request.Note ?? request.OperatorNotes ?? $"Mission changed to {status}.");
             await repository.SaveAsync(ct);
-            return Map(mission);
+            return await MapAsync(mission, ct);
         }, ct);
     }
 
@@ -184,8 +188,12 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
         if (await repository.HasOverlapAsync(mission, starting, ct))
             throw new ConflictException("The UAV or gateway is already reserved for an overlapping mission.");
     }
-    private async Task<Mission> Find(int id, bool write, CancellationToken ct) =>
-        await repository.FindAsync(id, write, ct) ?? throw new NotFoundException("Mission not found.");
+    private async Task<Mission> Find(int id, bool write, CancellationToken ct)
+    {
+        var mission = await repository.FindAsync(id, write, ct) ?? throw new NotFoundException("Mission not found.");
+        await access.EnsureFarmAccessAsync(mission.FarmId, ct);
+        return mission;
+    }
     private void Log(Mission mission, int actor, string type, string message) => repository.AddLog(new MissionLog
     { Mission = mission, UserId = actor, LogType = type, Message = message.Trim(), CreatedAt = clock.GetUtcNow() });
 
@@ -193,7 +201,7 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
     {
         var mission = await Find(id, false, ct);
         var p = Progress(mission);
-        return new(id, mission.Status.ToString(), p.TotalTargets, p.SuccessfulTargets, p.FailedTargets, p.SkippedTargets, p.PendingTargets, Targets(mission));
+        return new(id, mission.Status.ToString(), p.TotalTargets, p.SuccessfulTargets, p.FailedTargets, p.SkippedTargets, p.PendingTargets, await TargetsAsync(mission, ct));
     }
     public async Task<IReadOnlyList<WaypointResponse>> WaypointsAsync(int id, CancellationToken ct) => Waypoints(await Find(id, false, ct));
     public async Task<PagedResult<MissionLogResponse>> LogsAsync(int id, PageQuery query, CancellationToken ct)
@@ -204,10 +212,18 @@ public sealed class MissionService(IMissionRepository repository, IValidator<Mis
     }
     private static MissionProgress Progress(Mission x) => new(x.Targets.Count, x.Targets.Count(t => t.Status == MissionTargetStatus.COLLECTED),
         x.Targets.Count(t => t.Status == MissionTargetStatus.FAILED), x.Targets.Count(t => t.Status == MissionTargetStatus.SKIPPED), x.Targets.Count(t => t.Status == MissionTargetStatus.PENDING));
-    private static TargetResponse[] Targets(Mission x) => x.Targets.OrderBy(t => t.SequenceNo).Select(t => new TargetResponse(t.Id, t.SensorNodeId, t.SensorNode.Name, t.WaypointId, t.SequenceNo, t.Status.ToString())).ToArray();
+    private async Task<TargetResponse[]> TargetsAsync(Mission mission, CancellationToken ct)
+    {
+        var scope = await access.GetScopeAsync(ct);
+        var allowed = scope.IsAdministrator ? null : (await access.GetAccessibleFarmIdsAsync(ct)).ToHashSet();
+        // Historical target identities remain part of the mission; live metadata follows the sensor's current farm.
+        return mission.Targets.OrderBy(t => t.SequenceNo).Select(t => new TargetResponse(t.Id, t.SensorNodeId,
+            scope.IsAdministrator || allowed!.Contains(t.SensorNode.Zone.FarmId) ? t.SensorNode.Name : null,
+            t.WaypointId, t.SequenceNo, t.Status.ToString())).ToArray();
+    }
     private static WaypointResponse[] Waypoints(Mission x) => x.Waypoints.OrderBy(w => w.SequenceNo).Select(w => new WaypointResponse(w.Id, w.SequenceNo, w.Latitude, w.Longitude, w.LocalX, w.LocalY, w.AltitudeM, w.ActionType, w.PlannedHoldSeconds)).ToArray();
-    private static MissionResponse Map(Mission x) => new(x.Id, x.Name, x.Status.ToString(), new(x.FarmId, x.Farm.Name),
+    private async Task<MissionResponse> MapAsync(Mission x, CancellationToken ct) => new(x.Id, x.Name, x.Status.ToString(), new(x.FarmId, x.Farm.Name),
         x.Uav is null ? null : new(x.Uav.Id, x.Uav.Name), x.Gateway is null ? null : new(x.Gateway.Id, x.Gateway.Name),
         x.ScheduledStartAt, x.ScheduledEndAt, x.StartedAt, x.CompletedAt, x.CreatedByUserId, x.OperatorNotes, x.FailureReason,
-        x.CreatedAt, x.UpdatedAt, Targets(x), Waypoints(x), Progress(x));
+        x.CreatedAt, x.UpdatedAt, await TargetsAsync(x, ct), Waypoints(x), Progress(x));
 }

@@ -27,7 +27,7 @@ public class UserManagementTests(ApiFactory factory)
     {
         using var admin = await Login();
         var email = $"managed-{Guid.NewGuid():N}@example.com";
-        var created = await admin.PostAsJsonAsync("/api/users", new { email = email.ToUpperInvariant(), fullName = "New Operator", password = "Test-password-123!", roles = new[] { "UavDeviceOperator" } });
+        var created = await admin.PostAsJsonAsync("/api/users", new { email = email.ToUpperInvariant(), fullName = "New Owner", password = "Test-password-123!", roles = new[] { "FarmOwner" } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var body = await created.Content.ReadFromJsonAsync<JsonElement>();
         var user = body.GetProperty("data");
@@ -43,11 +43,11 @@ public class UserManagementTests(ApiFactory factory)
         var list = await admin.GetFromJsonAsync<JsonElement>($"/api/users?search={email}&page=1&pageSize=1");
         Assert.Single(list.GetProperty("data").EnumerateArray());
         Assert.Equal(1, list.GetProperty("pagination").GetProperty("totalItems").GetInt32());
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}", new { email, fullName = "Updated Operator" })).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator", "UavDeviceOperator" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}", new { email, fullName = "Updated Owner" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator", "FarmOwner" } })).StatusCode);
         using var promoted = await Login(email);
         Assert.Equal(HttpStatusCode.OK, (await promoted.GetAsync("/api/users")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "UavDeviceOperator" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmOwner" } })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await promoted.GetAsync("/api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.PatchAsJsonAsync($"/api/users/{id}/status", new { isActive = false })).StatusCode);
         var denied = await admin.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" });
@@ -58,7 +58,7 @@ public class UserManagementTests(ApiFactory factory)
         await using var scope = factory.Services.CreateAsyncScope();
         var stored = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Users.AsNoTracking().SingleAsync(x => x.Id == id);
         Assert.NotEqual("Test-password-123!", stored.PasswordHash);
-        Assert.Equal("Updated Operator", stored.FullName);
+        Assert.Equal("Updated Owner", stored.FullName);
         Assert.NotNull(stored.UpdatedAt);
     }
 
@@ -86,7 +86,7 @@ public class UserManagementTests(ApiFactory factory)
     {
         using var anonymous = factory.CreateApiClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.SendAsync(new HttpRequestMessage(new HttpMethod(method), path) { Content = JsonContent.Create(new { }) })).StatusCode);
-        using var op = await Login("operator@example.com");
+        using var op = await Login("owner@example.com");
         Assert.Equal(HttpStatusCode.Forbidden, (await op.SendAsync(new HttpRequestMessage(new HttpMethod(method), path) { Content = JsonContent.Create(new { }) })).StatusCode);
     }
 
@@ -112,7 +112,7 @@ public class UserManagementTests(ApiFactory factory)
         using var admin = await Login();
         var email = $"concurrent-{Guid.NewGuid():N}@example.com";
         var responses = await Task.WhenAll(new[] { email, email.ToUpperInvariant() }.Select(x =>
-            admin.PostAsJsonAsync("/api/users", new { email = x, fullName = "Concurrent", password = "Test-password-123!", roles = new[] { "UavDeviceOperator" } })));
+            admin.PostAsJsonAsync("/api/users", new { email = x, fullName = "Concurrent", password = "Test-password-123!", roles = new[] { "FarmOwner" } })));
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Created);
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Conflict);
     }
@@ -133,7 +133,7 @@ public class UserManagementTests(ApiFactory factory)
             await command.ExecuteScalarAsync();
         }
         var first = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator" } });
-        var second = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "UavDeviceOperator" } });
+        var second = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmOwner" } });
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));

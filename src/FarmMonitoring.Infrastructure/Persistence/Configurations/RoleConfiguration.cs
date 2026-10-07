@@ -16,6 +16,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
         b.Property(x => x.Description).HasColumnName("description").HasMaxLength(255);
         b.HasIndex(x => x.Name).IsUnique();
         b.HasData(new Role { Id = 1, Name = RoleNames.FarmAdministrator },
-            new Role { Id = 2, Name = RoleNames.UavDeviceOperator });
+            new Role { Id = 3, Name = RoleNames.FarmOwner },
+            new Role { Id = 4, Name = RoleNames.FarmEngineer });
     }
 }

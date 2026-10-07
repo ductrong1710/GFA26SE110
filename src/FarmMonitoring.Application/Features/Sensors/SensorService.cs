@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
@@ -5,7 +6,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Sensors;
 
-public sealed class SensorService(ISensorRepository repository, TimeProvider clock,
+public sealed class SensorService(FarmAccessService access, ISensorRepository repository, TimeProvider clock,
     IValidator<PageQuery> pages, IValidator<SensorTypeRequest> types, IValidator<SensorNodeRequest> nodes,
     IValidator<SensorNodeStatusRequest> statuses, IValidator<SensorChannelRequest> channels)
 {
@@ -25,7 +26,9 @@ public sealed class SensorService(ISensorRepository repository, TimeProvider clo
     public async Task<PagedResult<SensorNodeResponse>> ListNodesAsync(SensorNodeQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);
-        return await repository.ListNodesAsync(query, ct);
+        await access.CheckFilterAsync(FarmResource.Farm, query.FarmId, ct);
+        await access.CheckFilterAsync(FarmResource.Zone, query.ZoneId, ct);
+        return await repository.ListNodesAsync(query, await access.GetScopeAsync(ct), ct);
     }
     public async Task<SensorNodeResponse> GetNodeAsync(int id, CancellationToken ct) => ToResponse(await RequireNodeAsync(id, ct));
     public async Task<SensorNodeResponse> CreateNodeAsync(SensorNodeRequest request, CancellationToken ct)
@@ -44,6 +47,7 @@ public sealed class SensorService(ISensorRepository repository, TimeProvider clo
         return await repository.InTransactionAsync(async () =>
         {
             var node = await repository.LockNodeAsync(id, ct) ?? throw new NotFoundException("Sensor node not found.");
+            await access.EnsureAsync(FarmResource.SensorNode, id, ct);
             await RequireZoneAsync(request.ZoneId, ct);
             if (node.ZoneId != request.ZoneId && await repository.ConflictsWithMissionAsync(id, request.ZoneId, ct))
                 throw new ConflictException("A sensor selected for an unfinished mission cannot move to another farm.");
@@ -86,6 +90,7 @@ public sealed class SensorService(ISensorRepository repository, TimeProvider clo
         return await repository.InTransactionAsync(async () =>
         {
             var channel = await repository.LockChannelAsync(id, ct) ?? throw new NotFoundException("Sensor channel not found.");
+            await access.EnsureAsync(FarmResource.SensorChannel, id, ct);
             await RequireTypeAsync(request.SensorTypeId, ct);
             if (channel.SensorTypeId != request.SensorTypeId && await repository.HasReadingsAsync(id, ct))
                 throw new ConflictException("A channel with historical readings cannot change its measurement type.");
@@ -95,11 +100,14 @@ public sealed class SensorService(ISensorRepository repository, TimeProvider clo
             return ToResponse(channel);
         }, ct);
     }
-    private async Task<SensorNode> RequireNodeAsync(int id, CancellationToken ct) =>
-        await repository.FindNodeAsync(id, ct) ?? throw new NotFoundException("Sensor node not found.");
+    private async Task<SensorNode> RequireNodeAsync(int id, CancellationToken ct)
+    {
+        await access.EnsureAsync(FarmResource.SensorNode, id, ct);
+        return await repository.FindNodeAsync(id, ct) ?? throw new NotFoundException("Sensor node not found.");
+    }
     private async Task RequireZoneAsync(int id, CancellationToken ct)
     {
-        if (!await repository.ZoneExistsAsync(id, ct)) throw new NotFoundException("Zone not found.");
+        await access.EnsureAsync(FarmResource.Zone, id, ct);
     }
     private async Task RequireTypeAsync(int id, CancellationToken ct)
     {

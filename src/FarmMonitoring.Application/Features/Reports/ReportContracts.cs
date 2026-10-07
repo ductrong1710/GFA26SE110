@@ -13,6 +13,7 @@ public sealed class ReportQuery : PageQuery
 public sealed record ReportPeriod(DateTimeOffset From, DateTimeOffset To);
 public sealed class DeviceReportQuery : PageQuery
 {
+    public int? FarmId { get; init; }
     public string? DeviceType { get; init; }
     public bool? IsActive { get; init; }
 }

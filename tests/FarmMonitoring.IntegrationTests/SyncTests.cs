@@ -27,10 +27,11 @@ public class SyncTests(ApiFactory factory)
                 SensorType = new SensorType { Code = Guid.NewGuid().ToString("N"), Name = "Temperature", Unit = "C" } };
             var gateway = new Gateway { Code = "sync-gateway", Name = "Sync gateway", GatewayType = "ESP32", Status = "ONLINE", CreatedAt = DateTimeOffset.UtcNow };
             var mission = new Mission { Name = "Sync mission", Farm = farm, Gateway = gateway, CreatedAt = DateTimeOffset.UtcNow,
-                CreatedByUserId = await db.Users.Where(x => x.Email == "operator@example.com").Select(x => x.Id).SingleAsync(), Status = MissionStatus.RUNNING,
+                CreatedByUserId = await db.Users.Where(x => x.Email == "owner@example.com").Select(x => x.Id).SingleAsync(), Status = MissionStatus.RUNNING,
                 Targets = [new MissionTarget { SensorNode = node, SequenceNo = 1 }] };
             db.SensorChannels.Add(channel); db.Missions.Add(mission);
             await db.SaveChangesAsync();
+            await factory.AssignFarmAsync(farm.Id, "owner@example.com");
             missionId = mission.Id; gatewayId = gateway.Id; nodeId = node.Id; channelId = channel.Id; nodeCode = node.DeviceCode;
             zoneId = node.ZoneId; typeId = channel.SensorTypeId;
         }
@@ -62,7 +63,7 @@ public class SyncTests(ApiFactory factory)
             Assert.Equal(1, data.GetProperty("duplicates").GetInt32());
         }
         using var human = factory.CreateApiClient();
-        var login = await human.PostAsJsonAsync("/api/auth/login", new { email = "operator@example.com", password = "Test-password-123!" });
+        var login = await human.PostAsJsonAsync("/api/auth/login", new { email = "owner@example.com", password = "Test-password-123!" });
         human.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("accessToken").GetString());
         var history = await human.GetFromJsonAsync<JsonElement>($"/api/sensor-channels/{channelId}/history");
         Assert.Equal(2, history.GetProperty("pagination").GetProperty("totalItems").GetInt32());

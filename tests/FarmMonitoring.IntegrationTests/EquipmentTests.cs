@@ -23,9 +23,9 @@ public class EquipmentTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Operator_manages_equipment_and_assigns_or_detaches_gateway()
+    public async Task Owner_manages_equipment_and_assigns_or_detaches_gateway()
     {
-        using var op = await Login("operator@example.com");
+        using var op = await Login("owner@example.com");
         var code = $"UAV-{Guid.NewGuid():N}";
         var uavRequest = new { code, name = "Demo UAV", model = "Prototype", status = "OFFLINE", batteryPercent = 75 };
         var uav = await Id(await op.PostAsJsonAsync("/api/uavs", uavRequest));
@@ -51,17 +51,17 @@ public class EquipmentTests(ApiFactory factory)
     [Fact]
     public async Task Equipment_validation_and_role_matrix_are_enforced()
     {
-        using var op = await Login("operator@example.com");
+        using var op = await Login("owner@example.com");
         Assert.Equal(HttpStatusCode.BadRequest, (await op.PostAsJsonAsync("/api/uavs", new { code = "X", name = "X", status = "ONLINE", batteryPercent = 101 })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await op.PostAsJsonAsync("/api/gateways", new { code = "X", name = "X", status = "ONLINE", gatewayType = "" })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await op.PostAsJsonAsync("/api/gateways/2147483647/assign-uav", new { uavId = 1 })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await op.GetAsync("/api/uavs/2147483647")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await op.GetAsync("/api/gateways?pageSize=101")).StatusCode);
-        using var admin = await Login("admin@example.com");
+        using var engineer = await Login("engineer@example.com");
         foreach (var route in new[] { "/api/uavs", "/api/gateways" })
         {
-            Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync(route)).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync(route, new { })).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await engineer.GetAsync(route)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await engineer.PostAsJsonAsync(route, new { })).StatusCode);
         }
         using var anonymous = factory.CreateApiClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/gateways")).StatusCode);

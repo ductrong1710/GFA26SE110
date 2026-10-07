@@ -751,8 +751,13 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = 2,
-                            Name = "UavDeviceOperator"
+                            Id = 3,
+                            Name = "FarmOwner"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Name = "FarmEngineer"
                         });
                 });
 
@@ -1347,6 +1352,37 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.UserFarm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("FarmId")
+                        .HasColumnType("integer")
+                        .HasColumnName("farm_id");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FarmId");
+
+                    b.HasIndex("UserId", "FarmId")
+                        .IsUnique();
+
+                    b.ToTable("user_farms", (string)null);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.UserRole", b =>
                 {
                     b.Property<int>("Id")
@@ -1751,6 +1787,25 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Uav");
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.UserFarm", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Farm", "Farm")
+                        .WithMany("UserFarms")
+                        .HasForeignKey("FarmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", "User")
+                        .WithMany("UserFarms")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Farm");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.UserRole", b =>
                 {
                     b.HasOne("FarmMonitoring.Domain.Entities.Role", "Role")
@@ -1786,6 +1841,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("History");
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.Farm", b =>
+                {
+                    b.Navigation("UserFarms");
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Mission", b =>
                 {
                     b.Navigation("Targets");
@@ -1795,6 +1855,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.User", b =>
                 {
+                    b.Navigation("UserFarms");
+
                     b.Navigation("UserRoles");
                 });
 #pragma warning restore 612, 618

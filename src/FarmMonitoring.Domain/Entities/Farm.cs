@@ -2,6 +2,7 @@ namespace FarmMonitoring.Domain.Entities;
 
 public sealed class Farm
 {
+    public ICollection<UserFarm> UserFarms { get; set; } = new List<UserFarm>();
     public int Id { get; set; }
     public string Name { get; set; } = "";
     public string? Description { get; set; }

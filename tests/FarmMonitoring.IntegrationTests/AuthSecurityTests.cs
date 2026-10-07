@@ -88,7 +88,7 @@ public class AuthSecurityTests(ApiFactory factory)
     {
         using var client = factory.CreateApiClient();
         var admin = await Login(client);
-        var other = await Login(client, "operator@example.com");
+        var other = await Login(client, "owner@example.com");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", admin.GetProperty("accessToken").GetString());
         var token = new { refreshToken = other.GetProperty("refreshToken").GetString() };
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/logout", token)).StatusCode);
@@ -96,13 +96,13 @@ public class AuthSecurityTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Role_authorization_allows_admin_and_forbids_operator()
+    public async Task Role_authorization_allows_admin_and_forbids_owner()
     {
         using var client = factory.CreateApiClient();
         var admin = await Login(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", admin.GetProperty("accessToken").GetString());
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/test/admin")).StatusCode);
-        var other = await Login(client, "operator@example.com");
+        var other = await Login(client, "owner@example.com");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", other.GetProperty("accessToken").GetString());
         var forbidden = await client.GetAsync("/test/admin");
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);

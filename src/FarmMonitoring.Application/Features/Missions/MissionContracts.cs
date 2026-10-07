@@ -22,7 +22,7 @@ public sealed class MissionQuery : PageQuery
 public sealed record MissionReference(int Id, string Name);
 public sealed record WaypointResponse(int Id, int SequenceNo, decimal? Latitude, decimal? Longitude,
     decimal? LocalX, decimal? LocalY, decimal? AltitudeM, string? ActionType, int? PlannedHoldSeconds);
-public sealed record TargetResponse(int Id, int SensorNodeId, string SensorName, int? WaypointId, int? SequenceNo, string Status);
+public sealed record TargetResponse(int Id, int SensorNodeId, string? SensorName, int? WaypointId, int? SequenceNo, string Status);
 public sealed record MissionProgress(int TotalTargets, int SuccessfulTargets, int FailedTargets, int SkippedTargets, int PendingTargets);
 public sealed record MissionSummary(int Id, string Name, int FarmId, int? UavId, int? GatewayId, string Status,
     DateTimeOffset? ScheduledStartAt, DateTimeOffset? ScheduledEndAt, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt);

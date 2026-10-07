@@ -6,7 +6,7 @@ namespace FarmMonitoring.Application.Interfaces;
 
 public interface IFarmRepository
 {
-    Task<PagedResult<FarmResponse>> ListFarmsAsync(PageQuery query, CancellationToken ct);
+    Task<PagedResult<FarmResponse>> ListFarmsAsync(PageQuery query, FarmAccessScope scope, CancellationToken ct);
     Task<PagedResult<ZoneResponse>> ListZonesAsync(int farmId, PageQuery query, CancellationToken ct);
     Task<Farm?> FindFarmAsync(int id, CancellationToken ct);
     Task<Zone?> FindZoneAsync(int id, CancellationToken ct);

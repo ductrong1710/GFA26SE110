@@ -20,7 +20,7 @@ public class SensorDataIntegrityTests(ApiFactory factory)
         var other = Node();
         db.SensorNodes.AddRange(node, other);
         await db.SaveChangesAsync();
-        var actor = await db.Users.Select(x => x.Id).FirstAsync();
+        var actor = await db.Users.Where(x => x.Email == "admin@example.com").Select(x => x.Id).SingleAsync();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         async Task<bool> Plan()
         {
@@ -28,7 +28,7 @@ public class SensorDataIntegrityTests(ApiFactory factory)
             await gate.Task;
             try
             {
-                await actionScope.ServiceProvider.GetRequiredService<MissionService>().CreateAsync(
+                await ApiFactory.HumanService<MissionService>(actionScope.ServiceProvider, actor).CreateAsync(
                     new("Concurrent plan", node.Zone.FarmId, null, null, null, null, [node.Id], [], null), actor, default);
                 return true;
             }
@@ -40,7 +40,7 @@ public class SensorDataIntegrityTests(ApiFactory factory)
             await gate.Task;
             try
             {
-                await actionScope.ServiceProvider.GetRequiredService<SensorService>().UpdateNodeAsync(node.Id,
+                await ApiFactory.HumanService<SensorService>(actionScope.ServiceProvider, actor).UpdateNodeAsync(node.Id,
                     new(other.ZoneId, node.DeviceCode, node.Name, node.Status, null, null, null, null, null, null), default);
                 return true;
             }
@@ -67,7 +67,7 @@ public class SensorDataIntegrityTests(ApiFactory factory)
             Value = 25, MeasuredAt = DateTimeOffset.UtcNow, CollectedAt = DateTimeOffset.UtcNow, ReceivedAt = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync();
         await using var editScope = factory.Services.CreateAsyncScope();
-        var service = editScope.ServiceProvider.GetRequiredService<SensorService>();
+        var service = ApiFactory.HumanService<SensorService>(editScope.ServiceProvider, await db.Users.Where(x => x.Email == "admin@example.com").Select(x => x.Id).SingleAsync());
         await Assert.ThrowsAsync<ConflictException>(() => service.UpdateChannelAsync(channel.Id, new(newType.Id, "value", "Changed"), default));
         await service.UpdateChannelAsync(channel.Id, new(channel.SensorTypeId, "value", "Renamed"), default);
         Assert.Equal(channel.SensorTypeId, (await db.SensorChannels.AsNoTracking().SingleAsync(x => x.Id == channel.Id)).SensorTypeId);
@@ -90,7 +90,7 @@ public class SensorDataIntegrityTests(ApiFactory factory)
             Targets = [new MissionTarget { SensorNodeId = node.Id, SequenceNo = 1 }] };
         db.Missions.Add(mission); await db.SaveChangesAsync();
         await using var editScope = factory.Services.CreateAsyncScope();
-        var service = editScope.ServiceProvider.GetRequiredService<SensorService>();
+        var service = ApiFactory.HumanService<SensorService>(editScope.ServiceProvider, await db.Users.Where(x => x.Email == "admin@example.com").Select(x => x.Id).SingleAsync());
         await Assert.ThrowsAsync<ConflictException>(() => service.UpdateNodeAsync(node.Id,
             new(otherZone.Id, node.DeviceCode, node.Name, node.Status, null, null, null, null, null, null), default));
         Assert.Equal(node.ZoneId, (await db.SensorNodes.AsNoTracking().SingleAsync(x => x.Id == node.Id)).ZoneId);

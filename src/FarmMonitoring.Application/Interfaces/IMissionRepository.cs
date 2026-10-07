@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Missions;
 using FarmMonitoring.Domain.Entities;
@@ -17,6 +18,6 @@ public interface IMissionRepository
     void Add(Mission mission);
     void AddLog(MissionLog log);
     Task SaveAsync(CancellationToken ct);
-    Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, CancellationToken ct);
+    Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, FarmAccessScope scope, CancellationToken ct);
     Task<PagedResult<MissionLogResponse>> LogsAsync(int id, PageQuery query, CancellationToken ct);
 }

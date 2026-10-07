@@ -31,6 +31,7 @@ public static class DependencyInjection
             options.UseNpgsql(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IFarmAccessRepository, FarmAccessRepository>();
         services.AddScoped<IFarmRepository, FarmRepository>();
         services.AddScoped<ISensorRepository, SensorRepository>();
         services.AddScoped<IEquipmentRepository, EquipmentRepository>();

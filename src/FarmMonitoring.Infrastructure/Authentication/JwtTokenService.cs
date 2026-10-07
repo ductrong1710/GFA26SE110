@@ -6,6 +6,7 @@ using System.Text;
 using FarmMonitoring.Application.Features.Auth;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
+using FarmMonitoring.Domain.Constants;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -26,7 +27,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, Convert.ToHexString(RandomNumberGenerator.GetBytes(16)))
         };
-        claims.AddRange(user.UserRoles.Select(x => x.Role.Name).Distinct().Select(role => new Claim("role", role)));
+        claims.AddRange(user.UserRoles.Select(x => x.Role.Name).Where(RoleNames.IsSupported).Distinct().Select(role => new Claim("role", role)));
         var token = new JwtSecurityToken(settings.Issuer, settings.Audience, claims,
             now.UtcDateTime, expires.UtcDateTime,
             new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256));

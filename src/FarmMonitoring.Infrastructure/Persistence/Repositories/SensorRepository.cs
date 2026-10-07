@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Sensors;
 using FarmMonitoring.Application.Interfaces;
@@ -46,9 +47,9 @@ public sealed class SensorRepository(AppDbContext db) : ISensorRepository
             .Select(x => new SensorTypeResponse(x.Id, x.Code, x.Name, x.Unit, x.Description)).ToArrayAsync(ct);
         return new(items, count, query.Page, query.PageSize);
     }
-    public async Task<PagedResult<SensorNodeResponse>> ListNodesAsync(SensorNodeQuery query, CancellationToken ct)
+    public async Task<PagedResult<SensorNodeResponse>> ListNodesAsync(SensorNodeQuery query, FarmAccessScope scope, CancellationToken ct)
     {
-        var rows = db.SensorNodes.AsNoTracking();
+        var rows = db.SensorNodes.AsNoTracking().ForFarms(db, scope, x => x.Zone.FarmId);
         if (query.ZoneId is not null) rows = rows.Where(x => x.ZoneId == query.ZoneId);
         if (query.FarmId is not null) rows = rows.Where(x => x.Zone.FarmId == query.FarmId);
         if (query.IsActive is not null) rows = rows.Where(x => x.IsActive == query.IsActive);
