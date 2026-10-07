@@ -10,11 +10,13 @@ String StorageManager::key(const String& device, uint32_t sequence) const {
     const String identity = device + ":" + String(sequence);
     unsigned char digest[32];
     mbedtls_sha256_ret(reinterpret_cast<const unsigned char*>(identity.c_str()), identity.length(), digest, 0);
-    // SHA-256 is 44 Base64 characters including one '='; reserve the terminator.
-    // Base64URL without padding keeps all 256 bits in a filesystem-safe 43-byte name.
-    unsigned char encoded[45] = {};
+    // mklittlefs images in this toolchain accept only 32-byte filename components.
+    // Encode the first 128 digest bits as 22 Base64URL characters. Identity checks
+    // in measurementExists/saveMeasurement reject collisions without sending ACK.
+    constexpr size_t identityBytes = 16;
+    unsigned char encoded[25] = {};
     size_t encodedLength = 0;
-    mbedtls_base64_encode(encoded, sizeof(encoded), &encodedLength, digest, sizeof(digest));
+    mbedtls_base64_encode(encoded, sizeof(encoded), &encodedLength, digest, identityBytes);
     for (size_t i = 0; i < encodedLength; ++i) {
         if (encoded[i] == '+') encoded[i] = '-';
         else if (encoded[i] == '/') encoded[i] = '_';
