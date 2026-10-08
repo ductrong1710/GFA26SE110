@@ -4,6 +4,31 @@
 #include <stddef.h>
 
 namespace Config {
+constexpr int TELLO_MAX_ALTITUDE_CM = 40;
+constexpr int TELLO_TARGET_ALTITUDE_CM = 35;
+constexpr int TELLO_MIN_OPERATION_ALTITUDE_CM = 20;
+#ifndef GATEWAY_GROUND_TEST_MODE
+#define GATEWAY_GROUND_TEST_MODE 1
+#endif
+constexpr bool GROUND_TEST_MODE = GATEWAY_GROUND_TEST_MODE != 0;
+constexpr size_t MAX_MISSION_WAYPOINTS = 16;
+constexpr size_t MAX_MISSION_TARGETS = 8;
+constexpr size_t MISSION_MAX_FILE_BYTES = 8192;
+constexpr size_t MISSION_JSON_CAPACITY = 16384;
+constexpr int MISSION_MAX_LOCAL_CM = 10000;
+constexpr int MISSION_MAX_MOVE_SEGMENT_CM = 100;
+constexpr size_t MAX_MISSION_ROUTE_STEPS = 128;
+constexpr int TELLO_ALTITUDE_TOLERANCE_CM = 3;
+constexpr uint32_t TELLO_ALTITUDE_STABILIZE_TIMEOUT_MS = 20000;
+constexpr uint32_t TELLO_ALTITUDE_STABLE_MS = 1000;
+constexpr uint32_t TELLO_VERTICAL_PULSE_MS = 200;
+constexpr uint32_t TELLO_VERTICAL_REASSESS_MS = 500;
+constexpr uint32_t MISSION_SENSOR_WAIT_TIMEOUT_MS = 30000;
+constexpr uint32_t MISSION_PULL_INTERVAL_MS = 20000;
+constexpr uint32_t MISSION_MAX_HOLD_SECONDS = 30;
+constexpr bool MOCK_MISSION_BACKEND = false; // Explicit development opt-in; never impersonate the backend.
+constexpr char MISSION_NEXT_ENDPOINT[] = "/device/gateways/%d/missions/next";
+constexpr char MISSION_RESULT_ENDPOINT[] = "/device/gateways/%d/missions/%d/result";
 constexpr bool TELLO_ENABLED = true;
 constexpr uint8_t TELLO_IP[] = {192, 168, 10, 1};
 constexpr uint16_t TELLO_COMMAND_PORT = 8889;

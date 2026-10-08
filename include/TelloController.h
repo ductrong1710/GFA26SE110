@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "GatewayWiFiManager.h"
 #include "TelloTelemetry.h"
+#include "FlightSafetyController.h"
 
 enum class TelloCommand { None, Sdk, Battery, Takeoff, Land, Move, Rotate };
 enum class TelloResult { None, Pending, Ok, Rejected, Timeout, Disconnected };
@@ -34,10 +35,13 @@ public:
     bool commandPending() const { return result_ == TelloResult::Pending; }
     bool canSend() const;
     bool responseUncertain() const { return uncertain_; }
+    const FlightSafetyController& safety() const { return safety_; }
+    void refreshSafety() { safety_.update(telemetry_,hasFreshTelemetry()); }
 private:
     GatewayWiFiManager& wifi_;
     WiFiUDP commands_, states_;
     TelloTelemetry telemetry_;
+    FlightSafetyController safety_;
     bool started_ = false, sdkReady_ = false, uncertain_ = false;
     bool cooling_ = false;
     uint32_t sentAt_ = 0, finishedAt_ = 0, cooldownMs_ = 0, batteryAt_ = 0;

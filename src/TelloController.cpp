@@ -8,6 +8,7 @@ bool TelloController::begin() {
     if (!commands_.begin(wifi_.getStaIp(), Config::TELLO_COMMAND_PORT) ||
         !states_.begin(wifi_.getStaIp(), Config::TELLO_STATE_PORT)) { stop(); return false; }
     started_ = true;
+    safety_.begin();
     uncertain_ = false; cooling_ = false;
     kind_ = TelloCommand::None; result_ = TelloResult::None;
     response_[0] = 0;
@@ -19,6 +20,7 @@ void TelloController::stop() {
     started_ = sdkReady_ = false;
     rcQueued_ = rcMoving_ = rcSent_ = false;
     telemetry_ = TelloTelemetry(); queriedBattery_ = -1;
+    safety_.update(telemetry_,false);
     if (commandPending()) finish(TelloResult::Disconnected, "disconnected");
 }
 bool TelloController::canSend() const {
@@ -45,7 +47,10 @@ bool TelloController::send(TelloCommand kind, const char* text) {
 }
 bool TelloController::requestSdkMode() { return send(TelloCommand::Sdk,"command"); }
 bool TelloController::queryBattery() { return send(TelloCommand::Battery,"battery?"); }
-bool TelloController::takeoff() { return send(TelloCommand::Takeoff,"takeoff"); }
+bool TelloController::takeoff() {
+    if(Config::GROUND_TEST_MODE || !safety_.configurationValid()) return false;
+    return send(TelloCommand::Takeoff,"takeoff");
+}
 bool TelloController::land() { return send(TelloCommand::Land,"land"); }
 bool TelloController::validMove(const char* direction, int cm) {
     if (!direction || cm<20 || cm>500) return false;
@@ -59,19 +64,22 @@ bool TelloController::validRc(int a,int b,int c,int d) {
     return a>=-100 && a<=100 && b>=-100 && b<=100 && c>=-100 && c<=100 && d>=-100 && d<=100;
 }
 bool TelloController::move(const char* direction, int cm) {
-    if (!validMove(direction,cm)) return false;
+    refreshSafety();
+    if (Config::GROUND_TEST_MODE || !validMove(direction,cm) || !safety_.allowMove(direction,cm)) return false;
     char text[32]; snprintf(text,sizeof(text),"%s %d",direction,cm);
     return send(TelloCommand::Move,text);
 }
 bool TelloController::rotate(const char* direction, int degrees) {
-    if (!validRotation(direction,degrees)) return false;
+    if (Config::GROUND_TEST_MODE || !validRotation(direction,degrees)) return false;
     char text[32]; snprintf(text,sizeof(text),"%s %d",direction,degrees);
     return send(TelloCommand::Rotate,text);
 }
 bool TelloController::sendRc(int a,int b,int c,int d) {
+    if(Config::GROUND_TEST_MODE && (a || b || c || d)) return false;
     if (!isSdkReady() || commandPending() || !validRc(a,b,c,d) ||
         (cooling_ && uint32_t(millis()-finishedAt_)<cooldownMs_)) return false;
-    rc_[0]=a; rc_[1]=b; rc_[2]=c; rc_[3]=d;
+    refreshSafety();
+    rc_[0]=a; rc_[1]=b; rc_[2]=safety_.filterVerticalRc(c); rc_[3]=d;
     rcAt_=millis(); rcQueued_=true;
     return true;
 }
@@ -124,6 +132,14 @@ void TelloController::update() {
         if (states_.remoteIP()!=IPAddress(Config::TELLO_IP) || length>511) { states_.flush(); continue; }
         char packet[512]; const int n=states_.read(packet,sizeof(packet)-1); states_.flush();
         if(n==length && n>0) telemetry_.parse(packet,n,millis());
+    }
+    refreshSafety();
+    // Re-check an active/queued RC command as telemetry changes. A previous
+    // ascent request cannot keep climbing after the limit or freshness changes.
+    const int safeVertical=safety_.filterVerticalRc(rc_[2]);
+    if(safeVertical!=rc_[2]) {
+        rc_[2]=safeVertical;
+        if(rcMoving_) rcQueued_=true;
     }
     const bool readOnly=kind_==TelloCommand::Sdk || kind_==TelloCommand::Battery;
     const uint32_t timeout=readOnly ? Config::TELLO_COMMAND_TIMEOUT_MS : Config::TELLO_FLIGHT_COMMAND_TIMEOUT_MS;

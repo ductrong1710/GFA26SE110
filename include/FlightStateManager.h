@@ -20,6 +20,10 @@ public:
     const char* stateName() const;
     const char* error() const { return error_; }
     const char* landingEvidence() const { return landingEvidence_; }
+    bool mayBeAirborne() const { return airbornePossible_; }
+    void requireTelemetryLanding(bool required) { strictLanding_=required; }
+    void restoreRecovery();
+    bool cancelPreparation();
 private:
     GatewayWiFiManager& wifi_;
     TelloController& tello_;
@@ -34,6 +38,7 @@ private:
     int groundHeight_ = -1;
     bool contradictoryLandingTelemetry_ = false, recoveryStarted_ = false;
     bool flightUncertain_ = false;
+    bool strictLanding_ = false;
     uint32_t recoveryAt_ = 0;
     const char* landingEvidence_ = "NONE";
     void observeGround();

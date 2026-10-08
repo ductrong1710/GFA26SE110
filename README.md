@@ -1,5 +1,9 @@
 # ESP32 UAV Gateway — Phases 1–8
 
+Mission pull and autonomous Tello extension: see [MISSION_OPERATIONS.md](docs/MISSION_OPERATIONS.md).
+Default ground-test mode prevents takeoff; the configurable altitude ceiling is 40 cm.
+The current backend lacks device mission endpoints; the adapter/mock does not imply live backend integration.
+
 ESP32 Dev Module (4 MB), PlatformIO, Arduino, LittleFS, ArduinoJson 6.21.5.
 
 Implemented: AP + optional STA, authenticated in-memory node registry, local REST

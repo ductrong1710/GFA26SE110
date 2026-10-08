@@ -10,7 +10,7 @@ static_assert(sizeof(Secrets::GATEWAY_AP_PASSWORD) >= 9 &&
               sizeof(Secrets::GATEWAY_AP_PASSWORD) <= 64,
               "AP password must contain 8-63 characters");
 
-bool GatewayWiFiManager::begin() {
+bool GatewayWiFiManager::begin(StaTarget initialTarget) {
     Logger::info("Starting Wi-Fi");
     WiFi.persistent(false);
 
@@ -37,7 +37,7 @@ bool GatewayWiFiManager::begin() {
     Logger::info((String("AP IP: ") + WiFi.softAPIP().toString()).c_str());
     started_ = true;
     WiFi.setAutoReconnect(false);
-    requestStaTarget(StaTarget::Internet);
+    requestStaTarget(initialTarget);
     return true;
 }
 

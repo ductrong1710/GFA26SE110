@@ -6,7 +6,7 @@ enum class StaTarget { None, Tello, Internet };
 
 class GatewayWiFiManager {
 public:
-    bool begin();
+    bool begin(StaTarget initialTarget=StaTarget::Internet);
     void update();
     void requestStaTarget(StaTarget target);
     StaTarget staTarget() const { return target_; }

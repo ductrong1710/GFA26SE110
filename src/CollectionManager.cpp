@@ -1,12 +1,30 @@
 #include "CollectionManager.h"
 #include "Logger.h"
 
-void CollectionManager::finishNode() {
+void CollectionManager::setMissionMode(bool enabled) {
+    if(missionMode_==enabled) return;
+    cancelTarget();missionMode_=enabled;
+}
+void CollectionManager::cancelTarget() {
+    response_.clear();ackCount_=0;state_=State::Select;
+    targetCycle_=false;targetAcked_=0;targetState_=MissionCollectionState::Idle;
+}
+bool CollectionManager::requestTarget(const char* deviceCode) {
+    if(!missionMode_ || !storage_.isReady() || targetCycle_ || state_!=State::Select) return false;
+    const SensorNode* node=registry_.findNode(deviceCode);
+    if(!node || !node->authenticated || !node->online) return false;
+    node_=*node;batches_=0;targetAcked_=0;cycleFailed_=false;targetCycle_=true;
+    targetState_=MissionCollectionState::Pending;state_=State::Info;return true;
+}
+void CollectionManager::finishNode(bool success) {
+    if(targetCycle_) targetState_=success && targetAcked_>0 && !cycleFailed_ ? MissionCollectionState::Collected : MissionCollectionState::Failed;
+    targetCycle_=false;
     response_.clear(); ackCount_ = 0; state_ = State::Select;
 }
 void CollectionManager::update() {
-    if (!storage_.isReady()) return;
+    if (!storage_.isReady()) {if(targetCycle_) finishNode();return;}
     if (state_ == State::Select) {
+        if(missionMode_) return;
         if (nextNode_ == 0 && millis() - lastCycle_ < Config::NODE_COLLECTION_INTERVAL_MS) return;
         if (nextNode_ >= registry_.count()) { nextNode_ = 0; lastCycle_ = millis(); return; }
         const SensorNode* node = registry_.at(nextNode_++);
@@ -40,13 +58,13 @@ void CollectionManager::update() {
         if (recordIndex_ >= array.size()) { if (ackCount_) state_ = State::Ack; else finishNode(); return; }
         GatewayMeasurement record;
         if (!MeasurementCodec::fromJson(array[recordIndex_++].as<JsonObjectConst>(), node_.deviceCode, record)) {
-            Logger::warn("Invalid sensor record skipped"); return;
+            cycleFailed_=true;Logger::warn("Invalid sensor record skipped"); return;
         }
         record.collectedTimeSynced = time_.isTimeSynced(); record.collectedAt = time_.collectionTime();
         record.gatewayRssi = node_.rssi;
         const SaveResult result = storage_.saveMeasurement(record);
         if (result != SaveResult::Failed) ackIds_[ackCount_++] = record.recordId;
-        else Logger::error("Sensor record not persisted; excluded from ACK");
+        else {cycleFailed_=true;Logger::error("Sensor record not persisted; excluded from ACK");}
         break;
     }
     case State::Ack:
@@ -54,9 +72,14 @@ void CollectionManager::update() {
             Logger::warn("ACK failed; local records retained"); finishNode(); return;
         }
         registry_.touchNode(node_.deviceCode);
+        if(targetCycle_) targetAcked_+=ackCount_;
         Serial.printf("[COLLECT] ACK sent for %u persisted records\n", unsigned(ackCount_));
         pending_ = pending_ > ackCount_ ? pending_ - ackCount_ : 0;
-        if (!pending_ || batches_ >= Config::MAX_COLLECTION_BATCHES_PER_CYCLE) finishNode(); else state_ = State::Fetch;
+        if(!pending_) finishNode(true);
+        else if(batches_>=Config::MAX_COLLECTION_BATCHES_PER_CYCLE) {
+            if(targetCycle_) {batches_=0;state_=State::Info;} // Still bounded by mission target timeout.
+            else finishNode();
+        } else state_=State::Fetch;
         break;
     default: break;
     }

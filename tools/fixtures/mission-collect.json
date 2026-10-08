@@ -1,0 +1,11 @@
+{
+  "id": 102,
+  "name": "SENSOR-COLLECTION-MISSION",
+  "gatewayId": 1,
+  "uavId": 1,
+  "status": "SCHEDULED",
+  "waypoints": [
+    {"id": 1002, "sequenceNo": 1, "localX": 0.2, "localY": 0.0, "altitudeM": 0.35, "actionType": "COLLECT", "plannedHoldSeconds": 2}
+  ],
+  "targets": [{"sensorNodeId": 5, "deviceCode": "SENSOR-001", "waypointId": 1002}]
+}

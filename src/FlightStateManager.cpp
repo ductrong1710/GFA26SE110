@@ -22,6 +22,15 @@ void FlightStateManager::transition(FlightState state) {
     state_=state; stateAt_=millis();
     Serial.printf("[FLIGHT] %s\n",stateName());
 }
+void FlightStateManager::restoreRecovery() {
+    airbornePossible_=true;flightUncertain_=true;strictLanding_=true;recoveryStarted_=false;
+    error_="MISSION_RECOVERY_REQUIRED";transition(FlightState::Error);
+}
+bool FlightStateManager::cancelPreparation() {
+    if(airbornePossible_ || state_==FlightState::LandedReady) return reject("GROUND_CONFIRMATION_REQUIRED");
+    tello_.stop();wifi_.requestStaTarget(StaTarget::Internet);
+    error_="";transition(FlightState::InternetConnecting);return true;
+}
 bool FlightStateManager::prepare() {
     if (!Config::TELLO_ENABLED) return reject("TELLO_DISABLED");
     if (airbornePossible_) return reject("AIRCRAFT_MAY_BE_AIRBORNE");
@@ -39,7 +48,8 @@ bool FlightStateManager::groundedTelemetry() const {
     const auto& t=tello_.telemetry();
     return tello_.hasFreshTelemetry() && t.landingFieldsValid &&
         abs(t.verticalVelocity)<=Config::TELLO_LAND_MAX_VERTICAL_SPEED &&
-        (t.heightCm>=0 ? t.heightCm<=Config::TELLO_LAND_MAX_HEIGHT_CM : t.tofCm<=Config::TELLO_LAND_MAX_HEIGHT_CM);
+        (t.heightCm<0 || t.heightCm<=Config::TELLO_LAND_MAX_HEIGHT_CM) &&
+        (t.tofCm<0 || t.tofCm<=Config::TELLO_LAND_MAX_HEIGHT_CM);
 }
 void FlightStateManager::observeGround() {
     const auto& t=tello_.telemetry();
@@ -64,6 +74,8 @@ bool FlightStateManager::disconnect() {
     error_=""; transition(FlightState::LandedConfirmed); return true;
 }
 bool FlightStateManager::takeoff() {
+    if(Config::GROUND_TEST_MODE) return reject("GROUND_TEST_MODE");
+    if(!tello_.safety().configurationValid()) return reject("INVALID_ALTITUDE_CONFIGURATION");
     if(state_!=FlightState::LandedReady || !wifi_.isTelloConnected() || !tello_.isSdkReady()) return reject("TAKEOFF_STATE_INVALID");
     if(tello_.batteryPercent()<0) return reject("BATTERY_UNAVAILABLE");
     if(tello_.batteryPercent()<Config::TELLO_MIN_TAKEOFF_BATTERY_PERCENT) return reject("BATTERY_TOO_LOW");
@@ -81,6 +93,8 @@ bool FlightStateManager::land() {
 bool FlightStateManager::move(const char* direction,int cm) {
     if(!TelloController::validMove(direction,cm)) return reject("INVALID_MOVE");
     if(state_!=FlightState::Flying) return reject("NOT_FLYING");
+    tello_.refreshSafety();
+    if(!tello_.safety().allowMove(direction,cm)) return reject(tello_.safety().error());
     if(!tello_.move(direction,cm)) return reject("COMMAND_BUSY_OR_DISCONNECTED");
     error_=""; return true;
 }
@@ -166,7 +180,7 @@ void FlightStateManager::update(size_t pendingRecords, bool storageReady, bool b
         if(postAckSample) observeGround();
         const uint32_t elapsed=millis()-landAckAt_;
         if(stableGround() && elapsed>=Config::TELLO_LAND_SETTLE_MS) landingEvidence_="LAND_ACK_AND_STABLE_TELEMETRY";
-        else if(!tello_.hasFreshTelemetry() && !contradictoryLandingTelemetry_ && !flightUncertain_ && !tello_.responseUncertain() &&
+        else if(!strictLanding_ && !tello_.hasFreshTelemetry() && !contradictoryLandingTelemetry_ && !flightUncertain_ && !tello_.responseUncertain() &&
                 elapsed>=Config::TELLO_LAND_ACK_ONLY_SETTLE_MS) {
             landingEvidence_="LAND_ACK_AND_CONSERVATIVE_TIMEOUT";
             Serial.printf("[FLIGHT] Landing confirmation uses land ACK + timeout; no fresh telemetry\n");

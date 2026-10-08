@@ -67,12 +67,75 @@ void ApiServer::setupRoutes() {
     server_.onNotFound([this]() { handleNotFound(); });
     server_.on("/api/tello/status", HTTP_GET, [this]() { handleTelloStatus(); });
     server_.on("/api/tello/prepare", HTTP_POST, [this]() { handleTelloPrepare(); });
-    server_.on("/api/tello/takeoff", HTTP_POST, [this]() { sendFlightResult(flight_.takeoff()); });
-    server_.on("/api/tello/land", HTTP_POST, [this]() { sendFlightResult(flight_.land()); });
+    server_.on("/api/tello/takeoff", HTTP_POST, [this]() { if(manualFlightAllowed()) sendFlightResult(flight_.takeoff()); });
+    server_.on("/api/tello/land", HTTP_POST, [this]() { if(mission_.ownsFlight()) sendMissionResult(mission_.landNow()); else sendFlightResult(flight_.land()); });
     server_.on("/api/tello/move", HTTP_POST, [this]() { handleTelloControl("move"); });
     server_.on("/api/tello/rotate", HTTP_POST, [this]() { handleTelloControl("rotate"); });
     server_.on("/api/tello/rc", HTTP_POST, [this]() { handleTelloControl("rc"); });
-    server_.on("/api/tello/disconnect", HTTP_POST, [this]() { sendFlightResult(flight_.disconnect()); });
+    server_.on("/api/tello/disconnect", HTTP_POST, [this]() { if(manualFlightAllowed()) sendFlightResult(flight_.disconnect()); });
+    server_.on("/api/mission/status",HTTP_GET,[this](){handleMissionStatus();});
+    server_.on("/api/mission/active",HTTP_GET,[this](){handleMissionActive();});
+    server_.on("/api/mission/pull",HTTP_POST,[this](){sendMissionResult(mission_.requestPull());});
+    server_.on("/api/mission/start",HTTP_POST,[this](){sendMissionResult(mission_.start());});
+    server_.on("/api/mission/abort",HTTP_POST,[this](){sendMissionResult(mission_.abort());});
+    server_.on("/api/mission/land",HTTP_POST,[this](){sendMissionResult(mission_.landNow());});
+}
+bool ApiServer::manualFlightAllowed() {
+    if(!mission_.ownsFlight()) return true;
+    sendError(409,"MISSION_OWNS_FLIGHT","Use mission abort or land while a mission owns flight control");return false;
+}
+void ApiServer::sendMissionResult(bool accepted) {
+    if(!accepted){sendError(409,mission_.error(),"Mission request rejected; inspect mission status");return;}
+    StaticJsonDocument<256> doc;doc["success"]=true;doc["state"]=mission_.stateName();sendJson(202,doc);
+}
+void ApiServer::addAltitudeStatus(JsonDocument& doc) {
+    tello_.refreshSafety();
+    doc["configuredMaxAltitudeCm"]=Config::TELLO_MAX_ALTITUDE_CM;
+    doc["configuredTargetAltitudeCm"]=Config::TELLO_TARGET_ALTITUDE_CM;
+    doc["currentAltitudeCm"]=tello_.safety().altitudeCm();
+    doc["altitudeTelemetryFresh"]=tello_.safety().altitudeFresh();
+    doc["altitudeLimitActive"]=tello_.safety().limitActive();
+    doc["altitudeConfigurationValid"]=tello_.safety().configurationValid();
+    doc["groundTestMode"]=Config::GROUND_TEST_MODE;
+}
+void ApiServer::handleMissionStatus() {
+    StaticJsonDocument<1536> doc;doc["success"]=true;
+    doc["missionId"]=mission_.hasActive() ? mission_.active().id : 0;
+    doc["missionName"]=mission_.hasActive() ? mission_.active().name : "";
+    doc["state"]=mission_.stateName();doc["currentWaypointIndex"]=mission_.waypointIndex();
+    doc["waypointCount"]=mission_.hasActive() ? mission_.active().waypointCount : 0;
+    doc["flightState"]=flight_.stateName();doc["staTarget"]=GatewayWiFiManager::targetName(wifi_.staTarget());
+    doc["pendingUploadRecords"]=storage_.getPendingCount();doc["lastError"]=mission_.error();
+    doc["mockMissionBackend"]=Config::MOCK_MISSION_BACKEND;doc["resultUploaded"]=mission_.result().uploaded;
+    doc["mockResultUpload"]=mission_.result().mockUpload;addAltitudeStatus(doc);sendJson(200,doc);
+}
+void ApiServer::handleMissionActive() {
+    size_t offset=0;
+    if(server_.hasArg("routeOffset")) {
+        const String input=server_.arg("routeOffset");
+        if(input.isEmpty() || input.length()>3){sendError(400,"INVALID_ROUTE_OFFSET","Use a nonnegative route step index");return;}
+        for(size_t i=0;i<input.length();++i) if(input[i]<'0' || input[i]>'9') {sendError(400,"INVALID_ROUTE_OFFSET","Use a nonnegative route step index");return;}
+        offset=static_cast<size_t>(strtoul(input.c_str(),nullptr,10));
+        if(offset>mission_.plan().count){sendError(400,"INVALID_ROUTE_OFFSET","Route offset exceeds plan");return;}
+    }
+    DynamicJsonDocument doc(Config::MISSION_JSON_CAPACITY);
+    doc["success"]=true;
+    if(mission_.hasActive()) MissionCodec::encode(mission_.active(),doc.createNestedObject("mission"));
+    else doc["mission"]=nullptr;
+    // The planned count is inspectable without sending any flight command.
+    doc["plannedSteps"]=mission_.plan().count;
+    doc["routeOffset"]=offset;
+    JsonArray steps=doc.createNestedArray("routeSteps");
+    size_t i=offset;
+    for(;i<mission_.plan().count && i<offset+8;++i) {
+        const auto& step=mission_.plan().steps[i];JsonObject object=steps.createNestedObject();
+        object["index"]=i;object["waypointIndex"]=step.waypointIndex;
+        object["kind"]=step.kind==RouteStepKind::Move ? "MOVE" : step.kind==RouteStepKind::Altitude ? "ALTITUDE" : "WAYPOINT";
+        object["cm"]=step.cm;
+        if(step.kind==RouteStepKind::Move) object["direction"]=MissionRoutePlanner::directionName(step.direction);
+    }
+    if(i<mission_.plan().count) doc["nextRouteOffset"]=i;else doc["nextRouteOffset"]=nullptr;
+    sendJson(200,doc);
 }
 
 bool ApiServer::readControlBody(JsonDocument& doc) {
@@ -88,6 +151,7 @@ bool ApiServer::readControlBody(JsonDocument& doc) {
     return true;
 }
 void ApiServer::handleTelloControl(const char* action) {
+    if(!manualFlightAllowed()) return;
     StaticJsonDocument<512> doc;
     if(!readControlBody(doc)) return;
     if(!strcmp(action,"rc")) {
@@ -113,9 +177,9 @@ void ApiServer::sendFlightResult(bool accepted) {
     doc["success"]=true; doc["state"]=flight_.stateName();
     sendJson(202,doc);
 }
-void ApiServer::handleTelloPrepare() { sendFlightResult(flight_.prepare()); }
+void ApiServer::handleTelloPrepare() { if(manualFlightAllowed()) sendFlightResult(flight_.prepare()); }
 void ApiServer::handleTelloStatus() {
-    StaticJsonDocument<1024> doc;
+    StaticJsonDocument<1536> doc;
     doc["success"]=true;
     doc["staTarget"]=GatewayWiFiManager::targetName(wifi_.staTarget());
     doc["telloWifiConnected"]=wifi_.isTelloConnected();
@@ -130,6 +194,7 @@ void ApiServer::handleTelloStatus() {
     doc["lastResponse"]=tello_.lastResponse(); doc["errorCode"]=flight_.error();
     doc["landingEvidence"]=flight_.landingEvidence();
     doc["pendingUploadRecords"]=storage_.getPendingCount();
+    addAltitudeStatus(doc);
     sendJson(200,doc);
 }
 
@@ -343,14 +408,17 @@ void ApiServer::handleNotFound() {
 }
 
 void ApiServer::sendJson(int status, const JsonDocument& document) {
-    char output[1024];
-    if (document.overflowed() || measureJson(document) >= sizeof(output)) {
+    const size_t length=measureJson(document);
+    if (document.overflowed() || length>Config::MISSION_MAX_FILE_BYTES) {
         server_.send(500, "application/json",
                      "{\"success\":false,\"errorCode\":\"JSON_OVERFLOW\","
                      "\"message\":\"Response exceeds JSON buffer\"}");
         return;
     }
-    serializeJson(document, output, sizeof(output));
+    String output;
+    if(!output.reserve(length+1) || serializeJson(document,output)!=length) {
+        server_.send(503,"application/json","{\"success\":false,\"errorCode\":\"MEMORY_UNAVAILABLE\"}");return;
+    }
     server_.send(status, "application/json", output);
 }
 

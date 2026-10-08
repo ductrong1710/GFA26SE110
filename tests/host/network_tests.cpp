@@ -40,5 +40,10 @@ int main() {
     WiFi.ssid=Secrets::INTERNET_SSID; wifi.update(); time.update(wifi.isInternetNetworkReady());
     assert(wifi.isBackendNetworkReady() && ntpStarts==2);
     assert(time.isTimeSynced()); // Host clock used; stopping SNTP did not reset time.
+    // Boot recovery selects Tello from the outset, never briefly Internet.
+    WiFi.link=0;WiFi.attempts.clear();GatewayWiFiManager recovery;
+    assert(recovery.begin(StaTarget::Tello));testMillis+=100;recovery.update();
+    assert(WiFi.attempts.size()==1 && WiFi.attempts[0]==Secrets::TELLO_SSID);
+    assert(!recovery.isBackendNetworkReady());
     std::cout << "Production Wi-Fi role and NTP gating tests passed\n";
 }

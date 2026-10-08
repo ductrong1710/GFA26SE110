@@ -93,7 +93,10 @@ int main() {
     assert(!flight.rotate("cw",3601));
     assert(!flight.rc(101,0,0,0));
     for(const char* direction : {"up","down","left","right","forward","back"}) {
-        testMillis+=500; assert(flight.move(direction,20));
+        testMillis+=500;
+        state(!strcmp(direction,"up") ? "h:20;tof:20;vgz:0;bat:80;" : "h:40;tof:40;vgz:0;bat:80;");
+        controller.update();
+        assert(flight.move(direction,20));
         assert(outgoing.back().body==std::string(direction)+" 20");
         reply("ok"); controller.update(); flight.update();
     }

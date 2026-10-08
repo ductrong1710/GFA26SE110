@@ -14,6 +14,10 @@ public:
     String operator+(const char* text) const { return text_+text; }
     String operator+(const String& text) const { return text_+text.text_; }
     bool operator==(const char* text) const { return text_==text; }
+    bool operator==(const String& text) const {return text_==text.text_;}
+    bool operator!=(const String& text) const {return text_!=text.text_;}
+    bool isEmpty() const {return text_.empty();}
+    size_t length() const {return text_.size();}
 };
 extern unsigned ntpStarts;
 inline void configTime(long,int,const char*) { ++ntpStarts; }

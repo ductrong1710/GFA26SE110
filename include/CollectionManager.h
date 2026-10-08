@@ -3,12 +3,17 @@
 #include "SensorNodeClient.h"
 #include "StorageManager.h"
 #include "TimeManager.h"
+#include "MissionCollection.h"
 
-class CollectionManager {
+class CollectionManager : public MissionCollection {
 public:
     CollectionManager(NodeRegistry& registry, SensorNodeClient& client, StorageManager& storage, TimeManager& time)
         : registry_(registry), client_(client), storage_(storage), time_(time), response_(Config::COLLECTION_JSON_CAPACITY) {}
     void update();
+    void setMissionMode(bool enabled);
+    bool requestTarget(const char* deviceCode) override;
+    MissionCollectionState targetState() const override {return targetState_;}
+    void cancelTarget() override;
 private:
     enum class State { Select, Info, SendTime, Fetch, Persist, Ack };
     NodeRegistry& registry_;
@@ -22,5 +27,8 @@ private:
     unsigned int batches_ = 0;
     SensorNode node_;
     String ackIds_[Config::COLLECTION_BATCH_SIZE];
-    void finishNode();
+    bool missionMode_=false,targetCycle_=false,cycleFailed_=false;
+    size_t targetAcked_=0;
+    MissionCollectionState targetState_=MissionCollectionState::Idle;
+    void finishNode(bool success=false);
 };

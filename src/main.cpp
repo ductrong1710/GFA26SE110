@@ -21,7 +21,12 @@ CollectionManager collectionManager(nodeRegistry, sensorClient, storage, timeMan
 BackendSyncManager backendSyncManager(storage, wifiManager);
 TelloController telloController(wifiManager);
 FlightStateManager flightStateManager(wifiManager, telloController);
-ApiServer apiServer(nodeRegistry, nodeAuthenticator, storage, wifiManager, timeManager, telloController, flightStateManager);
+LittleFSMissionFiles missionFiles;
+MissionStorage missionStorage(missionFiles);
+MissionHttpTransport missionTransport;
+MissionBackendClient missionBackend(wifiManager,missionTransport);
+MissionManager missionManager(missionStorage,missionBackend,wifiManager,telloController,flightStateManager);
+ApiServer apiServer(nodeRegistry, nodeAuthenticator, storage, wifiManager, timeManager, telloController, flightStateManager,missionManager);
 }
 
 void setup() {
@@ -33,7 +38,9 @@ void setup() {
         // Keep local API available for diagnosis; collection/sync refuse storage writes.
     }
 
-    if (!wifiManager.begin()) {
+    missionManager.begin(); // Recover possible flight BEFORE selecting a STA network.
+    missionManager.setCollection(collectionManager);
+    if (!wifiManager.begin(missionManager.initialStaTarget())) {
         Logger::error("Phase 2 initialization failed");
         return;
     }
@@ -49,9 +56,11 @@ void loop() {
     apiServer.handleClient();
     telloController.update();
     flightStateManager.update(storage.getPendingCount(), storage.isReady(), backendSyncManager.isConfigured());
+    missionManager.update(storage.isReady(),storage.getPendingCount(),timeManager.isTimeSynced());
     timeManager.update(wifiManager.isInternetNetworkReady());
     nodeRegistry.update();
 #ifndef STORAGE_DIAGNOSTICS
+    collectionManager.setMissionMode(missionManager.ownsFlight());
     collectionManager.update();
     backendSyncManager.update();
 #endif
