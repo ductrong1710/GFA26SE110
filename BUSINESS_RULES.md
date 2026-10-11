@@ -767,3 +767,44 @@ Direct UAV/Gateway catalog APIs retain existing global role permissions. Farm-sc
 Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` is only for human users and is never applied to device identity or required for telemetry/sync ingestion. Human telemetry reads require mission-farm access.
 
 Response conventions: 401 without valid authentication; 403 for denied role/farm access; 404 for nonexistent resources; 409 for duplicate membership; 400 for invalid request data; 422 for ineligible membership targets.
+
+## Device mission lifecycle and explicit target assignment
+
+- Human/web users create and schedule missions under existing role/farm rules.
+  TargetAssignments explicitly links SensorNodeId to WaypointSequenceNo with a
+  unique positive target SequenceNo. The referenced waypoint must be submitted
+  in the same plan. Legacy SensorNodeIds supports drafts; when both forms are
+  supplied their sets must agree. Scheduling and starting require complete
+  target-to-waypoint mappings and active sensors in the mission farm.
+- The assigned gateway pulls only its SCHEDULED missions, ordered by scheduled
+  start then ID. Pull is a read and is allowed before scheduled time; it returns
+  only one mission. An empty queue is successful with null data.
+- Download validation/local persistence/verification is gateway responsibility.
+  A downloaded ACK appends one DOWNLOADED device log and keeps SCHEDULED. READY
+  and DOWNLOADED are not new backend mission statuses.
+- After local START, the gateway must receive backend /start success while still
+  online, before disconnecting to execute offline. Shared MissionLifecycle uses
+  existing MissionRules, active resource checks, schedule validity, explicit
+  mapping and reservation overlap checks. Start sets RUNNING and StartedAt.
+- After safely landing and reconnecting, the gateway submits readings and
+  collection outcomes through the existing sync endpoint with MissionId.
+  Completion requires at least one target and none PENDING; FAILED/SKIPPED target
+  outcomes continue to permit operational completion under existing rules.
+- Device fail requires FailureReason, sets CompletedAt and preserves existing
+  MISSION_ERROR alert generation. Device cancel uses existing cancellation
+  transitions and represents the gateway's completed physical abort handling.
+  The backend does not issue flight or motor commands.
+- Device identity uses existing X-Gateway-Code + X-Api-Key. Route gateway and
+  mission assignment are both enforced. Device services never require human
+  farm membership or JWT. Logs use GatewayId with null UserId; human transition
+  logs retain UserId with null GatewayId.
+- Writes lock the mission in a transaction before ownership/state decisions,
+  then acquire equipment locks in existing order. Concurrent retries serialize.
+  Repeated downloaded in SCHEDULED adds no log; repeated start in RUNNING or
+  complete in COMPLETED does not change timestamps or logs. Failed retry must
+  have the same trimmed reason. Repeated cancel preserves the original outcome.
+  Other invalid/terminal transitions remain conflicts, including a web cancel
+  that wins the lock before device start.
+- Local and GPS coordinates remain supported; backend altitude validation uses
+  the numeric storage range, not a fixed 40 cm ceiling. ESP32 performs final
+  configurable flight-safety validation and local execution.

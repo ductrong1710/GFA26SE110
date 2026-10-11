@@ -43,6 +43,8 @@ public static class ApiServiceExtensions
         services.AddScoped<EquipmentService>();
         services.AddScoped<ThresholdService>();
         services.AddScoped<MissionService>();
+        services.AddScoped<MissionLifecycle>();
+        services.AddScoped<DeviceMissionService>();
         services.AddScoped<TelemetryService>();
         services.AddScoped<SyncService>();
         services.AddScoped<AlertService>();

@@ -23,6 +23,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
             // Lock before loading the graph so concurrent transitions see the committed predecessor state.
             var locked = await db.Missions.FromSqlInterpolated($"SELECT * FROM missions WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct);
             if (locked is null) return null;
+            await db.Entry(locked).ReloadAsync(ct);
         }
         var query = db.Missions.AsQueryable();
         if (!forUpdate) query = query.AsNoTracking();
@@ -30,6 +31,20 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
             .Include(x => x.Targets).ThenInclude(x => x.SensorNode).ThenInclude(x => x.Zone).Include(x => x.Waypoints)
             .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
     }
+    public async Task<Mission?> GetNextScheduledForGatewayAsync(int gatewayId, CancellationToken ct)
+    {
+        // All split-query SELECTs must see the same plan even during a web update.
+        await using var snapshot = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
+        var mission = await db.Missions.AsNoTracking().Where(x => x.GatewayId == gatewayId && x.Status == MissionStatus.SCHEDULED)
+            .OrderBy(x => x.ScheduledStartAt).ThenBy(x => x.Id)
+            .Include(x => x.Gateway).Include(x => x.Uav).Include(x => x.Waypoints)
+            .Include(x => x.Targets).ThenInclude(x => x.SensorNode)
+            .AsSplitQuery().FirstOrDefaultAsync(ct);
+        await snapshot.CommitAsync(ct);
+        return mission;
+    }
+    public Task<bool> HasDeviceLogAsync(int missionId, int gatewayId, string logType, CancellationToken ct) =>
+        db.MissionLogs.AnyAsync(x => x.MissionId == missionId && x.GatewayId == gatewayId && x.UserId == null && x.LogType == logType, ct);
     public Task<Farm?> GetFarmAsync(int id, CancellationToken ct) => db.Farms.SingleOrDefaultAsync(x => x.Id == id, ct);
     public async Task<IReadOnlyList<SensorNode>> GetSensorsAsync(int[] ids, CancellationToken ct)
     {

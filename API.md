@@ -354,6 +354,11 @@ Example request:
   "gatewayId": 3,
   "scheduledStartAt": "2026-09-20T01:00:00Z",
   "sensorNodeIds": [10, 11, 12],
+  "targetAssignments": [
+    { "sensorNodeId": 10, "waypointSequenceNo": 1, "sequenceNo": 1 },
+    { "sensorNodeId": 11, "waypointSequenceNo": 2, "sequenceNo": 2 },
+    { "sensorNodeId": 12, "waypointSequenceNo": 2, "sequenceNo": 3 }
+  ],
   "waypoints": [
     {
       "sequenceNo": 1,
@@ -836,3 +841,115 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 ### Farm filters on aggregates
 
 `GET /api/dashboard/overview` and `GET /api/reports/devices` also accept optional `farmId`. Existing sensor/mission/alert reports retain their farm/date/pagination filters. Explicit unauthorized farmId returns 403; absent farmId aggregates only assigned farms for Owner/Engineer. Device reports associate equipment via missions, not a new equipment ownership column.
+
+## Device mission execution
+
+Web users create and schedule through the existing human mission endpoints.
+`MissionRequest.targetAssignments` contains `sensorNodeId`, `waypointSequenceNo`
+and `sequenceNo`. IDs and sequences must be positive; sensor IDs and target
+sequences must be unique. The waypoint sequence must exist in the submitted
+waypoints. Multiple different sensors may share a waypoint.
+
+`sensorNodeIds` is deprecated for scheduled plans, but remains supported for
+legacy drafts. It may be omitted when assignments are supplied. If both fields
+are supplied, their sensor ID sets must match exactly (including empty arrays).
+Scheduling/starting requires every target to be mapped to this mission's
+waypoint, and active sensors in the mission farm. Old unmapped drafts/scheduled
+plans must be updated with explicit assignments before scheduling/starting.
+Mappings are stored using the existing `MissionTarget.WaypointId`; nothing is
+inferred from array position, sensor ID or coordinates. PUT replaces the plan,
+including mappings, transactionally.
+
+All endpoints below require **both** `X-Gateway-Code` and `X-Api-Key` through the
+existing DeviceKey authentication scheme. Human JWT alone returns 401. Route
+gateway ID must equal the authenticated `gateway_id` claim; the mission must
+belong to that gateway. Mismatches return 403. Missing missions return 404.
+Inactive/unrecognized gateway credentials return 401 at authentication; a
+gateway deactivated during a write is rejected by the service with 403.
+
+Base route: `/api/device/gateways/{gatewayId}/missions`
+
+| Method and suffix | Behavior |
+| --- | --- |
+| GET `next` | At most one assigned SCHEDULED mission, ordered by scheduledStartAt then id ascending; no due-time filter. HTTP 200 with data=null if absent. |
+| POST `{missionId}/downloaded` | Acknowledge only after gateway validation, verified local persistence. Requires SCHEDULED; status remains SCHEDULED. One gateway-origin DOWNLOADED log, even on concurrent retries. |
+| POST `{missionId}/start` | SCHEDULED -> RUNNING, sets startedAt; shared resource, mapping, schedule and overlap checks. Already RUNNING returns success without changing timestamps/logs. |
+| POST `{missionId}/complete` | RUNNING -> COMPLETED only with nonempty targets and no PENDING target; sets completedAt. Already COMPLETED is a successful retry. |
+| POST `{missionId}/fail` | RUNNING -> FAILED; required nonblank failureReason, optional note. Sets failureReason/completedAt, raises existing MISSION_ERROR alert. Already FAILED succeeds only with the same trimmed reason; different reason is 409. |
+| POST `{missionId}/cancel` | Existing PENDING/SCHEDULED/RUNNING -> CANCELLED semantics; optional reason. Already CANCELLED succeeds without rewriting original reason/log. Reports a locally handled physical abort, never controls motors. |
+
+Downloaded/start/complete require no JSON body. Fail body:
+`{"failureReason":"SENSOR_TIMEOUT","note":"Sensor SENSOR-002 was not discovered."}`.
+Cancel body: `{"reason":"Operator aborted mission."}` (or `{}`).
+Action text is bounded to 10,000 characters by existing action validation.
+Invalid input is 400, invalid transition/incompatible retry is 409, and failed
+resource/target-completion business rules are 422. Retrying a different terminal
+action cannot reopen or overwrite a terminal mission.
+
+Next response (only device-facing plan data; DeviceCode comes from SensorNode):
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 15, "name": "FARM-MISSION-001", "status": "SCHEDULED",
+    "gatewayId": 1, "uavId": 1,
+    "scheduledStartAt": "2026-10-09T01:00:00Z",
+    "scheduledEndAt": "2026-10-09T01:30:00Z",
+    "waypoints": [{"id":100,"sequenceNo":1,"latitude":null,"longitude":null,
+      "localX":0.5,"localY":0,"altitudeM":0.35,"actionType":"COLLECT","plannedHoldSeconds":10}],
+    "targets": [{"id":22,"sensorNodeId":5,"deviceCode":"SENSOR-001",
+      "waypointId":100,"waypointSequenceNo":1,"sequenceNo":1,"status":"PENDING"}]
+  },
+  "message": null
+}
+```
+
+Action responses are HTTP 200 with standard envelope:
+
+```json
+{"success":true,"data":{"id":15,"status":"RUNNING","startedAt":"2026-10-09T01:00:00Z","completedAt":null,"failureReason":null},"message":null}
+```
+
+Required gateway workflow: pull -> validate/persist/verify -> downloaded ACK ->
+local START -> await backend start success -> switch STA to Tello -> execute
+offline -> safely land -> reconnect Internet -> existing `/sync` with missionId,
+readings and collectionResults -> inspect per-item outcomes/retry failures ->
+complete/fail/cancel. Download is not flight authorization. Backend cannot verify
+LittleFS persistence or physical landing; those are gateway responsibilities.
+
+Both GPS and local coordinates remain supported. AltitudeM is checked for
+nonnegative supported storage range; no backend 0.40 m ceiling exists. ESP32
+enforces its configurable ceiling and rejects plans incompatible with Tello.
+Device responses never expose API keys, hashes, Wi-Fi secrets or human JWTs.
+
+### PowerShell examples
+
+Use a provisioned gateway and mission ID. The create/schedule request is sent
+separately using a human account. Execute each next step only after the prior
+response and corresponding local persistence/flight/sync operation succeed.
+
+```powershell
+$base = 'https://localhost:5001/api'
+$gatewayId = 1
+$missionId = 15
+$headers = @{ 'X-Gateway-Code' = 'GATEWAY-001'; 'X-Api-Key' = $env:GATEWAY_API_KEY }
+$root = "$base/device/gateways/$gatewayId/missions"
+Invoke-RestMethod "$root/next" -Headers $headers
+# After verified local persistence:
+Invoke-RestMethod "$root/$missionId/downloaded" -Method Post -Headers $headers
+# After explicit local START, while still online:
+Invoke-RestMethod "$root/$missionId/start" -Method Post -Headers $headers
+# After local flight, safe landing and reconnection; sync.json uses existing contract:
+Invoke-RestMethod "$base/device/gateways/$gatewayId/sync" -Method Post -Headers $headers -ContentType 'application/json' -InFile .\sync.json
+# Choose one terminal outcome after processing sync acknowledgements:
+Invoke-RestMethod "$root/$missionId/complete" -Method Post -Headers $headers
+# Alternatives to complete:
+# Invoke-RestMethod "$root/$missionId/fail" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"failureReason":"SENSOR_TIMEOUT","note":"Sensor unavailable"}'
+# Invoke-RestMethod "$root/$missionId/cancel" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"reason":"Operator aborted mission."}'
+```
+
+There is no generic `/result` endpoint or fingerprint acknowledgement in this
+contract. Existing ESP32 firmware needs a subsequent integration update to use
+the envelope, downloaded/start gates, mission-associated sync and these terminal
+endpoints. This backend task does not change firmware or validate physical flight.

@@ -4,9 +4,14 @@ namespace FarmMonitoring.Application.Features.Missions;
 
 public sealed record WaypointRequest(int SequenceNo, decimal? Latitude, decimal? Longitude, decimal? LocalX,
     decimal? LocalY, decimal? AltitudeM, string? ActionType, int? PlannedHoldSeconds);
+public sealed record MissionTargetRequest(int SensorNodeId, int WaypointSequenceNo, int SequenceNo);
 public sealed record MissionRequest(string Name, int FarmId, int? UavId, int? GatewayId,
-    DateTimeOffset? ScheduledStartAt, DateTimeOffset? ScheduledEndAt, int[] SensorNodeIds,
-    WaypointRequest[] Waypoints, string? OperatorNotes);
+    DateTimeOffset? ScheduledStartAt, DateTimeOffset? ScheduledEndAt, int[]? SensorNodeIds,
+    WaypointRequest[] Waypoints, string? OperatorNotes, MissionTargetRequest[]? TargetAssignments = null)
+{
+    // Legacy sensor-only plans remain valid drafts; scheduling requires explicit assignments.
+    public int[] TargetSensorIds() => TargetAssignments?.Select(x => x.SensorNodeId).ToArray() ?? SensorNodeIds ?? [];
+}
 public sealed record ScheduleMissionRequest(DateTimeOffset ScheduledStartAt, DateTimeOffset ScheduledEndAt);
 public sealed record MissionActionRequest(string? OperatorNotes, string? FailureReason, string? Note, string? Reason);
 public sealed record MissionStatusRequest(string Status, string? Note);

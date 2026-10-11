@@ -192,7 +192,9 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
     }
 
     private object MissionPlan(int index) => new { name = "Updated mission", farmId = farms[index].Id, uavId = missions[index].UavId,
-        gatewayId = missions[index].GatewayId, sensorNodeIds = new[] { channels[index].SensorNodeId }, waypoints = new[] { new { sequenceNo = 1, localX = 0, localY = 0 } } };
+        gatewayId = missions[index].GatewayId, sensorNodeIds = new[] { channels[index].SensorNodeId },
+        targetAssignments = new[] { new { sensorNodeId = channels[index].SensorNodeId, waypointSequenceNo = 1, sequenceNo = 1 } },
+        waypoints = new[] { new { sequenceNo = 1, localX = 0, localY = 0 } } };
 
     [Fact]
     public async Task Mutations_enforce_role_and_source_destination_farms()

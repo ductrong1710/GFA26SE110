@@ -39,7 +39,8 @@ public class MissionTests(ApiFactory factory)
     private static object Plan((int farm, int sensor, int uav, int gateway) data) => new
     {
         name = "Morning collection", farmId = data.farm, uavId = data.uav, gatewayId = data.gateway,
-        sensorNodeIds = new[] { data.sensor }, waypoints = new[] { new { sequenceNo = 1, latitude = 10.1m, longitude = 106.2m, altitudeM = 10m } }
+        sensorNodeIds = new[] { data.sensor }, targetAssignments = new[] { new { sensorNodeId = data.sensor, waypointSequenceNo = 1, sequenceNo = 1 } },
+        waypoints = new[] { new { sequenceNo = 1, latitude = 10.1m, longitude = 106.2m, altitudeM = 10m } }
     };
     private static async Task<JsonElement> Data(HttpResponseMessage response)
     {
@@ -68,6 +69,7 @@ public class MissionTests(ApiFactory factory)
         var created = await Data(await op.PostAsJsonAsync("/api/missions", new
         {
             name = "Mixed outcomes", farmId = setup.farm, uavId = setup.uav, gatewayId = setup.gateway, sensorNodeIds = sensorIds,
+            targetAssignments = sensorIds.Select((sensorNodeId, index) => new { sensorNodeId, waypointSequenceNo = 1, sequenceNo = index + 1 }),
             waypoints = new[] { new { sequenceNo = 1, localX = 0, localY = 0 } }
         }));
         var id = created.GetProperty("id").GetInt32();

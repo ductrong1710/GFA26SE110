@@ -30,8 +30,16 @@ public sealed class MissionValidator : AbstractValidator<MissionRequest>
         RuleFor(x => x.UavId).GreaterThan(0);
         RuleFor(x => x.GatewayId).GreaterThan(0);
         RuleFor(x => x.OperatorNotes).MaximumLength(10000);
-        RuleFor(x => x.SensorNodeIds).NotNull().Must(x => x is null || (x.Length <= 1000 && x.All(id => id > 0) && x.Distinct().Count() == x.Length))
+        RuleFor(x => x.SensorNodeIds).Must(x => x is null || (x.Length <= 1000 && x.All(id => id > 0) && x.Distinct().Count() == x.Length))
             .WithMessage("Provide at most 1000 unique positive sensor IDs.");
+        RuleFor(x => x.TargetAssignments).Must(x => x is null || (x.Length <= 1000 && x.All(t => t is not null && t.SensorNodeId > 0 && t.SequenceNo > 0 && t.WaypointSequenceNo > 0)
+            && x.Select(t => t.SensorNodeId).Distinct().Count() == x.Length && x.Select(t => t.SequenceNo).Distinct().Count() == x.Length))
+            .WithMessage("Target assignments require unique positive sensor IDs and target sequences.");
+        RuleFor(x => x).Must(x => x.TargetAssignments is null || x.TargetAssignments.All(t => t is not null && x.Waypoints is not null && x.Waypoints.Any(w => w is not null && w.SequenceNo == t.WaypointSequenceNo)))
+            .WithMessage("Every target assignment must reference a submitted waypoint sequence.");
+        RuleFor(x => x).Must(x => x.TargetAssignments is null || x.SensorNodeIds is null ||
+            (x.TargetAssignments.All(t => t is not null) && x.SensorNodeIds.ToHashSet().SetEquals(x.TargetAssignments.Select(t => t.SensorNodeId))))
+            .WithMessage("SensorNodeIds and TargetAssignments must identify the same sensors when both are supplied.");
         RuleFor(x => x.Waypoints).NotNull().Must(x => x is null || (x.Length <= 1000 && x.All(w => w is not null) && x.Select(w => w.SequenceNo).Distinct().Count() == x.Length))
             .WithMessage("Provide at most 1000 waypoints with unique sequences.");
         RuleForEach(x => x.Waypoints).SetValidator(new WaypointValidator());

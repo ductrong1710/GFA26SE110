@@ -636,3 +636,39 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 ### Farm access implementation boundaries
 
 `ICurrentUser` is implemented by the API; `FarmAccessService` enforces current database roles and resource-to-farm resolution in Application. `IFarmAccessRepository` and SQL-translatable `ForFarms` query scoping are implemented in Infrastructure. List filtering precedes counting, pagination and aggregation. Device ingestion does not invoke human farm-access checks.
+
+### Device mission integration
+
+`DeviceMissionsController` exposes next/downloaded/start/complete/fail/cancel at
+`/api/device/gateways/{gatewayId}/missions`, protected by the existing DeviceKey
+scheme. `DeviceMissionService` checks the authenticated gateway claim and
+mission assignment without human CurrentUser or FarmAccessService dependencies.
+Dedicated response DTOs expose the assigned plan, both coordinate forms and
+SensorNode.DeviceCode with explicit target-to-waypoint mapping.
+
+`MissionLifecycle` centralizes resource validation, overlap checks, transition
+rules, timestamps and mission-error alerts for both MissionService (human) and
+DeviceMissionService. Callers retain actor authorization and transaction
+boundaries. Human services continue to enforce farm access. Mission logs use
+exactly the relevant actor: UserId for a human, GatewayId for a device.
+
+MissionRepository adds a no-tracking eager next query (at most one scheduled
+mission; scheduled start then ID) and a device-log existence check. The split
+pull query uses a repeatable-read transaction so concurrent plan changes cannot
+mix waypoint and target versions. State writes
+lock/reload the mission before graph loading; equipment locks retain the
+mission/UAV/gateway order. Download-log deduplication and same-state retry checks
+occur under that lock. Existing tables and status values are sufficient; no
+database migration or duplicate target-waypoint table is introduced.
+
+Web create/schedule -> gateway pull -> verified local persistence -> downloaded
+ACK (still SCHEDULED) -> explicit local START/backend start ACK (RUNNING) ->
+offline flight/collection -> local safe landing -> Internet reconnect -> existing
+SyncService for readings/CollectionResults -> device terminal outcome.
+Collection attempts, source-record deduplication and target outcomes remain
+owned by SyncService; no second sensor ingestion API is introduced.
+
+Backend does not control Tello or enforce a prototype-specific altitude ceiling.
+Firmware must adapt to the documented device contract and retains local safety,
+persistence and physical-flight responsibilities. No firmware/frontend change is
+part of this backend integration.
