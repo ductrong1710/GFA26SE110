@@ -33,16 +33,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["Jwt:Issuer"] = "FarmMonitoring.Tests", ["Jwt:Audience"] = "FarmMonitoring.Tests.Client",
             ["Jwt:SecretKey"] = SigningKey,
-            ["DeviceAuthentication:Credentials:0:GatewayCode"] = "integration-gateway",
-            ["DeviceAuthentication:Credentials:0:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
-            ["DeviceAuthentication:Credentials:1:GatewayCode"] = "sync-gateway",
-            ["DeviceAuthentication:Credentials:1:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
-            ["DeviceAuthentication:Credentials:2:GatewayCode"] = "sync-gateway-2",
-            ["DeviceAuthentication:Credentials:2:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
-            ["DeviceAuthentication:Credentials:3:GatewayCode"] = "alerts-gateway",
-            ["DeviceAuthentication:Credentials:3:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
-            ["DeviceAuthentication:Credentials:4:GatewayCode"] = "role-matrix-gateway",
-            ["DeviceAuthentication:Credentials:4:KeyHash"] = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
             ["SEED_ADMIN_EMAIL"] = "", ["SEED_ADMIN_PASSWORD"] = "",
             ["Logging:LogLevel:Default"] = "Warning",
             ["Monitoring:Enabled"] = "false"
@@ -87,6 +77,19 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         databaseCreated = false;
     }
 
+    public async Task SeedDeviceCredentialAsync(int gatewayId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        if (await db.GatewayCredentials.AnyAsync(x => x.GatewayId == gatewayId && x.IsActive)) return;
+        db.GatewayCredentials.Add(new GatewayCredential
+        {
+            GatewayId = gatewayId,
+            KeyHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(DeviceKey))),
+            KeyPrefix = DeviceKey[..8], CreatedAt = DateTimeOffset.UtcNow, IsActive = true
+        });
+        await db.SaveChangesAsync();
+    }
     public async Task AssignFarmAsync(int farmId, params string[] emails)
     {
         await using var scope = Services.CreateAsyncScope();

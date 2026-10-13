@@ -615,3 +615,7 @@ Frontend files differing from the original branch snapshot, normalized for the p
 - tests/api-client.test.js
 
 No commit, push, branch merge, or destructive reset/clean was performed.
+
+## Gateway credential management (2026-10-13)
+
+The four human gateway credential endpoints are connected to the Mobile Gateways Credential dialog. Device sync/telemetry remain device-only. See [Gateway Credential implementation](GATEWAY_CREDENTIAL_IMPLEMENTATION.md) for the API contract, database transition, security evidence, verification and ESP32 setup steps.

@@ -24,8 +24,6 @@ public static class DependencyInjection
             .Validate(x => x.IsValid(), "Jwt requires issuer, audience, a key of at least 32 UTF-8 bytes, access lifetime 1-60 minutes and refresh lifetime 1-90 days.")
             .ValidateOnStart();
         services.AddSingleton(TimeProvider.System);
-        services.AddOptions<DeviceAuthenticationOptions>().Bind(configuration.GetSection("DeviceAuthentication"))
-            .Validate(x => x.IsValid(), "Device credentials require unique gateway codes and SHA-256 hexadecimal key hashes.").ValidateOnStart();
         services.AddScoped<IDeviceAuthenticator, DeviceAuthenticator>();
         services.AddDbContext<AppDbContext>((provider, options) =>
             options.UseNpgsql(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
@@ -35,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IFarmRepository, FarmRepository>();
         services.AddScoped<ISensorRepository, SensorRepository>();
         services.AddScoped<IEquipmentRepository, EquipmentRepository>();
+        services.AddScoped<IGatewayCredentialRepository, GatewayCredentialRepository>();
         services.AddScoped<IThresholdRepository, ThresholdRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<ITelemetryRepository, TelemetryRepository>();

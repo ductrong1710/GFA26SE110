@@ -73,6 +73,7 @@ public class HumanRoleTests(ApiFactory factory)
         var sync = new { batchKey = Guid.NewGuid().ToString("N"), records = Array.Empty<object>() };
         Assert.Equal(HttpStatusCode.Unauthorized, (await human.PostAsJsonAsync("/api/device/telemetry", telemetry)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await human.PostAsJsonAsync($"/api/device/gateways/{gatewayId}/sync", sync)).StatusCode);
+        await factory.SeedDeviceCredentialAsync(gatewayId);
         using var device = factory.CreateApiClient();
         device.DefaultRequestHeaders.Add("X-Gateway-Code", "role-matrix-gateway");
         device.DefaultRequestHeaders.Add("X-Api-Key", factory.DeviceKey);

@@ -672,3 +672,9 @@ Backend does not control Tello or enforce a prototype-specific altitude ceiling.
 Firmware must adapt to the documented device contract and retains local safety,
 persistence and physical-flight responsibilities. No firmware/frontend change is
 part of this backend integration.
+
+## Gateway credential management boundary
+
+`GatewayCredentialsController` uses the unchanged ManageDevices policy and delegates to `GatewayCredentialService`, then `IGatewayCredentialRepository` / `GatewayCredentialRepository`. The service generates 32 cryptographically random bytes and returns the raw key once; persistence receives only its SHA-256 hash and a short prefix. Explicit response DTOs keep hashes out of API responses. No request DTO validator is needed because these routes accept only an integer route identifier and no request body.
+
+`DeviceAuthenticationHandler` retains its exact HTTP contract. `DeviceAuthenticator` resolves the active gateway and active database credential, compares SHA-256 hashes using `CryptographicOperations.FixedTimeEquals`, and records LastUsedAt within the same gateway-lock transaction. Credential mutations acquire that gateway lock too. Configuration credentials are no longer an authentication source, preventing fallback after revocation. This feature does not add flight control or change device sync/telemetry ownership checks.

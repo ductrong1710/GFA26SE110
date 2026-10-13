@@ -68,6 +68,7 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         var global = new Alert { AlertType = AlertType.UAV_LOW_BATTERY, Severity = AlertSeverity.WARNING, Message = "Global equipment", OpenedAt = now };
         db.Alerts.Add(global);
         await db.SaveChangesAsync(); globalAlertId = global.Id;
+        await factory.SeedDeviceCredentialAsync(missions[0].GatewayId!.Value);
         await Status(HttpStatusCode.Created, await admin.PostAsJsonAsync($"/api/farms/{farms[0].Id}/members", new { userId = ownerId }));
         await Status(HttpStatusCode.Created, await admin.PostAsJsonAsync($"/api/farms/{farms[0].Id}/members", new { userId = engineerId }));
     }

@@ -86,6 +86,7 @@ public class AlertTests(ApiFactory factory)
             await db.SaveChangesAsync();
             gatewayId = gateway.Id; nodeId = channel.SensorNodeId; nodeCode = channel.SensorNode.DeviceCode;
         }
+        await factory.SeedDeviceCredentialAsync(gatewayId);
         using var device = factory.CreateApiClient();
         device.DefaultRequestHeaders.Add("X-Gateway-Code", "alerts-gateway");
         device.DefaultRequestHeaders.Add("X-Api-Key", factory.DeviceKey);

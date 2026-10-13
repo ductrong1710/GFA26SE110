@@ -33,6 +33,8 @@ public sealed class DeviceMissionTests : IAsyncLifetime
         db.Gateways.AddRange(gateway, other);
         await db.SaveChangesAsync();
         gatewayId = gateway.Id; otherGatewayId = other.Id; farmId = farm.Id; sensorId = node.Id; uavId = uav.Id;
+        await factory.SeedDeviceCredentialAsync(gatewayId);
+        await factory.SeedDeviceCredentialAsync(otherGatewayId);
         human = factory.CreateApiClient();
         var login = await Data(await human.PostAsJsonAsync("/api/auth/login", new { email = "admin@example.com", password = "Test-password-123!" }));
         human.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("accessToken").GetString());

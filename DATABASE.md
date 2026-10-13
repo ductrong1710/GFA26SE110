@@ -911,3 +911,21 @@ Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` i
 Response conventions: 401 without valid authentication; 403 for denied role/farm access; 404 for nonexistent resources; 409 for duplicate membership; 400 for invalid request data; 422 for ineligible membership targets.
 
 Migration `20261013014617_SeedSampleAdministrator` inserts the sample admin@sep.local account with an Identity-compatible password hash and grants FarmAdministrator by role name. An existing email is left unchanged. Rollback preserves the account; there are no schema changes or farm assignments.
+
+## Persistent gateway credentials
+
+Migration `20261013021208_GatewayCredentials` adds `gateway_credentials`:
+
+| Column | Storage |
+|---|---|
+| id | integer identity primary key |
+| gateway_id | required FK to gateways, restrictive delete |
+| key_hash | required 64-character SHA-256 hex; database validates hex format |
+| key_prefix | nullable 8-character identifier |
+| created_at | required timestamp with time zone |
+| last_used_at | nullable timestamp with time zone, successful authentication only |
+| revoked_at | nullable timestamp with time zone |
+| is_active | required boolean |
+| created_by_user_id | nullable FK to users, restrictive delete |
+
+A unique filtered index on gateway_id WHERE is_active enforces at most one active key. A state check requires active credentials to have no revocation timestamp and inactive credentials to have one. The (gateway_id, created_at) index supports history; created_by_user_id is indexed. Raw API keys are never stored. Rotation revokes the old row and inserts the new hash in one transaction; revoke preserves all rows. Gateway row locks serialize create/rotate/revoke and device authentication. The migration preserves existing gateways and issues no credentials automatically; rollback removes the credential table/history.

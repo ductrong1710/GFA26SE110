@@ -810,3 +810,12 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
   configurable flight-safety validation and local execution.
 
 The sample administrator migration automatically creates admin@sep.local with the requested sample password 123456 (stored as a hash) and FarmAdministrator. Existing accounts are never promoted, reactivated or reset by this migration. Normal API password validation remains unchanged.
+
+## Gateway credential rules
+
+- ManageDevices remains FarmAdministrator/FarmOwner; gateway catalog access is global under the existing policy, not an invented farm ownership relationship.
+- Create and rotate require an active gateway. There is at most one active credential per gateway; duplicate creation is a conflict.
+- Rotation atomically revokes the old key. Revocation is soft/idempotent and remains available on an inactive gateway.
+- API keys have at least 256 bits of entropy; only SHA-256 hashes and an 8-character identification prefix persist. Raw keys are returned once at issuance, never retrievable later.
+- Device authentication requires both an active gateway and active/unrevoked database credential. Invalid requests do not update LastUsedAt. No configuration-key fallback is permitted.
+- The UI only presents credential management to DEVICES_MANAGE users for gateways. One-time keys live only in the open dialog, are discarded on close/account change, and are never saved in browser storage or URLs.

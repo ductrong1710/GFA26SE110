@@ -45,7 +45,7 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 
 Replace the connection placeholders with your local values. Generate the signing key once per development environment and keep it stable between restarts; changing it invalidates existing access tokens. Do not print or commit these values. Environment variables override the JSON configuration.
 
-Alternatively, use .NET user secrets for API runtime configuration (`dotnet user-secrets set <key> <value> --project src/FarmMonitoring.Api`). Keys are `ConnectionStrings:DefaultConnection`, `Jwt:SecretKey`, `SEED_ADMIN_EMAIL`, and `SEED_ADMIN_PASSWORD`. EF's design-time factory deliberately reads **ConnectionStrings__DefaultConnection** from the environment, so set that variable when running migrations even if the API uses user secrets.
+Alternatively, use .NET user secrets for API runtime configuration (`dotnet user-secrets set <key> <value> --project src/FarmMonitoring.Api`). Keys are `ConnectionStrings:DefaultConnection`, `Jwt:SecretKey`, `SEED_ADMIN_EMAIL`, and `SEED_ADMIN_PASSWORD`. EF tooling reads the API project settings without starting the web host. Precedence is appsettings.json, appsettings.{Environment}.json, Development user secrets, then environment variables. DOTNET_ENVIRONMENT takes precedence over ASPNETCORE_ENVIRONMENT; if neither is set, the environment is Production. launchSettings.json is not read by the factory. ConnectionStrings__DefaultConnection remains an optional override.
 
 | Setting | Required/default |
 |---|---|
@@ -69,7 +69,7 @@ dotnet ef database update --project src/FarmMonitoring.Infrastructure --startup-
 
 Apply the full migration chain for the current schema. The role-model migration `20261007041338_HumanUserRoles` removes deprecated `UavDeviceOperator` memberships and that role, and inserts missing FarmOwner/FarmEngineer roles. It preserves users, passwords and any existing supported role assignments; it never converts former operators into owners or engineers. Accounts left without a supported role require an administrator to assign a role before login/refresh/me can succeed. Rollback cannot recover removed assignments. Historical migrations are unchanged. Migrations contain no plaintext password values in database records or JWT secrets.
 
-Migration `20261013014617_SeedSampleAdministrator` automatically creates the sample account **admin@sep.local**, password **123456**, with the `FarmAdministrator` role. It stores an ASP.NET Core Identity-compatible password hash. This is a sample credential for local/demo use. The migration runs through the command above without starting the API or configuring `SEED_ADMIN_*`; EF tooling still requires `ConnectionStrings__DefaultConnection`.
+Migration `20261013014617_SeedSampleAdministrator` automatically creates the sample account **admin@sep.local**, password **123456**, with the `FarmAdministrator` role. It stores an ASP.NET Core Identity-compatible password hash. This is a sample credential for local/demo use. The migration runs through the command above without starting the API or configuring `SEED_ADMIN_*`; EF tooling uses the configured API connection string.
 
 If that email already exists, its password, status, profile and roles remain unchanged. Repeated updates do not create duplicates. Rollback deliberately preserves the account and any data it owns; reapplying the migration does not reset its password. API-created users still require passwords of at least 12 characters.
 
@@ -182,7 +182,7 @@ ReadFarmData includes farms/zones, sensor data/history, alerts, dashboard and al
 
 FarmAdministrator has global farm access without membership. FarmOwner and FarmEngineer require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
 
-Human users -> JWT Bearer authentication. Gateway/device -> Device Authentication with both `X-Api-Key` and `X-Gateway-Code`. Existing `/api/device/telemetry` and `/api/device/gateways/{id}/sync` reject JWT-only requests. Device credentials never grant human permissions. Keep device secrets in the existing credential configuration, independently of JWT signing secrets.
+Human users -> JWT Bearer authentication. Gateway/device -> Device Authentication with both `X-Api-Key` and `X-Gateway-Code`. Existing `/api/device/telemetry` and `/api/device/gateways/{id}/sync` reject JWT-only requests. Device credentials never grant human permissions. Manage gateway credentials through the Devices page or credential management API. Only SHA-256 hashes persist in gateway_credentials, independently of JWT signing secrets; old DeviceAuthentication configuration is no longer used.
 
 UAV Operator may remain an external/use-case actor but is NOT an authenticated backend user role. Existing `operatorNotes` fields remain operational notes.
 

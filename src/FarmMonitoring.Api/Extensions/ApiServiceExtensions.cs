@@ -41,6 +41,7 @@ public static class ApiServiceExtensions
         services.AddScoped<FarmService>();
         services.AddScoped<SensorService>();
         services.AddScoped<EquipmentService>();
+        services.AddScoped<GatewayCredentialService>();
         services.AddScoped<ThresholdService>();
         services.AddScoped<MissionService>();
         services.AddScoped<MissionLifecycle>();

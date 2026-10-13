@@ -29,6 +29,7 @@ public class TelemetryTests(ApiFactory factory)
             await factory.AssignFarmAsync(mission.FarmId, "owner@example.com");
             missionId = mission.Id; gatewayId = gateway.Id; uavId = gateway.Uav!.Id;
         }
+        await factory.SeedDeviceCredentialAsync(gatewayId);
         using var human = factory.CreateApiClient();
         var login = await human.PostAsJsonAsync("/api/auth/login", new { email = "owner@example.com", password = "Test-password-123!" });
         human.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("accessToken").GetString());

@@ -953,3 +953,29 @@ There is no generic `/result` endpoint or fingerprint acknowledgement in this
 contract. Existing ESP32 firmware needs a subsequent integration update to use
 the envelope, downloaded/start gates, mission-associated sync and these terminal
 endpoints. This backend task does not change firmware or validate physical flight.
+
+## Gateway credential management
+
+All four routes require JWT Bearer and the existing **ManageDevices** policy (FarmAdministrator or FarmOwner). Responses use the usual `{ data: ... }` envelope and `Cache-Control: no-store`. DeviceKey credentials cannot call these human routes.
+
+| Method | Route | Result |
+|---|---|---|
+| POST | /api/gateways/{gatewayId}/credential | 201, one-time credential |
+| POST | /api/gateways/{gatewayId}/credential/rotate | 200, one-time replacement credential |
+| DELETE | /api/gateways/{gatewayId}/credential | 204, idempotent soft revocation |
+| GET | /api/gateways/{gatewayId}/credential/status | 200, metadata only |
+
+No request body is required. Issuance returns `{ gatewayId, gatewayCode, apiKey, createdAt }`. The raw `apiKey` appears only in this create/rotate response and must be copied immediately. There is no key-retrieval endpoint. Status returns `{ gatewayId, gatewayCode, hasCredential, isActive, createdAt, lastUsedAt, revokedAt, keyPrefix }`; dates/prefix are null before first issuance. `hasCredential` includes revoked history; `isActive` also requires an active gateway. Status never contains `apiKey` or `keyHash`.
+
+Missing gateway: 404. Create/rotate on inactive gateway: 422. Create while a credential is active: 409. Rotate without an active credential: 409 (create instead). Revoke works on inactive gateways and is idempotent. Creating again after revocation is supported. Concurrent changes are serialized and cannot leave multiple active credentials.
+
+Device authentication still uses `X-Gateway-Code` and `X-Api-Key` with the **DeviceKey** scheme for all existing `/api/device/...` routes. It now reads only database credentials; old `DeviceAuthentication:Credentials` configuration no longer authenticates. Use the management API/UI to provision each physical gateway after migration. Successful authentication updates `lastUsedAt`; invalid keys do not. Revocation/rotation takes effect for subsequent authentication immediately, with no cached key/configuration fallback. Human JWT alone never substitutes for the two device headers.
+
+ESP32 sync request (body must follow the existing sync contract):
+
+```http
+POST /api/device/gateways/{gatewayId}/sync
+X-Gateway-Code: GW-ESP32-01
+X-Api-Key: <one-time generated API key>
+Content-Type: application/json
+```

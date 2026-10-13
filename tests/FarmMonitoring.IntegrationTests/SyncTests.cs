@@ -35,6 +35,7 @@ public class SyncTests(ApiFactory factory)
             missionId = mission.Id; gatewayId = gateway.Id; nodeId = node.Id; channelId = channel.Id; nodeCode = node.DeviceCode;
             zoneId = node.ZoneId; typeId = channel.SensorTypeId;
         }
+        await factory.SeedDeviceCredentialAsync(gatewayId);
         using var device = factory.CreateApiClient();
         device.DefaultRequestHeaders.Add("X-Gateway-Code", "sync-gateway");
         device.DefaultRequestHeaders.Add("X-Api-Key", factory.DeviceKey);
@@ -99,6 +100,7 @@ public class SyncTests(ApiFactory factory)
             await db.SaveChangesAsync();
             secondGateway = gateway.Id;
         }
+        await factory.SeedDeviceCredentialAsync(secondGateway);
         using var secondDevice = factory.CreateApiClient();
         secondDevice.DefaultRequestHeaders.Add("X-Gateway-Code", "sync-gateway-2");
         secondDevice.DefaultRequestHeaders.Add("X-Api-Key", factory.DeviceKey);

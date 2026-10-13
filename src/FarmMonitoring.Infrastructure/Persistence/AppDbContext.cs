@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<SensorChannel> SensorChannels => Set<SensorChannel>();
     public DbSet<Uav> Uavs => Set<Uav>();
     public DbSet<Gateway> Gateways => Set<Gateway>();
+    public DbSet<GatewayCredential> GatewayCredentials => Set<GatewayCredential>();
     public DbSet<SensorThreshold> SensorThresholds => Set<SensorThreshold>();
     public DbSet<Mission> Missions => Set<Mission>();
     public DbSet<MissionTarget> MissionTargets => Set<MissionTarget>();

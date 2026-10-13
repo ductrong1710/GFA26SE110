@@ -349,6 +349,68 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.GatewayCredential", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("key_hash");
+
+                    b.Property<string>("KeyPrefix")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("key_prefix");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("GatewayId")
+                        .IsUnique()
+                        .HasFilter("is_active");
+
+                    b.HasIndex("GatewayId", "CreatedAt");
+
+                    b.ToTable("gateway_credentials", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_gateway_credentials_hash", "key_hash ~ '^[0-9A-Fa-f]{64}$'");
+
+                            t.HasCheckConstraint("CK_gateway_credentials_state", "(is_active AND revoked_at IS NULL) OR (NOT is_active AND revoked_at IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Mission", b =>
                 {
                     b.Property<int>("Id")
@@ -1549,6 +1611,24 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Uav");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.GatewayCredential", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Gateway");
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Mission", b =>
