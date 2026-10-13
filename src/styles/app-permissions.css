@@ -1,0 +1,6 @@
+/* Demo profile control and the new denied state; no shared shell restyling. */
+.app-demo-role-switcher { margin-block: 16px; padding-block: 14px; border-block: 1px solid var(--app-border); }
+.app-demo-role-switcher label { display: block; margin-bottom: 8px; color: var(--app-muted); font-size: 11px; }
+.app-demo-role-switcher select { width: 100%; min-height: 36px; padding: 7px; border: 1px solid var(--app-border); border-radius: 6px; color: var(--app-ink); background: white; font: inherit; font-size: 12px; }
+.app-account-panel:has(.app-demo-role-switcher) { max-height: calc(100dvh - 100px); overflow-y: auto; }
+.app-access-denied-link { color: #176346; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }

@@ -1,0 +1,38 @@
+/* Authenticated UI only: no :root variables or public-site overrides. */
+.app-shell, .app-ui {
+  --ui-font: 'DM Sans', sans-serif;
+  --ui-page: #f6f8f7;
+  --ui-card: #ffffff;
+  --ui-sidebar: #102b25;
+  --ui-primary: #176346;
+  --ui-text: #213b2e;
+  --ui-muted: #66716b;
+  --ui-border: #e2e8e4;
+  --ui-subtle: #f0f4f2;
+  --ui-success: #176346;
+  --ui-success-bg: #eaf5ee;
+  --ui-info: #2459a6;
+  --ui-info-bg: #edf4ff;
+  --ui-warning: #8c570d;
+  --ui-warning-bg: #fff5df;
+  --ui-danger: #b42318;
+  --ui-danger-bg: #fff0ed;
+  --ui-neutral: #59636d;
+  --ui-neutral-bg: #eef1f3;
+  --ui-radius-sm: 6px;
+  --ui-radius-card: 14px;
+  --ui-radius-lg: 16px;
+  --ui-border-width: 1px;
+  --ui-shadow-sm: 0 2px 8px rgb(20 50 35 / 4%);
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-page-padding: 32px;
+  --ui-card-padding: 24px;
+  --ui-control-height: 40px;
+  --ui-table-cell-padding: 14px 16px;
+}
