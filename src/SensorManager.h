@@ -9,6 +9,7 @@ public:
     bool begin();
     SensorReading readSensors();
     void logDhtReading();
+    void logSoilReading();
 private:
 #if !DEMO_MODE
     DHT dht_{Config::DHT_PIN, DHT11};

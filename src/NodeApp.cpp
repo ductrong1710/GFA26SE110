@@ -19,6 +19,7 @@ void NodeApp::update() {
     if (now - lastDhtLog_ >= Config::DHT_LOG_INTERVAL_MS) {
         lastDhtLog_ = now;
         sensors_.logDhtReading();
+        sensors_.logSoilReading();
     }
     if (maintenance_.due(now,1000)) { queue_.update(); maintenance_.mark(now); }
     if (now - lastSample_ >= Config::SENSOR_READ_INTERVAL_MS) {

@@ -27,6 +27,25 @@ void SensorManager::logDhtReading() {
     Serial.printf("[DHT11] Temperature: %.1f C | Humidity: %.1f %%\n", temperature, humidity);
 #endif
 }
+void SensorManager::logSoilReading() {
+#if DEMO_MODE
+    Logger::log("SOIL", "DEMO_MODE enabled; physical sensor is not read");
+#else
+    if (!Config::SOIL_ENABLED) {
+        Logger::log("SOIL", "Sensor disabled");
+        return;
+    }
+    const int raw = analogRead(A0);
+    const float moisture = SensorMath::soilPercent(raw, Config::SOIL_DRY_ADC,
+        Config::SOIL_WET_ADC, Config::SOIL_DISCONNECTED_LOW, Config::SOIL_DISCONNECTED_HIGH);
+    if (!isfinite(moisture)) {
+        Serial.printf("[SOIL] ADC: %d | Moisture: unavailable | Check A0 wiring, voltage and calibration (dry=%d wet=%d)\n",
+            raw, Config::SOIL_DRY_ADC, Config::SOIL_WET_ADC);
+        return;
+    }
+    Serial.printf("[SOIL] ADC: %d | Moisture: %.1f %%\n", raw, moisture);
+#endif
+}
 SensorReading SensorManager::readSensors() {
     Logger::log("SENSOR", "Reading sensors");
     SensorReading reading;
