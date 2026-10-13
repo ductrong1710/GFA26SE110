@@ -15,6 +15,7 @@
 .management-error { background: var(--ui-danger-bg); color: var(--ui-danger); }
 .management-dialog { width: min(550px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 1px solid var(--ui-border); border-radius: 16px; background: var(--ui-card); box-shadow: 0 20px 70px rgb(10 35 25 / 20%); overflow: auto; }
 .management-dialog::backdrop { background: rgb(10 30 24 / 45%); }
+.gateway-credential-example { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.65; padding: 14px; background: var(--ui-page); border-radius: 8px; }
 .management-dialog > header { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--ui-border); background: white; }
 .management-dialog > header h2 { margin: 0; font-size: 21px; }
 .management-dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 20px 24px; border-top: 1px solid var(--ui-border); }
