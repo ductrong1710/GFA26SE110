@@ -48,7 +48,7 @@ public class RoleMigrationTests
         db.RefreshTokens.Add(new RefreshToken { UserId = legacy.Id, TokenHash = refresh.Hash, CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = refresh.ExpiresAt });
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
-        await db.GetService<IMigrator>().MigrateAsync();
+        await db.GetService<IMigrator>().MigrateAsync("20261007041338_HumanUserRoles");
         Assert.Equal(new[] { "FarmAdministrator", "FarmEngineer", "FarmOwner" }, await db.Roles.OrderBy(x => x.Name).Select(x => x.Name).ToArrayAsync());
         var persisted = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).SingleAsync(x => x.Id == legacy.Id);
         Assert.True(persisted.IsActive);
@@ -62,7 +62,7 @@ public class RoleMigrationTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = refresh.Token })).StatusCode);
         (await client.PostAsJsonAsync("/api/auth/login", new { email = mixed.Email, password = "Migration-password-123!" })).EnsureSuccessStatusCode();
         Assert.Equal(1, await db.RefreshTokens.CountAsync(x => x.UserId == legacy.Id));
-        await db.GetService<IMigrator>().MigrateAsync();
+        await db.GetService<IMigrator>().MigrateAsync("20261007041338_HumanUserRoles");
         Assert.Equal(3, await db.Roles.CountAsync());
     }
 }

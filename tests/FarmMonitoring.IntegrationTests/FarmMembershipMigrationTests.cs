@@ -20,7 +20,7 @@ public sealed class FarmMembershipMigrationTests
         db.Farms.Add(new Farm { Name = "Existing farm", CreatedAt = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync();
         var hashes = await db.Users.OrderBy(x => x.Id).Select(x => x.PasswordHash).ToArrayAsync();
-        await db.GetService<IMigrator>().MigrateAsync();
+        await db.GetService<IMigrator>().MigrateAsync("20261007094620_AddUserFarmAssignments");
         Assert.Empty(await db.UserFarms.ToArrayAsync());
         Assert.Equal(hashes, await db.Users.OrderBy(x => x.Id).Select(x => x.PasswordHash).ToArrayAsync());
         var columns = await db.Database.SqlQueryRaw<string>("SELECT column_name AS \"Value\" FROM information_schema.columns WHERE table_name='user_farms' ORDER BY ordinal_position").ToArrayAsync();
@@ -43,7 +43,7 @@ public sealed class FarmMembershipMigrationTests
         var foreign = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, Assert.IsType<PostgresException>(foreign.InnerException).SqlState);
         db.ChangeTracker.Clear();
-        await db.GetService<IMigrator>().MigrateAsync();
+        await db.GetService<IMigrator>().MigrateAsync("20261007094620_AddUserFarmAssignments");
         Assert.Single(await db.UserFarms.ToArrayAsync());
     }
 }

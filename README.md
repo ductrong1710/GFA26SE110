@@ -67,9 +67,13 @@ Missing/invalid required configuration fails startup. Production configuration s
 dotnet ef database update --project src/FarmMonitoring.Infrastructure --startup-project src/FarmMonitoring.Api
 ```
 
-Apply the full migration chain for the current schema. The role-model migration `20261007041338_HumanUserRoles` removes deprecated `UavDeviceOperator` memberships and that role, and inserts missing FarmOwner/FarmEngineer roles. It preserves users, passwords and any existing supported role assignments; it never converts former operators into owners or engineers. Accounts left without a supported role require an administrator to assign a role before login/refresh/me can succeed. Rollback cannot recover removed assignments. Historical migrations are unchanged. Migrations contain no account passwords or JWT secrets.
+Apply the full migration chain for the current schema. The role-model migration `20261007041338_HumanUserRoles` removes deprecated `UavDeviceOperator` memberships and that role, and inserts missing FarmOwner/FarmEngineer roles. It preserves users, passwords and any existing supported role assignments; it never converts former operators into owners or engineers. Accounts left without a supported role require an administrator to assign a role before login/refresh/me can succeed. Rollback cannot recover removed assignments. Historical migrations are unchanged. Migrations contain no plaintext password values in database records or JWT secrets.
 
-To seed the first administrator, set both `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` via environment variables or user secrets, then start the API in Development. The seed hashes the password, normalizes email, and assigns FarmAdministrator. It runs only when no administrator exists; it never changes an existing account's password or promotes an existing email. It creates no FarmOwner or FarmEngineer accounts. Clear the two seed settings afterward. Database migrations must be applied before running the seed. Normal startup does not apply migrations automatically.
+Migration `20261013014617_SeedSampleAdministrator` automatically creates the sample account **admin@sep.local**, password **123456**, with the `FarmAdministrator` role. It stores an ASP.NET Core Identity-compatible password hash. This is a sample credential for local/demo use. The migration runs through the command above without starting the API or configuring `SEED_ADMIN_*`; EF tooling still requires `ConnectionStrings__DefaultConnection`.
+
+If that email already exists, its password, status, profile and roles remain unchanged. Repeated updates do not create duplicates. Rollback deliberately preserves the account and any data it owns; reapplying the migration does not reset its password. API-created users still require passwords of at least 12 characters.
+
+The optional development seeder remains available when no administrator exists. To use it, set both `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` via environment variables or user secrets, then start the API in Development. The seed hashes the password, normalizes email, and assigns FarmAdministrator. It runs only when no administrator exists; it never changes an existing account's password or promotes an existing email. It creates no FarmOwner or FarmEngineer accounts. Clear the two seed settings afterward. Database migrations must be applied before running the seed. Normal startup does not apply migrations automatically.
 
 ## Run
 
@@ -80,6 +84,25 @@ dotnet run --project src/FarmMonitoring.Api --launch-profile https
 ```
 
 Open [Swagger](https://localhost:7043/swagger). API HTTPS address: `https://localhost:7043`. The HTTP listener on port 5043 redirects to HTTPS. Swagger is enabled only in Development.
+
+### Frontend origin and CORS
+
+The named `Frontend` CORS policy runs before authentication and authorization.
+Development allows `http://localhost:5173` and `https://localhost:5173`.
+Set the React/Vite frontend's `VITE_API_BASE_URL=https://localhost:7043`;
+use a locally trusted development certificate when testing in a browser.
+
+Production origins are explicitly configured through `Cors:AllowedOrigins`,
+for example the environment variable `Cors__AllowedOrigins__0=https://farm.example`.
+Without configured origins, cross-origin browser access is denied. Use origin
+values without paths or trailing slashes. The policy allows GET, POST, PUT,
+PATCH, DELETE and OPTIONS, with Authorization and Content-Type headers.
+Authentication uses Bearer tokens; cross-origin cookies/credentials are not enabled.
+
+`CorsTests` verifies preflight against `/api/farms`, denied origins, configurable
+production origins and CORS headers on authentication failures. See
+[the integration report](FRONTEND_API_INTEGRATION.md) for current frontend coverage
+and browser verification status.
 
 ## Auth endpoints and Swagger walkthrough
 

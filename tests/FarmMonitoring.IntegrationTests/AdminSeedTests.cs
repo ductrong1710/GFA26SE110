@@ -12,7 +12,7 @@ public class AdminSeedTests
     [Fact]
     public async Task Seed_creates_hashed_admin_once_and_does_not_reset_password()
     {
-        await using var factory = new ApiFactory { SeedAccounts = false };
+        await using var factory = new ApiFactory { SeedAccounts = false, InitialMigration = "20261007094620_AddUserFarmAssignments" };
         await factory.InitializeAsync();
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -32,7 +32,7 @@ public class AdminSeedTests
     [Fact]
     public async Task Seed_does_not_promote_existing_account_and_missing_credentials_create_nothing()
     {
-        await using var factory = new ApiFactory { SeedAccounts = false };
+        await using var factory = new ApiFactory { SeedAccounts = false, InitialMigration = "20261007094620_AddUserFarmAssignments" };
         await factory.InitializeAsync();
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

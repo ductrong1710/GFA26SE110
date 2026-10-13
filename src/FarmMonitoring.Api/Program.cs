@@ -7,6 +7,13 @@ using FarmMonitoring.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiServices();
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
+{
+    var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    policy.WithOrigins(origins.Where(origin => !string.IsNullOrWhiteSpace(origin)).ToArray())
+        .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        .WithHeaders("Authorization", "Content-Type");
+}));
 
 var app = builder.Build();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -30,6 +37,8 @@ if (app.Environment.IsDevelopment())
         app.Configuration["SEED_ADMIN_EMAIL"], app.Configuration["SEED_ADMIN_PASSWORD"], app.Lifetime.ApplicationStopping);
 }
 app.UseHttpsRedirection();
+app.UseRouting();
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

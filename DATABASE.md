@@ -909,3 +909,5 @@ Direct UAV/Gateway catalog APIs retain existing global role permissions. Farm-sc
 Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` is only for human users and is never applied to device identity or required for telemetry/sync ingestion. Human telemetry reads require mission-farm access.
 
 Response conventions: 401 without valid authentication; 403 for denied role/farm access; 404 for nonexistent resources; 409 for duplicate membership; 400 for invalid request data; 422 for ineligible membership targets.
+
+Migration `20261013014617_SeedSampleAdministrator` inserts the sample admin@sep.local account with an Identity-compatible password hash and grants FarmAdministrator by role name. An existing email is left unchanged. Rollback preserves the account; there are no schema changes or farm assignments.

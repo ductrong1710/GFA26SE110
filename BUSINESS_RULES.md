@@ -808,3 +808,5 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 - Local and GPS coordinates remain supported; backend altitude validation uses
   the numeric storage range, not a fixed 40 cm ceiling. ESP32 performs final
   configurable flight-safety validation and local execution.
+
+The sample administrator migration automatically creates admin@sep.local with the requested sample password 123456 (stored as a hash) and FarmAdministrator. Existing accounts are never promoted, reactivated or reset by this migration. Normal API password validation remains unchanged.
