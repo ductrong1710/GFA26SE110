@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getActiveRole, HUMAN_ROLES, ROLES, isHumanRole } from '../src/config/roles.js'
+import { getActiveRole, HUMAN_ROLES, ROLES, USER_ASSIGNABLE_ROLES, isHumanRole } from '../src/config/roles.js'
 import { getAlertScope, hasAnyPermission, hasPermission, PERMISSIONS as P } from '../src/config/permissions.js'
 import { getNavigationForRole, navigation } from '../src/config/navigation.js'
 import { appRoutes } from '../src/config/appRoutes.js'
@@ -47,6 +47,10 @@ test('administration and operational management remain separate', () => {
     assert.equal(hasPermission(ROLES.UAV_DEVICE_OPERATOR, permission), true)
     assert.equal(hasPermission(ROLES.ADMINISTRATOR, permission), false)
   }
+})
+
+test('user management cannot assign additional administrator accounts', () => {
+  assert.deepEqual(USER_ASSIGNABLE_ROLES, [ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER])
 })
 
 test('operator alerts are related-only; engineer reports and alerts are read-only', () => {
