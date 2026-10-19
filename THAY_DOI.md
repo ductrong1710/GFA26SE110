@@ -17,6 +17,7 @@
 
 - Chuyển các luồng giao diện chính sang lấy dữ liệu từ backend; không dùng dữ liệu giả làm phương án thay thế khi API lỗi.
 - Gỡ đăng nhập/đổi vai trò demo và một số trang demo khỏi luồng ứng dụng. Fixture trong `src/data/mock/` được giữ lại để phục vụ kiểm thử.
+- Trang quản lý người dùng chỉ cho chọn một vai trò Farm Owner hoặc Agricultural Engineer; không cho gán vai trò Administrator cho tài khoản khác và giữ tài khoản quản trị hiện có.
 - Bỏ thao tác xóa Farm/Zone và các trường chỉ thuộc dữ liệu giả; giữ các trường và thao tác có API hỗ trợ.
 - Ẩn hoặc thông báo chưa hỗ trợ cho chức năng chưa có API phù hợp, như cài đặt hệ thống và đồng bộ thủ công từ trình duyệt.
 - Cập nhật trang tài khoản, thiết bị, người dùng, cảm biến, trang tổng quan và các màn hình liên quan để phù hợp với dữ liệu backend.
