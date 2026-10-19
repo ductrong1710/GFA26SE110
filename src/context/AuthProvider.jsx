@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
 import { AuthContext } from './AuthContext'
-import { mockAuthEnabled } from '../config/auth'
 import { getActiveRole, isHumanRole, ROLE_LABELS } from '../config/roles'
-import { getAlertScope, hasAnyPermission, hasPermission } from '../config/permissions'
-import { clearMockSession, getMockSession, loginWithMockAccount, saveMockActiveRole } from '../services/mockAuth'
+import { getAlertScope } from '../config/permissions'
 import { api } from '../services/api'
 import { session } from '../services/api/session'
 import { normalizeUser } from '../services/api/roles'
 import { hasBackendPermission } from '../config/backendPermissions'
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => mockAuthEnabled ? getMockSession() : null)
-  const [restoring, setRestoring] = useState(() => !mockAuthEnabled && Boolean(session.get()))
+  const [user, setUser] = useState(null)
+  const [restoring, setRestoring] = useState(() => Boolean(session.get()))
   useEffect(() => {
-    if (mockAuthEnabled) return
     let mounted = true
     const identity = session.identity()
     const unsubscribe = session.subscribe(value => {
@@ -24,33 +21,22 @@ export function AuthProvider({ children }) {
       .finally(() => { if (mounted) setRestoring(false) })
     return () => { mounted = false; unsubscribe() }
   }, [])
-  const demoRoleSwitchEnabled = mockAuthEnabled && user?.isMock === true
-  const activeRole = getActiveRole(user, { allowDemoRole: demoRoleSwitchEnabled })
+  const activeRole = getActiveRole(user)
 
   const login = async (email, password) => {
-    const nextUser = mockAuthEnabled ? loginWithMockAccount(email, password) : normalizeUser(await api.login(email, password))
+    const nextUser = normalizeUser(await api.login({ email, password }))
     setUser(nextUser)
     return nextUser
   }
 
   const logout = async () => {
-    if (!user?.isMock) await api.logout()
-    clearMockSession()
+    await api.logout()
     setUser(null)
   }
 
   // Normal multi-role switching can only activate an assigned role.
   const switchRole = (role) => {
     if (!user || !isHumanRole(role) || !user.roles.includes(role)) return false
-    if (user.isMock) saveMockActiveRole(user.id, role)
-    setUser({ ...user, activeRole: role })
-    return true
-  }
-
-  // DEMO ONLY: never use this override with a real authenticated user.
-  const switchDemoRole = (role) => {
-    if (!demoRoleSwitchEnabled || !isHumanRole(role)) return false
-    saveMockActiveRole(user.id, role)
     setUser({ ...user, activeRole: role })
     return true
   }
@@ -61,9 +47,9 @@ export function AuthProvider({ children }) {
     restoring,
     activeRole,
     activeRoleLabel: ROLE_LABELS[activeRole] ?? 'Unknown role',
-    can: (permission) => user?.isMock ? hasPermission(activeRole, permission) : hasBackendPermission(activeRole, permission),
-    canAny: (permissions) => user?.isMock ? hasAnyPermission(activeRole, permissions) : permissions.some(permission => hasBackendPermission(activeRole, permission)),
+    can: permission => hasBackendPermission(activeRole, permission),
+    canAny: permissions => permissions.some(permission => hasBackendPermission(activeRole, permission)),
     alertScope: getAlertScope(activeRole),
-    login, logout, switchRole, switchDemoRole, demoRoleSwitchEnabled,
+    login, logout, switchRole,
   }}>{children}</AuthContext.Provider>
 }

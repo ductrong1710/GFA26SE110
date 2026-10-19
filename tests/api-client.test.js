@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createApiClient } from '../src/services/api/apiClient.js'
+import { authStorage, createAuthStorage } from '../src/services/api/authStorage.js'
 import { createSession } from '../src/services/api/session.js'
 import { normalizeUser } from '../src/services/api/roles.js'
 
@@ -14,12 +15,19 @@ test('login stores backend tokens and roles; failed login does not create a sess
     assert.deepEqual(JSON.parse(options.body), { email: 'test@example.com', password: 'password' })
     return response({ success: true, data: tokens() })
   })
-  await api.login('test@example.com', 'password')
+  await api.login({ email: 'test@example.com', password: 'password' })
   assert.equal(session.get().accessToken, 'first')
+  assert.equal(authStorage.getToken(), 'first')
+  assert.deepEqual(authStorage.getUser(), session.get().user)
   assert.deepEqual(normalizeUser(session.get().user).roles, ['FARM_OWNER'])
   const failed = setup(async () => response({ success: false, message: 'Invalid credentials.', errors: [] }, 401))
-  await assert.rejects(failed.api.login('bad', 'bad'), { status: 401, message: 'Invalid credentials.' })
+  await assert.rejects(failed.api.login({ email: 'bad', password: 'bad' }), { status: 401, message: 'Invalid credentials.' })
   assert.equal(failed.session.get(), null)
+})
+
+test('client rejects unsuccessful API envelopes even with an HTTP 200 response', async () => {
+  const { api } = setup(async () => response({ success: false, message: 'Request rejected.' }))
+  await assert.rejects(api.get('/api/farms'), { status: 200, message: 'Request rejected.' })
 })
 
 test('client sends bearer, query and JSON; unwraps data, pages and 204', async () => {
@@ -52,6 +60,17 @@ test('failed refresh clears session and notifies auth subscribers', async () => 
   session.subscribe(value => { cleared = value === null })
   await assert.rejects(api.get('/api/farms'), { status: 401 })
   assert.equal(session.get(), null); assert.equal(cleared, true)
+  assert.equal(authStorage.getToken(), null)
+  assert.equal(authStorage.getUser(), null)
+})
+
+test('unauthorized response without a refresh token clears saved auth', async () => {
+  const { api, session } = setup(async () => response({ message: 'Expired' }, 401))
+  session.set({ ...tokens(), refreshToken: null })
+  await assert.rejects(api.get('/api/farms'), { status: 401 })
+  assert.equal(session.get(), null)
+  assert.equal(authStorage.getToken(), null)
+  assert.equal(authStorage.getUser(), null)
 })
 
 test('original request is retried at most once', async () => {
@@ -142,7 +161,7 @@ test('logout ignores a refresh still running for an older login', async () => {
   })
   session.set(tokens())
   const oldRefresh = assert.rejects(api.refresh())
-  await api.login('test@example.com', 'password')
+  await api.login({ email: 'test@example.com', password: 'password' })
   const logout = api.logout()
   finishOld(response({ success: true, data: tokens('old-rotated') }))
   await Promise.all([oldRefresh, logout])
@@ -190,7 +209,7 @@ test('a delayed me response cannot overwrite a newer login, even for the same ac
   })
   session.set(tokens())
   const pending = api.restore()
-  await api.login('test@example.com', 'password')
+  await api.login({ email: 'test@example.com', password: 'password' })
   completeMe(response({ success: true, data: tokens().user }))
   await assert.rejects(pending)
   assert.equal(session.get().user.fullName, 'Updated name')
@@ -205,7 +224,7 @@ test('a delayed old-session 401 does not refresh or clear a newer same-account l
     return response({ success: true, data: tokens('new') })
   })
   session.set(tokens()); const pending = api.get('/api/farms')
-  await api.login('test@example.com', 'password')
+  await api.login({ email: 'test@example.com', password: 'password' })
   finishOld(response({ message: 'Expired' }, 401))
   await assert.rejects(pending)
   assert.equal(refreshes, 0); assert.equal(session.get().accessToken, 'new')
@@ -228,4 +247,73 @@ test('a response body arriving after sign-out is not delivered to a protected sc
   session.set(null)
   finishBody({ success: true, data: [{ id: 2, fullName: 'Private user' }] })
   await assert.rejects(pending, { status: 401 })
+})
+
+test('request timeout aborts fetch and reports a timeout error', async () => {
+  const session = createSession()
+  const api = createApiClient({
+    baseUrl: 'https://api.example',
+    session,
+    timeout: 5,
+    fetch: (_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    }),
+  })
+  await assert.rejects(api.get('/api/farms'), { message: 'The request timed out. Please try again.' })
+})
+
+test('session serializes to storage and restores the saved session', () => {
+  const values = new Map()
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  }
+  const first = createSession(storage, createAuthStorage(storage))
+  first.set(tokens())
+  assert.deepEqual(JSON.parse(values.get('smartfarm.api.session')), { refreshToken: 'refresh-first' })
+  assert.deepEqual(createSession(storage, createAuthStorage(storage)).get(), tokens())
+  first.set(null)
+  assert.equal(values.has('smartfarm.api.session'), false)
+})
+
+test('session migrates previously stored token and user data to auth storage', () => {
+  const values = new Map([['smartfarm.api.session', JSON.stringify(tokens())]])
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  }
+  const auth = createAuthStorage(storage)
+  assert.deepEqual(createSession(storage, auth).get(), tokens())
+  assert.equal(auth.getToken(), 'first')
+  assert.deepEqual(auth.getUser(), tokens().user)
+  assert.deepEqual(JSON.parse(values.get('smartfarm.api.session')), { refreshToken: 'refresh-first' })
+})
+
+test('auth storage safely serializes user data and clears both auth values', () => {
+  const values = new Map()
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  }
+  const savedAuth = createAuthStorage(storage)
+  savedAuth.setToken('access-token')
+  savedAuth.setUser(tokens().user)
+  assert.equal(savedAuth.getToken(), 'access-token')
+  assert.deepEqual(savedAuth.getUser(), tokens().user)
+  assert.equal(values.get('smartfarm.user_info'), JSON.stringify(tokens().user))
+  values.delete('smartfarm.access_token')
+  values.delete('smartfarm.user_info')
+  assert.equal(savedAuth.getToken(), null)
+  assert.equal(savedAuth.getUser(), null)
+  savedAuth.setToken('access-token')
+  savedAuth.setUser(tokens().user)
+  values.set('smartfarm.user_info', '{invalid')
+  assert.equal(savedAuth.getUser(), null)
+  savedAuth.clearAuth()
+  assert.equal(savedAuth.getToken(), null)
+  assert.equal(savedAuth.getUser(), null)
+  assert.equal(values.size, 0)
 })
