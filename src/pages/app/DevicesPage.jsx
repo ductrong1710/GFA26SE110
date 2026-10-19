@@ -21,10 +21,10 @@ export default function DevicesPage() {
   const [farmId, setFarmId] = useState('')
   const [dialog, setDialog] = useState(null)
   const [credential, setCredential] = useState(null)
-  const credentialOwner = `${user?.id}:${activeRole}:${user?.isMock}:${session.identity()}`
+  const credentialOwner = `${user?.id}:${activeRole}:${session.identity()}`
   const [notice, setNotice] = useState('')
   const open = (kind, record, mode = 'edit') => setDialog({ kind, record, mode })
-  const actions = { key: 'actions', header: 'Actions', render: (_, record) => manage ? <div className="management-row-actions"><button onClick={() => open(tab, record)}>Edit</button>{!user?.isMock && <button onClick={() => open(tab, record, 'toggle')}>{record.isActive ? 'Deactivate' : 'Activate'}</button>}{tab === 'gateway' && <><button onClick={() => open('gateway', record, 'assign')}>{record.uavId ? 'Assign / Unassign' : 'Assign Gateway'}</button><button onClick={() => setCredential({ gateway: record, owner: credentialOwner })}>Credential</button></>}</div> : 'View only' }
+  const actions = { key: 'actions', header: 'Actions', render: (_, record) => manage ? <div className="management-row-actions"><button onClick={() => open(tab, record)}>Edit</button><button onClick={() => open(tab, record, 'toggle')}>{record.isActive ? 'Deactivate' : 'Activate'}</button>{tab === 'gateway' && <><button onClick={() => open('gateway', record, 'assign')}>{record.uavId ? 'Assign / Unassign' : 'Assign Gateway'}</button><button onClick={() => setCredential({ gateway: record, owner: credentialOwner })}>Credential</button></>}</div> : 'View only' }
   const uavColumns = [
     { key: 'code', header: 'Code' }, { key: 'name', header: 'Name' }, { key: 'platform', header: 'Platform', render: (platform) => (platform ?? 'Not provided').replaceAll('_', ' ') }, { key: 'model', header: 'Model' },
     { key: 'status', header: 'Status', render: (status) => <StatusBadge status={status} /> }, { key: 'batteryPercent', header: 'Battery', render: (value) => <BatteryIndicator value={value} /> },
@@ -56,5 +56,4 @@ export default function DevicesPage() {
     {manage && credential?.owner === credentialOwner && <GatewayCredentialDialog gateway={credential.gateway} onClose={() => setCredential(null)} />}
   </div>
 }
-
 

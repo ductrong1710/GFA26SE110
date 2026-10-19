@@ -1,20 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import EngineerRegistrationWizard from '../components/EngineerRegistrationWizard'
 import PasswordField from '../components/PasswordField'
-import UserRegistrationForm from '../components/UserRegistrationForm'
 import { useAuth } from '../context/AuthContext'
-import { mockAuthEnabled } from '../config/auth'
-
-function AccountTypePicker({ onSelect }) {
-  return <section className="account-form-content account-type-picker">
-    <span className="eyebrow">ĐĂNG KÝ TÀI KHOẢN</span>
-    <h1>Chọn loại tài khoản</h1>
-    <p>Chọn cách bạn muốn sử dụng Smart Farm.</p>
-    <button className="account-type-option" type="button" onClick={() => onSelect('user')}><span className="account-type-symbol">U</span><span><strong>Tài khoản người dùng</strong><small>Theo dõi thiết bị và hoạt động nông trại</small></span><i>→</i></button>
-    <button className="account-type-option" type="button" onClick={() => onSelect('engineer')}><span className="account-type-symbol">K</span><span><strong>Kỹ sư nông nghiệp</strong><small>Tư vấn và phân tích tình trạng cây trồng</small></span><i>→</i></button>
-  </section>
-}
 
 export default function AccountPage({ register = false }) {
   const isRegister = register
@@ -23,7 +10,6 @@ export default function AccountPage({ register = false }) {
   const { login } = useAuth()
   const [loginError, setLoginError] = useState('')
   const [pending, setPending] = useState(false)
-  const [registrationType, setRegistrationType] = useState(null)
   const mode = isRegister ? 'register' : 'login'
 
   const handleLogin = async (event) => {
@@ -65,10 +51,7 @@ export default function AccountPage({ register = false }) {
             <button className="account-submit" type="submit" disabled={pending}>{pending ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
           </form>
         </section>}
-        {isRegister && !mockAuthEnabled && <section className="account-form-content"><h1>Tài khoản do quản trị viên cấp</h1><p>Vui lòng liên hệ quản trị viên nông trại để được tạo tài khoản.</p><Link to="/dang-nhap">Đăng nhập</Link></section>}
-        {isRegister && mockAuthEnabled && !registrationType && <AccountTypePicker onSelect={setRegistrationType} />}
-        {isRegister && registrationType === 'user' && <UserRegistrationForm onBack={() => setRegistrationType(null)} />}
-        {isRegister && registrationType === 'engineer' && <EngineerRegistrationWizard onBack={() => setRegistrationType(null)} />}
+        {isRegister && <section className="account-form-content"><h1>Tài khoản do quản trị viên cấp</h1><p>Vui lòng liên hệ quản trị viên nông trại để được tạo tài khoản.</p><Link to="/dang-nhap">Đăng nhập</Link></section>}
       </section>
       <aside key={mode} className="account-visual" aria-label="UAV thu thập dữ liệu cảm biến trên nông trại">
         <img src="/images/auth/smart-farm-field-uav.png" alt="UAV bay trên cánh đồng nông trại thông minh" />

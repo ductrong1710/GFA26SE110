@@ -8,8 +8,8 @@ import { mockAccounts } from '../src/data/mock/accounts.js'
 
 const expectedModules = {
   FARM_OWNER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'missions', 'alerts', 'reports'],
-  ADMINISTRATOR: ['dashboard', 'farms', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users', 'settings'],
-  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'sensor-data', 'devices', 'missions', 'sync', 'alerts', 'reports'],
+  ADMINISTRATOR: ['dashboard', 'farms', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users'],
+  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports'],
   AGRICULTURAL_ENGINEER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'alerts', 'reports'],
 }
 
@@ -19,7 +19,10 @@ for (const [role, modules] of Object.entries(expectedModules)) {
     for (const route of appRoutes) {
       const expected = route.path === 'missions/create' ? role === ROLES.UAV_DEVICE_OPERATOR
         : route.path === 'sensor-data/compare-zones' ? role === ROLES.AGRICULTURAL_ENGINEER
-          : modules.includes(route.path.split('/')[0])
+          : modules.includes(route.path.split('/')[0]) || (
+            (role === ROLES.ADMINISTRATOR && route.path === 'settings') ||
+            (role === ROLES.UAV_DEVICE_OPERATOR && route.path === 'sync')
+          )
       assert.equal(hasAnyPermission(role, route.permissions), expected, `${role}: ${route.path}`)
     }
   })
@@ -63,18 +66,17 @@ test('multiple assigned roles do not merge permissions', () => {
   assert.equal(getActiveRole({ ...user, activeRole: ROLES.FARM_OWNER }), null)
 })
 
-test('unassigned role preview needs both an explicit demo option and a mock user', () => {
+test('unassigned roles are never activated', () => {
   const user = { roles: [ROLES.ADMINISTRATOR], activeRole: ROLES.FARM_OWNER, isMock: true }
   assert.equal(getActiveRole(user), null)
-  assert.equal(getActiveRole(user, { allowDemoRole: true }), ROLES.FARM_OWNER)
-  assert.equal(getActiveRole({ ...user, isMock: false }, { allowDemoRole: true }), null)
+  assert.equal(getActiveRole({ ...user, isMock: false }), null)
   assert.deepEqual(user.roles, [ROLES.ADMINISTRATOR])
 })
 
 test('unknown actors and Sensor Collection Engine have no dashboard or permissions', () => {
   for (const role of ['SENSOR_COLLECTION_ENGINE', 'Sensor Collection Engine', 'UNKNOWN', 'toString', '__proto__', null, undefined]) {
     assert.equal(isHumanRole(role), false)
-    assert.equal(getActiveRole({ roles: [role], activeRole: role, isMock: true }, { allowDemoRole: true }), null)
+    assert.equal(getActiveRole({ roles: [role], activeRole: role, isMock: true }), null)
     assert.deepEqual(getNavigationForRole(role), [])
     assert.equal(getAlertScope(role), null)
     for (const permission of Object.values(P)) assert.equal(hasPermission(role, permission), false)

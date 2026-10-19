@@ -16,7 +16,7 @@ export default function SensorDetailPage() {
   const { id } = useParams()
   const { operations, changeOperations, loading, error, reload } = useOperations()
   const { farmWorkspace, currentFarm } = useOutletContext()
-  const { can, user } = useAuth()
+  const { can } = useAuth()
   const [mode, setMode] = useState(null)
   const [notice, setNotice] = useState('')
   const node = /^\d+$/.test(id) ? getOperationalSensorDetails(Number(id), operations, farmWorkspace) : null
@@ -40,16 +40,10 @@ export default function SensorDetailPage() {
     </SectionCard>
     <ChannelHistory channels={node.channels} />
     <SensorConfiguration node={node} types={operations.sensorTypes} reload={reload} />
-    <SectionCard title="Collection history" description="Collection attempts are recorded per mission.">{!user?.isMock && <p>Open a mission to inspect sensor attempts, retries, and errors. <Link to="/app/missions">View missions</Link></p>}
-      <DataTable hidden={!user?.isMock} caption="Sensor collection history" rows={node.history} columns={[
-        { key: 'mission', header: 'Mission', render: (mission) => can(PERMISSIONS.MISSIONS_VIEW) ? <Link className="operations-link" to={`/app/missions/${mission.id}`}>{mission.code}</Link> : mission.code },
-        { key: 'gateway', header: 'Gateway', render: (gateway) => gateway?.code }, { key: 'attemptNo', header: 'Attempt' },
-        { key: 'finishedAt', header: 'Time', render: displayTime }, { key: 'status', header: 'Result', render: (status) => <StatusBadge status={status} /> },
-        { key: 'recordsReceived', header: 'Readings' }, { key: 'errorMessage', header: 'Details', render: (value) => value ?? 'Collection completed' },
-      ]} />
+    <SectionCard title="Collection history" description="Collection attempts are recorded per mission.">
+      <p>Open a mission to inspect sensor attempts, retries, and errors. <Link to="/app/missions">View missions</Link></p>
     </SectionCard>
     {manage && mode && <EquipmentDialog key={`${node.id}-${mode}`} kind="sensor" record={node} mode={mode} workspace={farmWorkspace} operations={operations} currentFarm={currentFarm} onClose={() => setMode(null)} onSave={async (values) => { await changeOperations({ kind: 'sensor', id: node.id, action: mode === 'toggle' ? 'toggle' : 'save', values }, farmWorkspace); setNotice('Sensor updated successfully.'); setMode(null) }} />}
   </div>
 }
-
 

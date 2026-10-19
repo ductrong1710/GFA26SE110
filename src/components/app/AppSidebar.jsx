@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import AppIcon from './AppIcon'
 
 export default function AppSidebar({ sidebarRef, mobile, open, onClose }) {
-  const { user, activeRole, canAny } = useAuth()
+  const { activeRole, canAny } = useAuth()
   const navigation = getNavigationForRole(activeRole, canAny)
   const groups = [...new Set(navigation.map(({ group }) => group))]
 
@@ -30,9 +30,8 @@ export default function AppSidebar({ sidebarRef, mobile, open, onClose }) {
       </div>)}
     </nav>
     <div className="app-sidebar-footer">
-      <div className="app-workspace-label"><span className="app-status-dot" /><span>{user.isMock ? 'Demo workspace' : 'Farm workspace'}</span></div>
+      <div className="app-workspace-label"><span className="app-status-dot" /><span>Farm workspace</span></div>
       <Link to="/" className="app-public-link">Back to website <AppIcon name="arrow" size={16} /></Link>
     </div>
   </aside>
 }
-

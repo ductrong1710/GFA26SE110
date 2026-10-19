@@ -4,7 +4,6 @@ import { useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { PERMISSIONS } from '../../config/permissions'
 import { useOperations } from '../../context/OperationsContext'
-import { getDeletionBlock } from '../../data/mock/farmWorkspace'
 import { PageHeader, SectionCard, EmptyState, StatusBadge } from '../../components/app/ui'
 import FarmRecordDialog from '../../components/app/FarmRecordDialog'
 import FarmZoneMap from '../../components/app/FarmZoneMap'
@@ -12,7 +11,7 @@ import '../../styles/admin-workspace.css'
 
 export default function FarmsPage() {
   const { currentFarm, selectFarm, farmWorkspace, changeFarmRecord } = useOutletContext()
-  const { can, user } = useAuth()
+  const { can } = useAuth()
   const { operations } = useOperations()
   const { sensorNodes } = operations
   const canManage = can(PERMISSIONS.FARMS_MANAGE)
@@ -24,15 +23,15 @@ export default function FarmsPage() {
   const farmZones = zones.filter(({ farmId }) => farmId === farm?.id)
   const zone = farmZones.find(({ id }) => id === selectedZoneId) ?? farmZones[0]
   const zoneNodes = sensorNodes.filter(({ zoneId }) => zoneId === zone?.id)
-  const openDialog = (kind, record, remove = false) => { if (canManage) setDialog({ kind, record, remove }) }
+  const openDialog = (kind, record) => { if (canManage) setDialog({ kind, record }) }
   const save = async (values) => {
     if (!canManage) throw new Error('This role has read-only access.')
-    const next = await changeFarmRecord({ kind: dialog.kind, id: dialog.record?.id, values, remove: dialog.remove })
+    const next = await changeFarmRecord({ kind: dialog.kind, id: dialog.record?.id, values })
     if (!dialog.remove && !dialog.record) {
       if (dialog.kind === 'farm') { selectFarm(next.farms.at(-1).id); setSelectedZoneId(null) }
       else { const added = next.zones.at(-1); selectFarm(added.farmId); setSelectedZoneId(added.id) }
     }
-    setNotice(`${dialog.kind === 'farm' ? 'Farm' : 'Zone'} ${dialog.remove ? 'deleted' : 'saved'} successfully.`)
+    setNotice(`${dialog.kind === 'farm' ? 'Farm' : 'Zone'} saved successfully.`)
     setDialog(null)
   }
   return <div className="app-ui farms-page">
@@ -50,11 +49,11 @@ export default function FarmsPage() {
       </SectionCard>
       <div className="farm-detail-column">
         {farm ? <>
-          <SectionCard title={farm.name} description={farm.location || farm.description} actions={canManage && <><button className="app-ui-button" onClick={() => openDialog('farm', farm)}>Edit Farm</button><button hidden={!user?.isMock} className="app-ui-button farm-danger" onClick={() => openDialog('farm', farm, true)}>Delete Farm</button></>}>
+          <SectionCard title={farm.name} description={farm.description} actions={canManage && <button className="app-ui-button" onClick={() => openDialog('farm', farm)}>Edit Farm</button>}>
             <FarmZoneMap zones={farmZones} selectedZoneId={zone?.id} onSelect={setSelectedZoneId} nodes={sensorNodes} />
           </SectionCard>
           <FarmAccess farm={farm} onChanged={() => changeFarmRecord({ kind: 'reload' })} />
-          <SectionCard title="Selected zone details" description={zone ? 'Coverage and boundary information' : 'Choose or add a growing area'} actions={canManage && zone && <><button className="app-ui-button" onClick={() => openDialog('zone', zone)}>Edit Zone</button><button hidden={!user?.isMock} className="app-ui-button farm-danger" onClick={() => openDialog('zone', zone, true)}>Delete Zone</button></>}>
+          <SectionCard title="Selected zone details" description={zone ? 'Coverage and boundary information' : 'Choose or add a growing area'} actions={canManage && zone && <button className="app-ui-button" onClick={() => openDialog('zone', zone)}>Edit Zone</button>}>
             {zone ? <dl className="farm-detail-grid">
               <div><dt>Name</dt><dd>{zone.name}</dd></div><div><dt>Description</dt><dd>{zone.description || 'No description provided'}</dd></div>
               <div><dt>Sensor Count</dt><dd>{zoneNodes.length}</dd></div><div><dt>Online / Offline Count</dt><dd>{zoneNodes.filter(({ status }) => status === 'ONLINE').length} online / {zoneNodes.filter(({ status }) => status === 'OFFLINE').length} offline</dd></div>
@@ -64,7 +63,6 @@ export default function FarmsPage() {
         </> : <EmptyState title="No farm selected" description="Add a farm to start organizing zones." />}
       </div>
     </div>
-    {canManage && dialog && <FarmRecordDialog key={`${dialog.kind}-${dialog.record?.id ?? 'new'}-${dialog.remove}`} {...dialog} farm={farm} farms={farms} onSave={save} onClose={() => setDialog(null)} blocked={dialog.remove ? getDeletionBlock(farmWorkspace, dialog.kind, dialog.record.id, operations) : null} />}
+    {canManage && dialog && <FarmRecordDialog key={`${dialog.kind}-${dialog.record?.id ?? 'new'}`} {...dialog} farm={farm} farms={farms} onSave={save} onClose={() => setDialog(null)} />}
   </div>
 }
-

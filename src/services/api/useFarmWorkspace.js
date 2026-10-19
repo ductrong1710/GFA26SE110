@@ -13,9 +13,8 @@ export function useFarmWorkspace(enabled = true) {
   }
   const query = useApiQuery(`farms:${user?.id}:${activeRole}`, loadWorkspace, enabled && Boolean(user))
   const refreshWorkspace = async () => { const data = await loadWorkspace(); query.replaceData(data); return data }
-  const changeFarmRecord = async ({ kind, id, values, remove }) => {
+  const changeFarmRecord = async ({ kind, id, values }) => {
     if (kind === 'reload') return refreshWorkspace()
-    if (remove) throw new Error('Deletion is not supported. Deactivate farms instead.')
     if (kind === 'farm') {
       const body = { name: values.name, description: values.description || null, latitude: nullableNumber(values.latitude), longitude: nullableNumber(values.longitude) }
       if (id) await api.put(`/api/farms/${id}`, body)

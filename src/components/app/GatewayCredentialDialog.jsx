@@ -9,13 +9,13 @@ import ManagementDialog from './ManagementDialog'
 export default function GatewayCredentialDialog({ gateway, onClose }) {
   const { can, user, activeRole } = useAuth()
   if (!user || !can(PERMISSIONS.DEVICES_MANAGE)) return null
-  return <CredentialContent key={`${user.id}:${activeRole}:${user.isMock}:${session.identity()}:${gateway.id}`} gateway={gateway} demo={user.isMock} onClose={onClose} />
+  return <CredentialContent key={`${user.id}:${activeRole}:${session.identity()}:${gateway.id}`} gateway={gateway} onClose={onClose} />
 }
 
-function CredentialContent({ gateway, demo, onClose }) {
+function CredentialContent({ gateway, onClose }) {
   const [status, setStatus] = useState(null)
   const [secret, setSecret] = useState(null)
-  const [pending, setPending] = useState(!demo)
+  const [pending, setPending] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [confirmation, setConfirmation] = useState(null)
@@ -32,10 +32,10 @@ function CredentialContent({ gateway, demo, onClose }) {
   useEffect(() => {
     const controller = new AbortController()
     lifetime.current = controller
-    if (!demo) load(controller.signal)
+    load(controller.signal)
     // Closing unmounts all secret state; ignore even a response that raced abort.
     return () => controller.abort()
-  }, [load, demo])
+  }, [load])
 
   const close = () => {
     lifetime.current?.abort()
@@ -44,7 +44,7 @@ function CredentialContent({ gateway, demo, onClose }) {
   }
   async function mutate(action) {
     const signal = lifetime.current?.signal
-    if (!signal || signal.aborted || busy.current || demo || !status) return
+    if (!signal || signal.aborted || busy.current || !status) return
     busy.current = true
     setPending(true); setError(''); setNotice(''); setConfirmation(null)
     try {
@@ -86,7 +86,7 @@ function CredentialContent({ gateway, demo, onClose }) {
   return <ManagementDialog title="Gateway Credential" onClose={close}>
     <div className="management-form">
       <p>Gateway: <strong>{gateway.code}</strong></p>
-      {demo ? <p className="management-note">Credential management requires a real account connected to the backend. Demo mode does not generate API keys.</p> : <>
+      <>
         {pending && <p role="status">{status ? 'Updating credential…' : 'Loading credential status…'}</p>}
         {secret ? <>
           <p className="management-error">Copy this API key now. It will not be shown again.</p>
@@ -122,7 +122,7 @@ function CredentialContent({ gateway, demo, onClose }) {
         <section aria-label="ESP32 usage"><p className="management-note">Use these values on the physical ESP32 gateway.</p>
           <pre className="gateway-credential-example">{`POST /api/device/gateways/${gateway.id}/sync\n\nX-Gateway-Code: ${gateway.code}\nX-Api-Key: <API KEY>\nContent-Type: application/json`}</pre>
         </section>
-      </>}
+      </>
     </div>
     <footer><button className="app-ui-button" onClick={close}>Close</button></footer>
   </ManagementDialog>

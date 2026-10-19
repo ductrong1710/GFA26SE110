@@ -5,25 +5,20 @@ import AppTopbar from '../components/app/AppTopbar'
 import AppPageBoundary from '../components/app/AppPageBoundary'
 import { useFarmWorkspace } from '../services/api/useFarmWorkspace'
 import ApiState from '../components/app/ApiState'
-import { createFarmWorkspace, updateFarmWorkspace } from '../data/mock/farmWorkspace'
 import { useAuth } from '../context/AuthContext'
-import { useOperations } from '../context/OperationsContext'
-import { PERMISSIONS } from '../config/permissions'
 import '../styles/app-shell.css'
 import '../styles/app-tokens.css'
 
 const mobileQuery = '(max-width: 1023px)'
 
 export default function AppShell() {
-  const { user, can, activeRole } = useAuth()
-  const { operations } = useOperations()
-  const real = useFarmWorkspace(!user?.isMock)
-  const [demoWorkspace, setFarmWorkspace] = useState(() => user?.isMock ? createFarmWorkspace() : { farms: [], zones: [] })
-  const farmWorkspace = user?.isMock ? demoWorkspace : real.farmWorkspace
-  const mockFarms = farmWorkspace.farms
+  const { activeRole } = useAuth()
+  const real = useFarmWorkspace()
+  const farmWorkspace = real.farmWorkspace
+  const farms = farmWorkspace.farms
   const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [farmId, setFarmId] = useState(mockFarms[0]?.id)
+  const [farmId, setFarmId] = useState(null)
   const sidebarRef = useRef(null)
   const menuButtonRef = useRef(null)
   const mainRef = useRef(null)
@@ -35,13 +30,8 @@ export default function AppShell() {
     setDrawerOpen(false)
   }
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
-  const currentFarm = mockFarms.find((farm) => farm.id === farmId) ?? mockFarms[0] ?? { id: '', name: 'No farms' }
-  const changeFarmRecord = (change) => {
-    if (!user?.isMock) return real.changeFarmRecord(change)
-    const next = updateFarmWorkspace(farmWorkspace, { ...change, userId: user.id }, can(PERMISSIONS.FARMS_MANAGE), operations)
-    setFarmWorkspace(next)
-    return next
-  }
+  const currentFarm = farms.find((farm) => farm.id === farmId) ?? farms[0] ?? { id: '', name: 'No farms' }
+  const changeFarmRecord = real.changeFarmRecord
   const showDrawer = mobile && drawerOpen
 
   useEffect(() => {
@@ -85,7 +75,7 @@ export default function AppShell() {
     <div className="app-workspace" inert={showDrawer}>
       <a className="app-skip-link" href="#app-main">Skip to content</a>
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
-        farms={mockFarms} currentFarm={currentFarm} onFarmChange={setFarmId} />
+        farms={farms} currentFarm={currentFarm} onFarmChange={setFarmId} />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
         <ApiState {...real} />
         <AppPageBoundary key={`${location.pathname}:${activeRole}`}>
@@ -95,4 +85,3 @@ export default function AppShell() {
     </div>
   </div>
 }
-
