@@ -1,9 +1,6 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import HomePage from './pages/HomePage'
-import EquipmentPage from './pages/EquipmentPage'
-import ProductDetailPage from './pages/ProductDetailPage'
-import CartPage from './pages/CartPage'
 import AccountPage from './pages/AccountPage'
 import ProtectedRoute from './components/app/ProtectedRoute'
 import RouteScroll from './components/RouteScroll'
@@ -13,7 +10,6 @@ import DashboardPage from './pages/app/DashboardPage'
 import FarmsPage from './pages/app/FarmsPage'
 import UsersPage from './pages/app/UsersPage'
 import AlertsPage from './pages/app/AlertsPage'
-import SettingsPage from './pages/app/SettingsPage'
 import { ManagementProvider } from './context/ManagementProvider'
 import { OperationsProvider } from './context/OperationsProvider'
 import SensorsPage from './pages/app/SensorsPage'
@@ -26,16 +22,12 @@ import { appRoutes } from './config/appRoutes'
 import './App.css'
 
 const MissionDetailPage = lazy(() => import('./pages/app/MissionDetailPage'))
-const SyncPage = lazy(() => import('./pages/app/SyncPage'))
 const SensorDataPage = lazy(() => import('./pages/app/SensorDataPage'))
 const ReportsPage = lazy(() => import('./pages/app/ReportsPage'))
+const SyncPage = lazy(() => import('./pages/app/SyncPage'))
+const SettingsPage = lazy(() => import('./pages/app/SettingsPage'))
 
 const applicationPages = { dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage />, 'sensor-data': <SensorDataPage />, 'sensor-data/compare-zones': <SensorDataPage compareOnly />, reports: <ReportsPage /> }
-
-function ProductDetailRoute() {
-  const { id } = useParams()
-  return <ProductDetailPage key={id} productId={id} />
-}
 
 export default function App() {
   return <>
@@ -43,9 +35,6 @@ export default function App() {
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/thiet-bi" element={<EquipmentPage />} />
-        <Route path="/thiet-bi/:id" element={<ProductDetailRoute />} />
-        <Route path="/gio-hang" element={<CartPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/dang-nhap" element={<AccountPage key="login" />} />

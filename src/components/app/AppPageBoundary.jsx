@@ -11,9 +11,8 @@ export default class AppPageBoundary extends Component {
   render() {
     if (!this.state.failed) return this.props.children
     return <div role="alert"><EmptyState title="Unable to display this page"
-      description="Return to the dashboard, or reload to retry. Reloading resets local demo changes but keeps your sign-in."
+      description="Return to the dashboard, or reload to retry. Reloading discards unsaved changes and keeps your sign-in."
       actions={<><button className="app-ui-button" onClick={() => window.location.reload()}>Reload page</button>
         <Link className="app-ui-button" to="/app/dashboard">Return to Dashboard</Link></>} /></div>
   }
 }
-

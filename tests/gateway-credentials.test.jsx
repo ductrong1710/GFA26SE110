@@ -130,11 +130,11 @@ describe('Gateway credentials on the Devices page', () => {
     expect((await screen.findByRole('button', { name: 'Generate Credential' })).disabled).toBe(true)
     expect(screen.getByText(/Activate this gateway/)).toBeTruthy()
   })
-  it('never fabricates demo credentials or calls real APIs in demo mode', async () => {
+  it('uses backend credential APIs regardless of legacy demo flags', async () => {
     render(<Page account={auth(ROLES.ADMINISTRATOR, { isMock: true })} />); await open()
-    expect(screen.getByText(/Credential management requires a real account/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Generate Credential' })).toBeNull()
-    expect(requests).toHaveLength(0)
+    click('Generate Credential')
+    await screen.findByLabelText('API Key')
+    expect(requests.some(request => request.path === '/api/gateways/11/credential' && request.method === 'POST')).toBe(true)
   })
   it('shows a recoverable status error without enabling generation against unknown state', async () => {
     api.request.mockRejectedValueOnce(new Error('offline'))

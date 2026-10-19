@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useManagement } from '../../context/ManagementContext'
@@ -13,8 +13,6 @@ import { localDate, displayTime } from '../../utils/display'
 import { PageHeader, StatCard, FilterBar, DataTable, StatusBadge, AlertSeverityBadge } from '../../components/app/ui'
 import ManagementDialog from '../../components/app/ManagementDialog'
 import '../../styles/management.css'
-
-const DemoAlertsPage = lazy(() => import('./DemoAlertsPage'))
 
 const typeLabels = { SENSOR_THRESHOLD: 'Sensor threshold', SENSOR_DATA_TIMEOUT: 'Sensor offline', SENSOR_LOW_BATTERY: 'Low battery', MISSION_ERROR: 'Mission failed', COLLECTION_FAILED: 'Collection failed', GATEWAY_ERROR: 'Gateway error' }
 const historyLabels = { OPEN: 'Alert detected', ACKNOWLEDGED: 'Acknowledged', CLOSED: 'Closed', REOPENED: 'Reopened', NOTE: 'Handling note' }
@@ -98,10 +96,6 @@ function AlertsWorkspace() {
   </div>
 }
 
-export default function AlertsPage() {
-  const { user } = useAuth()
-  return user?.isMock ? <Suspense fallback={<p role="status">Loading demo alerts…</p>}><DemoAlertsPage /></Suspense> : <AlertsWorkspace />
-}
-
+export default function AlertsPage() { return <AlertsWorkspace /> }
 
 

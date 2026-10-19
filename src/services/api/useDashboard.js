@@ -17,6 +17,5 @@ export function useDashboard(farmId, admin = false) {
     const detail = running ? await api.get(`/api/missions/${running.id}`, {}, signal) : null
     const missionRows = missions.map(m => detail?.id === m.id ? missionView(detail) : missionView(m))
     return { overview, management: { users, alerts: alerts.map(a => ({ ...alertView(a), ...(farmId ? { farmId } : {}) })), activity: [], settings: {} }, operations: { ...analytics, sensorNodes: nodes ? nodes.map(nodeView) : analytics.sensorNodes, gateways: gateways.map(gatewayView), uavs, missions: missionRows, missionTargets: (detail?.targets ?? []).map(t => ({ ...t, missionId: detail.id })), missionWaypoints: (detail?.waypoints ?? []).map(w => ({ ...w, missionId: detail.id })), syncBatches: [] } }
-  }, !user?.isMock && (admin || Boolean(farmId)))
+  }, admin || Boolean(farmId))
 }
-

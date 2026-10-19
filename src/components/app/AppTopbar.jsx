@@ -2,13 +2,11 @@ import NotificationsPanel from './NotificationsPanel'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getNavigationForRole } from '../../config/navigation'
-import { PERMISSIONS } from '../../config/permissions'
 import { useAuth } from '../../context/AuthContext'
 import AppIcon from './AppIcon'
-import DemoRoleSwitcher from './DemoRoleSwitcher'
 
 export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms, currentFarm, onFarmChange }) {
-  const { user, logout, activeRole, activeRoleLabel, can, canAny } = useAuth()
+  const { user, logout, activeRole, activeRoleLabel, canAny } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [query, setQuery] = useState('')
@@ -83,7 +81,7 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
     </form>
     <div className="app-topbar-actions">
       <div className={`app-connection${online ? '' : ' is-offline'}`} role="status" aria-label="System connection status">
-        <span className="app-status-dot" />{!online ? 'Offline' : user.isMock ? 'Demo mode' : 'Backend account'}
+        <span className="app-status-dot" />{!online ? 'Offline' : 'Backend account'}
       </div>
       <div className="app-popover-anchor">
         <button ref={notificationRef} type="button" className="app-icon-button" aria-label="Notifications" aria-expanded={popover === 'notifications'}
@@ -101,12 +99,9 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
         </button>
         {popover === 'account' && <section id="app-account-panel" className="app-popover app-account-panel" aria-label="Your account">
           <p className="app-popover-label">Your account</p><strong>{user.fullName}</strong><p>{user.email}</p><p>{activeRoleLabel}</p>
-          <DemoRoleSwitcher />
-          {can(PERMISSIONS.SETTINGS_MANAGE) && <Link to="/app/settings"><AppIcon name="settings" size={17} />Settings</Link>}
           <button type="button" onClick={handleLogout}><AppIcon name="logout" size={17} />Đăng xuất</button>
         </section>}
       </div>
     </div>
   </header>
 }
-

@@ -7,11 +7,9 @@ export const navigation = [
   { path: '/app/sensor-data', label: 'Sensor Data', icon: 'database', group: 'Workspace', permissions: [P.SENSOR_DATA_VIEW] },
   { path: '/app/devices', label: 'UAVs & Gateways', icon: 'drone', group: 'Operations', permissions: [P.DEVICES_VIEW] },
   { path: '/app/missions', label: 'Missions', icon: 'mission', group: 'Operations', permissions: [P.MISSIONS_VIEW] },
-  { path: '/app/sync', label: 'Data Sync', icon: 'cloud', group: 'Operations', permissions: [P.SYNC_MANAGE] },
   { path: '/app/alerts', label: 'Alerts', icon: 'alert', group: 'Operations', permissions: [P.ALERTS_VIEW, P.ALERTS_VIEW_RELATED] },
   { path: '/app/reports', label: 'Reports', icon: 'report', group: 'Operations', permissions: [P.REPORTS_VIEW] },
   { path: '/app/users', label: 'Users & Roles', icon: 'users', group: 'Administration', permissions: [P.USERS_MANAGE] },
-  { path: '/app/settings', label: 'Settings', icon: 'settings', group: 'Administration', permissions: [P.SETTINGS_MANAGE] },
 ]
 
 export function getNavigationForRole(role, canAny = permissions => hasAnyPermission(role, permissions)) {

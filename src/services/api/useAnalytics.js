@@ -21,5 +21,5 @@ export async function loadAnalytics(farmId, filters, signal) {
 }
 export function useAnalytics(farmId, filters) {
   const { user, activeRole } = useAuth()
-  return useApiQuery(`analytics:${user?.id}:${activeRole}:${farmId}:${filters.from}:${filters.to}`, signal => loadAnalytics(farmId, filters, signal), Boolean(farmId) && !user?.isMock)
+  return useApiQuery(`analytics:${user?.id}:${activeRole}:${farmId}:${filters.from}:${filters.to}`, signal => loadAnalytics(farmId, filters, signal), Boolean(farmId))
 }

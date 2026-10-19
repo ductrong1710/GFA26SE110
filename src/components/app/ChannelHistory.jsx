@@ -16,7 +16,6 @@ export default function ChannelHistory({ channels }) {
     const error = validateAnalyticsRange(range)
     if (error) throw new Error(error)
     return listAll(`/api/sensor-channels/${id}/history`, { from: new Date(parseAnalyticsTime(range.from)).toISOString(), to: new Date(parseAnalyticsTime(range.to)).toISOString() }, signal)
-  }, Boolean(id) && !user.isMock)
-  if (user.isMock) return null
+  }, Boolean(id))
   return <SectionCard title="Channel reading history"><label>Channel<select value={id ?? ''} onChange={e => setChannel(e.target.value)}>{channels.map(c => <option key={c.id} value={c.id}>{c.channelCode}</option>)}</select></label><label>From<input type="datetime-local" value={range.from} onChange={e => setRange({ ...range, from: e.target.value })} /></label><label>To<input type="datetime-local" value={range.to} onChange={e => setRange({ ...range, to: e.target.value })} /></label><ApiState {...query} /><DataTable caption="Channel history" rows={query.data ?? []} columns={[{ key: 'value', header: 'Value' }, { key: 'unit', header: 'Unit' }, { key: 'measuredAt', header: 'Measured At', render: displayTime }, { key: 'receivedAt', header: 'Received At', render: displayTime }, { key: 'isValid', header: 'Valid', render: v => v ? 'Yes' : 'No' }, { key: 'validationError', header: 'Validation Details' }]} /></SectionCard>
 }

@@ -13,7 +13,6 @@ export default function SensorConfiguration({ node, types, reload }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
-  if (user?.isMock) return null
   const openThreshold = async channel => {
     setBusy(true); setError('')
     try { const values = await api.get(`/api/sensor-channels/${channel.id}/threshold`).catch(e => { if (e.status === 404) return { isEnabled: true }; throw e }); setEdit({ ...values, kind: 'threshold', id: channel.id }) }

@@ -17,9 +17,8 @@ export const ROLE_LABELS = Object.freeze({
 
 export const isHumanRole = (role) => HUMAN_ROLES.includes(role)
 
-export function getActiveRole(user, { allowDemoRole = false } = {}) {
+export function getActiveRole(user) {
   if (!user || !isHumanRole(user.activeRole) || !Array.isArray(user.roles)) return null
   const assigned = user.roles.includes(user.activeRole)
-  // DEMO ONLY: preview another human role without modifying assigned roles.
-  return assigned || (allowDemoRole && user.isMock === true) ? user.activeRole : null
+  return assigned ? user.activeRole : null
 }
