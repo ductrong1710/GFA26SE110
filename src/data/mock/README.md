@@ -1,8 +1,8 @@
 # Central mock domain data
 
-Frontend-only, deterministic snapshot at `MOCK_NOW` (2026-10-06 08:18 Vietnam / 01:18 UTC). No API calls, timers, random IDs, or database changes. Treat exported records as read-only; keep editable demo state separately.
+Test-only, deterministic snapshot at `MOCK_NOW` (2026-10-06 08:18 Vietnam / 01:18 UTC). These fixtures are not imported by authenticated application pages. They make no API calls and use no timers, random IDs, or database changes. Treat exported records as read-only.
 
-Import datasets and selectors from `src/data/mock/index.js`. Integer IDs are identities; codes such as `NODE_001` and `MSN-2026-001` are display identifiers. `mockFarms` remains an alias of `farms` for the existing shell.
+Tests can import datasets and selectors from `src/data/mock/index.js`. Integer IDs are identities; codes such as `NODE_001` and `MSN-2026-001` are display identifiers. `mockFarms` remains an alias of `farms` for fixture compatibility.
 
 - Farms own zones; zones own nodes; nodes expose channels linked to sensor types. There are 12 Green Valley nodes and 3 Highland nodes, with three channels each.
 - Readings refer to channels, with optional gateway, mission, and collection attempt IDs. Twelve hourly history samples per channel support trends. Mission samples come from successful collection attempts. Units and precision live on sensor types.
@@ -10,7 +10,7 @@ Import datasets and selectors from `src/data/mock/index.js`. Integer IDs are ide
 - Missions link farms, UAVs, gateways, and users. Targets link nodes and waypoints; attempts preserve failures and retries. Progress is derived from targets/waypoints, not copied into each page. The active mission is battery 72%, waypoints 6/10, targets 8/12.
 - Sync batches contain per-record outcomes. Their counters are derived from those outcomes; pending includes processing. A collection success does not imply an upload success.
 - Alerts retain relevant entity IDs, triggering values, and lifecycle history. Gateway errors always retain `gatewayId`. Notifications reference alerts and recipient users. Operator alert filtering uses assignment relationships; this is a demo, not server authorization.
-- Domain users contain no credentials. `accounts.js` derives the existing four login fixtures from them and keeps the existing demo passwords. User 5 demonstrates multiple role assignments.
+- Domain users contain no credentials. `accounts.js` maps fixture identities to test/demo account records; these are not valid application sign-in accounts. User 5 demonstrates multiple role assignments.
 
 ```js
 import { ACTIVE_MISSION_ID, getMissionDetails, getSensorNodeDetails } from './data/mock/index.js'
@@ -28,8 +28,7 @@ Run `npm run test:mock-data` to validate relationships, counts, timestamps, retr
 SCHEDULED, and CANCELLED examples. New READY plans normalize targets and waypoints
 with stable integer IDs. Draft plans retain incomplete configuration separately.
 Use `missionPlanProgress(mission, operations)` for current planning state rather
-than the immutable historical fixture selectors. The operator and administrator
-dashboards read the same mission collection as the list. Grouping, availability,
+than the immutable historical fixture selectors. Grouping, availability,
 coordinate conversion, and final validation live here rather than inside pages.
 
 `missionMonitoring.js` derives attempt counts, collected records, retry errors,
@@ -49,8 +48,8 @@ keys create mock receipts. Rejected payloads never become accepted through retry
 
 `sensorAnalytics.js` centralizes enriched readings, Vietnam-time filters, hourly
 channel means, latest-reading aggregates, sensor availability, and zone comparisons.
-Synchronized data is the default; operator technical views may explicitly include
-buffered measurements. It overlays local sync receipts without mutating fixtures.
+Synchronized data is the default; test selectors may explicitly include buffered
+measurements. It overlays local sync receipts without mutating fixtures.
 Missing coverage stays null; stale/offline channels are excluded from current KPI
 averages but remain visible in historical analysis. Thresholds come from channels.
 
