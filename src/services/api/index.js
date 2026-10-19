@@ -1,3 +1,5 @@
 import { createApiClient } from './apiClient.js'
 import { session } from './session.js'
-export const api = createApiClient({ baseUrl: import.meta.env?.VITE_API_BASE_URL || 'https://localhost:7043', session })
+import { API_BASE_URL, API_TIMEOUT } from '../../config/api.js'
+
+export const api = createApiClient({ baseUrl: API_BASE_URL, timeout: API_TIMEOUT, session })
