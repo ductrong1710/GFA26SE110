@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js && npm run test:credentials",
+    "test": "node --test tests/*.test.js && npm run test:credentials && npm run test:user-management",
     "test:credentials": "vitest run tests/gateway-credentials.test.jsx --environment jsdom",
+    "test:user-management": "vitest run tests/user-management-page.test.jsx --environment jsdom",
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
@@ -18,12 +19,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "antd": "^6.6.6",
     "axios": "^1.20.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
     "react-toastify": "^11.1.0",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
