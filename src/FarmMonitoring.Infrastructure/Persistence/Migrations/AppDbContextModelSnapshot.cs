@@ -271,6 +271,98 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("farms", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.FlightTest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("ClaimedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claimed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("error_code");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool?>("GatewayConnected")
+                        .HasColumnType("boolean")
+                        .HasColumnName("gateway_connected");
+
+                    b.Property<int>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<int?>("HeldMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("held_ms");
+
+                    b.Property<bool?>("Landed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("landed");
+
+                    b.Property<int?>("ObservedAltitudeCm")
+                        .HasColumnType("integer")
+                        .HasColumnName("observed_altitude_cm");
+
+                    b.Property<DateTimeOffset?>("ReportedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reported_at");
+
+                    b.Property<string>("RequestKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("request_key");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<bool?>("TakeoffAttempted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("takeoff_attempted");
+
+                    b.Property<bool?>("UavConnected")
+                        .HasColumnType("boolean")
+                        .HasColumnName("uav_connected");
+
+                    b.Property<int>("UavId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uav_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("GatewayId", "RequestKey")
+                        .IsUnique();
+
+                    b.HasIndex("GatewayId", "Status");
+
+                    b.HasIndex("UavId", "Status");
+
+                    b.ToTable("flight_tests", (string)null);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Gateway", b =>
                 {
                     b.Property<int>("Id")
@@ -743,6 +835,12 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
+
+                    b.Property<int>("PasswordVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("password_version");
 
                     b.Property<int?>("ReplacedByTokenId")
                         .HasColumnType("integer")
@@ -1402,6 +1500,26 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
+                    b.Property<DateTimeOffset?>("PasswordResetExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("password_reset_expires_at");
+
+                    b.Property<string>("PasswordResetHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("password_reset_hash");
+
+                    b.Property<DateTimeOffset?>("PasswordResetRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("password_reset_requested_at");
+
+                    b.Property<int>("PasswordVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("password_version");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1409,6 +1527,9 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("PasswordResetHash")
                         .IsUnique();
 
                     b.ToTable("users", (string)null);
@@ -1601,6 +1722,27 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Mission");
 
                     b.Navigation("MissionTarget");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.FlightTest", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", null)
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Uav", null)
+                        .WithMany()
+                        .HasForeignKey("UavId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Gateway", b =>

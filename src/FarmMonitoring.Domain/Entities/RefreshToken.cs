@@ -4,6 +4,7 @@ public sealed class RefreshToken
 {
     public int Id { get; set; }
     public int UserId { get; set; }
+    public int PasswordVersion { get; set; }
     public string TokenHash { get; set; } = "";
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

@@ -28,6 +28,10 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>((provider, options) =>
             options.UseNpgsql(provider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.AddScoped<IAuthRepository, AuthRepository>();
+        services.AddScoped<IPasswordRecoveryRepository, PasswordRecoveryRepository>();
+        services.AddSingleton<PasswordResetQueue>();
+        services.AddSingleton<IPasswordResetQueue>(provider => provider.GetRequiredService<PasswordResetQueue>());
+        services.AddHostedService<PasswordResetWorker>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IFarmAccessRepository, FarmAccessRepository>();
         services.AddScoped<IFarmRepository, FarmRepository>();
@@ -36,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IGatewayCredentialRepository, GatewayCredentialRepository>();
         services.AddScoped<IThresholdRepository, ThresholdRepository>();
         services.AddScoped<IMissionRepository, MissionRepository>();
+        services.AddScoped<IFlightTestRepository, FlightTestRepository>();
         services.AddScoped<ITelemetryRepository, TelemetryRepository>();
         services.AddScoped<ISyncRepository, SyncRepository>();
         services.AddScoped<ISensorDataRepository, SensorDataRepository>();

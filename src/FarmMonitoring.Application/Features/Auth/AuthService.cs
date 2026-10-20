@@ -25,7 +25,9 @@ public sealed class AuthService(
             user.UpdatedAt = now;
         }
         var refresh = tokens.CreateRefreshToken(now);
-        await repository.SaveLoginAsync(NewStoredToken(refresh, now, user.Id), ct);
+        var stored = NewStoredToken(refresh, now, user.Id);
+        stored.PasswordVersion = user.PasswordVersion;
+        await repository.SaveLoginAsync(stored, ct);
         return CreateResponse(user, refresh, now);
     }
 

@@ -33,6 +33,7 @@ public static class ApiServiceExtensions
     public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
         services.AddScoped<AuthService>();
+        services.AddScoped<PasswordRecoveryService>();
         services.AddScoped<UserService>();
         services.AddHttpContextAccessor();
         services.AddScoped<FarmMonitoring.Application.Interfaces.ICurrentUser, CurrentUser>();
@@ -46,6 +47,7 @@ public static class ApiServiceExtensions
         services.AddScoped<MissionService>();
         services.AddScoped<MissionLifecycle>();
         services.AddScoped<DeviceMissionService>();
+        services.AddScoped<FarmMonitoring.Application.Features.FlightTests.FlightTestService>();
         services.AddScoped<TelemetryService>();
         services.AddScoped<SyncService>();
         services.AddScoped<AlertService>();
@@ -106,6 +108,18 @@ public static class ApiServiceExtensions
                 };
                 options.Events = new JwtBearerEvents
                 {
+                    OnTokenValidated = async context =>
+                    {
+                        if (!int.TryParse(context.Principal?.FindFirst("sub")?.Value, out var userId))
+                        { context.Fail("Invalid subject."); return; }
+                        var versionClaim = context.Principal?.FindFirst("session_version")?.Value;
+                        var version = 0; // Tokens issued before this migration belong to version zero.
+                        if (versionClaim is not null && !int.TryParse(versionClaim, out version))
+                        { context.Fail("Invalid session version."); return; }
+                        var repository = context.HttpContext.RequestServices.GetRequiredService<FarmMonitoring.Application.Interfaces.IAuthRepository>();
+                        var user = await repository.GetUserByIdAsync(userId, context.HttpContext.RequestAborted);
+                        if (user is null || user.PasswordVersion != version) context.Fail("Session revoked.");
+                    },
                     OnChallenge = async context =>
                     {
                         context.HandleResponse();

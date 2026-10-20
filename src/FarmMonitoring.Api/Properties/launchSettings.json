@@ -5,6 +5,12 @@
       "launchBrowser": false,
       "applicationUrl": "https://localhost:7043;http://localhost:5043",
       "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    },
+    "device-http": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://0.0.0.0:5043",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
     }
   }
 }

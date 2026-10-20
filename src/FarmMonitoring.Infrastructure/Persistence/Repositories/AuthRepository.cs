@@ -17,24 +17,36 @@ public sealed class AuthRepository(AppDbContext db, TimeProvider clock) : IAuthR
 
     public async Task SaveLoginAsync(RefreshToken token, CancellationToken ct)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await LockUserAsync(token.UserId, ct);
+        var currentVersion = await db.Users.Where(x => x.Id == token.UserId).Select(x => x.PasswordVersion).SingleAsync(ct);
+        if (currentVersion != token.PasswordVersion)
+            throw new FarmMonitoring.Application.Common.AuthException("Account changed. Sign in again.");
         db.RefreshTokens.Add(token);
         // Also persists a password rehash on the tracked login user, if needed.
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { throw new FarmMonitoring.Application.Common.AuthException("Account changed. Sign in again."); }
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<User?> RotateAsync(string oldHash, RefreshToken replacement, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var userId = await db.RefreshTokens.Where(x => x.TokenHash == oldHash).Select(x => (int?)x.UserId).SingleOrDefaultAsync(ct);
+        if (userId is null) return null;
+        // Password replacement locks user then tokens; use the same order before rotating.
+        await LockUserAsync(userId.Value, ct);
         var old = await LockTokenAsync(oldHash, ct);
         // Lock acquisition can wait; validate against the time AFTER the wait.
         var now = clock.GetUtcNow();
         if (old is null || old.RevokedAt is not null || old.ExpiresAt <= now)
             return null;
         var user = await GetUserByIdAsync(old.UserId, ct);
-        if (user is null || !user.IsActive || !user.UserRoles.Any(x => RoleNames.IsSupported(x.Role.Name)))
+        if (user is null || !user.IsActive || old.PasswordVersion != user.PasswordVersion || !user.UserRoles.Any(x => RoleNames.IsSupported(x.Role.Name)))
             return null;
 
         replacement.UserId = old.UserId;
+        replacement.PasswordVersion = old.PasswordVersion;
         var lifetime = replacement.ExpiresAt - replacement.CreatedAt;
         replacement.CreatedAt = now;
         replacement.ExpiresAt = now.Add(lifetime);
@@ -65,4 +77,7 @@ public sealed class AuthRepository(AppDbContext db, TimeProvider clock) : IAuthR
         // on the same token. A waiter reads the committed revocation before proceeding.
         db.RefreshTokens.FromSqlInterpolated($"SELECT * FROM refresh_tokens WHERE token_hash = {hash} FOR UPDATE")
             .SingleOrDefaultAsync(ct);
+
+    private Task<int> LockUserAsync(int id, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {id} FOR UPDATE", ct);
 }
