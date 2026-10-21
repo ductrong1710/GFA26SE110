@@ -62,7 +62,7 @@ export default function FarmOwnerDashboard() {
     <div className="owner-main-grid">
       <SectionCard title="Farm Overview Map" description="A connected view of your land" className="owner-map-card"
         actions={<span className="owner-subtle-label">{zones.length} monitored zones</span>}>
-        <FarmOverviewMap zones={zones} nodes={nodes} mission={mission} />
+        <FarmOverviewMap farm={farm} zones={zones} nodes={nodes} mission={mission} />
       </SectionCard>
 
       <SectionCard title="Current Mission" description="Your latest collection in progress" className="owner-mission-card">

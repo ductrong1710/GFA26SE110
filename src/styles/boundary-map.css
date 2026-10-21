@@ -1,0 +1,7 @@
+.boundary-map { height: 420px; width: 100%; min-width: 0; isolation: isolate; border-radius: 8px; }
+.boundary-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.boundary-editor { min-width: 0; }
+.current-location-control { margin: 12px 0; }
+.boundary-editor .farm-form-pair { margin-bottom: 10px; }
+.farm-dialog:has(.boundary-editor) { width: min(900px, calc(100vw - 32px)); max-width: 900px; }
+@media (max-width: 640px) { .boundary-map { height: 330px; } }

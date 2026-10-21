@@ -6,6 +6,9 @@ mock records into production pages.
 
 ## Run locally
 
+CI runs lint, tests and the production build on pushes and pull requests to
+`FrontEnd`. See [CI details](docs/CI.md).
+
 Copy `.env.example` to `.env.local`, set `VITE_API_BASE_URL` to the backend API
 origin (the development default is `https://localhost:7043`), and start the
 backend with its PostgreSQL configuration. Trust the local HTTPS certificate

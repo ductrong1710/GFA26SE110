@@ -1,5 +1,9 @@
+import { isTello } from '../../services/api/telloPlanning'
+import MissionRouteMap from './MissionRouteMap'
+
 export default function MissionMonitoringMap({ data }) {
   const { farm, waypoints, points, rows, telemetry, currentWaypoint } = data
+  if (isTello(data.uav)) return <MissionRouteMap tello waypoints={waypoints.map(w => ({ ...w, x: w.localX, y: w.localY, action: w.actionType }))} />
   const valid = (point) => point && Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
   const nodes = rows.map(({ node }) => node).filter(valid)
   const route = waypoints.filter(valid)
