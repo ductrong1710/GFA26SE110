@@ -10,6 +10,7 @@ public interface IFarmRepository
     Task<PagedResult<ZoneResponse>> ListZonesAsync(int farmId, PageQuery query, CancellationToken ct);
     Task<Farm?> FindFarmAsync(int id, CancellationToken ct);
     Task<Zone?> FindZoneAsync(int id, CancellationToken ct);
+    Task<string?[]> GetZoneBoundariesAsync(int farmId, CancellationToken ct);
     void AddFarm(Farm farm);
     void AddZone(Zone zone);
     Task SaveAsync(CancellationToken ct);

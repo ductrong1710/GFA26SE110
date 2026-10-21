@@ -24,6 +24,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString(CultureInfo.InvariantCulture)),
+            new("session_version", user.PasswordVersion.ToString(CultureInfo.InvariantCulture)),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, Convert.ToHexString(RandomNumberGenerator.GetBytes(16)))
         };

@@ -66,6 +66,70 @@ public sealed class DeviceMissionTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Flight_test_reservation_and_mission_schedule_exclude_each_other()
+    {
+        var missionId=(await Data(await human.PostAsJsonAsync("/api/missions",Plan()))).GetProperty("id").GetInt32();
+        var testId=(await Data(await human.PostAsJsonAsync($"/api/gateways/{gatewayId}/flight-tests",new {requestKey="mission-exclusion"}))).GetProperty("id").GetInt32();
+        var start=DateTimeOffset.UtcNow.AddHours(1);
+        var schedule=new {scheduledStartAt=start,scheduledEndAt=start.AddHours(1)};
+        Assert.Equal(HttpStatusCode.Conflict,(await human.PostAsJsonAsync($"/api/missions/{missionId}/schedule",schedule)).StatusCode);
+        await using(var scope=factory.Services.CreateAsyncScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.FlightTests.Where(x=>x.Id==testId).ExecuteUpdateAsync(x=>x.SetProperty(t=>t.ExpiresAt,DateTimeOffset.UtcNow.AddSeconds(-1)));
+        }
+        await Data(await human.PostAsJsonAsync($"/api/missions/{missionId}/schedule",schedule));
+        Assert.Equal(HttpStatusCode.Conflict,(await human.PostAsJsonAsync($"/api/gateways/{gatewayId}/flight-tests",new {requestKey="mission-busy"})).StatusCode);
+    }
+
+    [Fact]
+    public async Task Tello_schedule_and_start_validate_profile_and_download_retry_survives_start()
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var uav = (await db.Uavs.FindAsync(uavId))!;
+        uav.Model = "DJI Tello EDU";
+        await db.SaveChangesAsync();
+        var plan = JsonSerializer.SerializeToNode(Plan())!.AsObject();
+        var id = (await Data(await human.PostAsJsonAsync("/api/missions", plan))).GetProperty("id").GetInt32();
+        var start = DateTimeOffset.UtcNow.AddHours(1);
+        var schedule = new { scheduledStartAt = start, scheduledEndAt = start.AddHours(1) };
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await human.PostAsJsonAsync($"/api/missions/{id}/schedule", schedule)).StatusCode);
+        plan["waypoints"]![0]!["altitudeM"] = 1m;
+        plan["waypoints"]![0]!["actionType"] = "COLLECT_SENSOR";
+        await Data(await human.PutAsJsonAsync($"/api/missions/{id}", plan));
+        await Data(await human.PostAsJsonAsync($"/api/missions/{id}/schedule", schedule));
+        Assert.Equal(HttpStatusCode.Conflict, (await human.PostAsJsonAsync($"/api/missions/{id}/start", new { })).StatusCode);
+        var pulled = await Data(await device.GetAsync(Root + "/next"));
+        Assert.Equal("COLLECT", pulled.GetProperty("waypoints")[0].GetProperty("actionType").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await device.PostAsJsonAsync($"{Root}/{id}/start", new { })).StatusCode);
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/downloaded", new { }));
+        // Revalidate persisted plans at start, including plans created before these rules.
+        var waypoint = await db.MissionWaypoints.SingleAsync(w => w.MissionId == id);
+        waypoint.LocalX = .1m;
+        await db.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await device.PostAsJsonAsync($"{Root}/{id}/start", new { })).StatusCode);
+        waypoint.LocalX = .5m;
+        await db.SaveChangesAsync();
+        var first = await Data(await device.PostAsJsonAsync($"{Root}/{id}/start", new { }));
+        var retry = await Data(await device.PostAsJsonAsync($"{Root}/{id}/downloaded", new { }));
+        Assert.Equal("RUNNING", retry.GetProperty("status").GetString());
+        Assert.Equal(first.GetProperty("startedAt").GetString(), retry.GetProperty("startedAt").GetString());
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/start", new { }));
+        Assert.Equal(1, await db.MissionLogs.CountAsync(l => l.MissionId == id && l.LogType == "DOWNLOADED"));
+        Assert.Equal(1, await db.MissionLogs.CountAsync(l => l.MissionId == id && l.LogType == "STARTED"));
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/cancel", new { reason = "Done" }));
+        Assert.Equal(HttpStatusCode.Conflict, (await device.PostAsJsonAsync($"{Root}/{id}/downloaded", new { })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Running_mission_without_download_log_cannot_create_late_download_ack()
+    {
+        var id = await Scheduled();
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/start", new { }));
+        Assert.Equal(HttpStatusCode.Conflict, (await device.PostAsJsonAsync($"{Root}/{id}/downloaded", new { })).StatusCode);
+    }
+
+    [Fact]
     public async Task Mapping_is_explicit_persisted_and_unknown_waypoint_is_rejected()
     {
         Assert.Equal(HttpStatusCode.BadRequest, (await human.PostAsJsonAsync("/api/missions", Plan(99))).StatusCode);

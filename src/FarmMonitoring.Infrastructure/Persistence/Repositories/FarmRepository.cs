@@ -19,7 +19,7 @@ public sealed class FarmRepository(AppDbContext db) : IFarmRepository
         }
         var count = await rows.CountAsync(ct);
         var items = await rows.OrderBy(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
-            .Select(x => new FarmResponse(x.Id, x.Name, x.Description, x.Latitude, x.Longitude, x.IsActive, x.CreatedAt, x.UpdatedAt)).ToArrayAsync(ct);
+            .Select(x => new FarmResponse(x.Id, x.Name, x.Description, x.Latitude, x.Longitude, x.IsActive, x.CreatedAt, x.UpdatedAt, BoundaryGeometry.Deserialize(x.BoundaryGeoJson))).ToArrayAsync(ct);
         return new(items, count, query.Page, query.PageSize);
     }
 
@@ -33,12 +33,14 @@ public sealed class FarmRepository(AppDbContext db) : IFarmRepository
         }
         var count = await rows.CountAsync(ct);
         var items = await rows.OrderBy(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
-            .Select(x => new ZoneResponse(x.Id, x.FarmId, x.Name, x.Description, x.CenterLatitude, x.CenterLongitude, x.CreatedAt, x.UpdatedAt)).ToArrayAsync(ct);
+            .Select(x => new ZoneResponse(x.Id, x.FarmId, x.Name, x.Description, x.CenterLatitude, x.CenterLongitude, x.CreatedAt, x.UpdatedAt, BoundaryGeometry.Deserialize(x.BoundaryGeoJson))).ToArrayAsync(ct);
         return new(items, count, query.Page, query.PageSize);
     }
 
     public Task<Farm?> FindFarmAsync(int id, CancellationToken ct) => db.Farms.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<Zone?> FindZoneAsync(int id, CancellationToken ct) => db.Zones.SingleOrDefaultAsync(x => x.Id == id, ct);
+    public Task<string?[]> GetZoneBoundariesAsync(int farmId, CancellationToken ct) =>
+        db.Zones.AsNoTracking().Where(x => x.FarmId == farmId && x.BoundaryGeoJson != null).Select(x => x.BoundaryGeoJson).ToArrayAsync(ct);
     public void AddFarm(Farm farm) => db.Farms.Add(farm);
     public void AddZone(Zone zone) => db.Zones.Add(zone);
 

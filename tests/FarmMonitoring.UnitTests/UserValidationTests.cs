@@ -13,7 +13,7 @@ public class UserValidationTests
     [InlineData("UnknownRole", false)]
     public void Human_roles_follow_the_three_role_contract(string role, bool accepted)
     {
-        Assert.Equal(accepted, new CreateUserValidator().Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", [role])).IsValid);
+        Assert.Equal(accepted && role != "FarmAdministrator", new CreateUserValidator().Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", [role])).IsValid);
         Assert.Equal(accepted, new UserRolesValidator().Validate(new UserRolesRequest([role])).IsValid);
     }
     [Fact]

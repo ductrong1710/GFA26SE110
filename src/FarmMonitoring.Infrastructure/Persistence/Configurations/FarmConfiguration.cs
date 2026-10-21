@@ -13,6 +13,7 @@ public sealed class FarmConfiguration : IEntityTypeConfiguration<Farm>
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         b.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         b.Property(x => x.Description).HasColumnName("description").HasColumnType("text");
+        b.Property(x => x.BoundaryGeoJson).HasColumnName("boundary_geo_json").HasColumnType("text");
         b.Property(x => x.Latitude).HasColumnName("latitude").HasPrecision(10, 7);
         b.Property(x => x.Longitude).HasColumnName("longitude").HasPrecision(10, 7);
         b.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);

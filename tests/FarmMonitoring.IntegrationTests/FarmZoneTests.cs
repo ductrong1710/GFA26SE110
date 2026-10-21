@@ -8,6 +8,39 @@ namespace FarmMonitoring.IntegrationTests;
 [Collection("PostgreSQL Auth")]
 public class FarmZoneTests(ApiFactory factory)
 {
+    [Fact]
+    public async Task Geographic_boundaries_round_trip_validate_and_preserve_legacy_records()
+    {
+        using var client = await Login();
+        object Box(double x, double y, double size) => new { type = "Polygon",
+            coordinates = new[] { new[] { new[] { x, y }, new[] { x + size, y }, new[] { x + size, y + size }, new[] { x, y + size }, new[] { x, y } } } };
+        var name = $"Boundary {Guid.NewGuid():N}";
+        var created = await client.PostAsJsonAsync("/api/farms", new { name, boundary = Box(106, 10, 1) });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var farm = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+        var farmId = farm.GetProperty("id").GetInt32();
+        Assert.Equal(10.5m, farm.GetProperty("latitude").GetDecimal());
+        Assert.Equal(106.5m, farm.GetProperty("longitude").GetDecimal());
+        var listed = (await client.GetFromJsonAsync<JsonElement>($"/api/farms?search={Uri.EscapeDataString(name)}")).GetProperty("data")[0];
+        Assert.Equal(farm.GetProperty("boundary").ToString(), listed.GetProperty("boundary").ToString());
+        var zoneCreated = await client.PostAsJsonAsync($"/api/farms/{farmId}/zones", new { name = "Inside", boundary = Box(106.2, 10.2, 0.2) });
+        Assert.Equal(HttpStatusCode.Created, zoneCreated.StatusCode);
+        var zoneId = (await zoneCreated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
+        var zone = (await client.GetFromJsonAsync<JsonElement>($"/api/zones/{zoneId}")).GetProperty("data");
+        Assert.Equal(10.3m, zone.GetProperty("centerLatitude").GetDecimal());
+        Assert.Equal("Polygon", zone.GetProperty("boundary").GetProperty("type").GetString());
+        var zones = (await client.GetFromJsonAsync<JsonElement>($"/api/farms/{farmId}/zones")).GetProperty("data");
+        Assert.Equal(zone.GetProperty("boundary").ToString(), zones[0].GetProperty("boundary").ToString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/farms/{farmId}/zones", new { name = "Outside", boundary = Box(107, 11, 1) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/zones/{zoneId}", new { name = "Outside", boundary = Box(107, 11, 1) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/farms/{farmId}", new { name, boundary = Box(106, 10, 0.1) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/farms", new { name = "Invalid", boundary = Box(181, 10, 1) })).StatusCode);
+        var legacy = await CreateFarm(client, "Legacy boundary compatibility");
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync($"/api/farms/{legacy}/zones", new { name = "Unvalidated parent", boundary = Box(106, 10, 1) })).StatusCode);
+        (await client.PutAsJsonAsync($"/api/zones/{zoneId}", new { name = "Cleared", boundary = (object?)null })).EnsureSuccessStatusCode();
+        Assert.Equal(JsonValueKind.Null, (await client.GetFromJsonAsync<JsonElement>($"/api/zones/{zoneId}")).GetProperty("data").GetProperty("boundary").ValueKind);
+    }
+
     private async Task<HttpClient> Login(string email = "admin@example.com")
     {
         var client = factory.CreateApiClient();

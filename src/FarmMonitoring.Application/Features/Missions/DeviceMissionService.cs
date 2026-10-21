@@ -28,8 +28,10 @@ public sealed class DeviceMissionService(IMissionRepository repository, MissionL
         {
             var mission = await FindAssigned(missionId, gatewayId, ct);
             await LockEquipment(mission, gatewayId, ct);
-            if (mission.Status != MissionStatus.SCHEDULED) throw new ConflictException("Only scheduled missions can be acknowledged as downloaded.");
-            if (!await repository.HasDeviceLogAsync(missionId, gatewayId, "DOWNLOADED", ct))
+            var downloaded = await repository.HasDeviceLogAsync(missionId, gatewayId, "DOWNLOADED", ct);
+            if (mission.Status != MissionStatus.SCHEDULED && !(mission.Status == MissionStatus.RUNNING && downloaded))
+                throw new ConflictException("Only scheduled missions or previously downloaded running missions can acknowledge a download.");
+            if (!downloaded)
             {
                 lifecycle.Log(mission, null, gatewayId, "DOWNLOADED", "Gateway verified and persisted the mission download.");
                 await repository.SaveAsync(ct);
@@ -56,6 +58,9 @@ public sealed class DeviceMissionService(IMissionRepository repository, MissionL
             await actions.ValidateAndThrowAsync(request, ct);
             if (status == MissionStatus.FAILED && string.IsNullOrWhiteSpace(request.FailureReason)) throw new ValidationException("A failure reason is required.");
             await LockEquipment(mission, gatewayId, ct);
+            if (status == MissionStatus.RUNNING && TelloMissionRules.Applies(mission) &&
+                !await repository.HasDeviceLogAsync(missionId, gatewayId, "DOWNLOADED", ct))
+                throw new ConflictException("The gateway must acknowledge the Tello mission download before starting.");
             if (mission.Status == status)
             {
                 if (status == MissionStatus.FAILED && mission.FailureReason != request.FailureReason!.Trim())
@@ -76,7 +81,7 @@ public sealed class DeviceMissionService(IMissionRepository repository, MissionL
     private async Task LockEquipment(Mission mission, int gatewayId, CancellationToken ct)
     {
         // Match SyncService and human transitions: mission -> UAV -> gateway.
-        if (mission.UavId is int uavId) await repository.LockUavAsync(uavId, ct);
+        if (mission.UavId is int uavId) mission.Uav = await repository.LockUavAsync(uavId, ct);
         if (await repository.LockGatewayAsync(gatewayId, ct) is not { IsActive: true }) throw new AccessDeniedException("Gateway is inactive.");
     }
     private static DeviceMissionStateResponse State(Mission m) => new(m.Id, m.Status.ToString(), m.StartedAt, m.CompletedAt, m.FailureReason);

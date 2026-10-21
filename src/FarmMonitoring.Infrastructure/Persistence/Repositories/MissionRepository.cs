@@ -12,6 +12,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
     public async Task<T> InTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await FlightReservation.LockAsync(db, ct);
         var result = await action();
         await transaction.CommitAsync(ct);
         return result;
@@ -68,7 +69,9 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         if (gateway is not null) await db.Entry(gateway).ReloadAsync(ct);
         return gateway;
     }
-    public Task<bool> HasOverlapAsync(Mission mission, bool starting, CancellationToken ct) => db.Missions.AnyAsync(x =>
+    public async Task<bool> HasOverlapAsync(Mission mission, bool starting, CancellationToken ct) =>
+        await FlightReservation.Active(db, DateTimeOffset.UtcNow).AnyAsync(x => x.UavId == mission.UavId || x.GatewayId == mission.GatewayId, ct) ||
+        await db.Missions.AnyAsync(x =>
         x.Id != mission.Id && (x.Status == MissionStatus.SCHEDULED || x.Status == MissionStatus.RUNNING) &&
         ((mission.UavId != null && x.UavId == mission.UavId) || (mission.GatewayId != null && x.GatewayId == mission.GatewayId)) &&
         ((starting && x.Status == MissionStatus.RUNNING) || (x.ScheduledStartAt < mission.ScheduledEndAt && x.ScheduledEndAt > mission.ScheduledStartAt)), ct);

@@ -43,9 +43,19 @@ public sealed class EquipmentRepository(AppDbContext db) : IEquipmentRepository
     public void AddGateway(Gateway gateway) => db.Gateways.Add(gateway);
     public async Task SaveAsync(CancellationToken ct)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await FlightReservation.LockAsync(db, ct);
+        // Read the reservations under the same lock used by create/claim/mission transitions.
+        foreach (var entry in db.ChangeTracker.Entries<Gateway>().Where(x => x.State is EntityState.Modified or EntityState.Added))
+            if (await FlightReservation.Active(db, DateTimeOffset.UtcNow).AnyAsync(x => x.GatewayId == entry.Entity.Id || x.UavId == entry.Entity.UavId, ct))
+                throw new ConflictException("Gateway or assigned UAV is reserved by a flight test.");
+        foreach (var entry in db.ChangeTracker.Entries<Uav>().Where(x => x.State == EntityState.Modified))
+            if (await FlightReservation.Active(db, DateTimeOffset.UtcNow).AnyAsync(x => x.UavId == entry.Entity.Id, ct))
+                throw new ConflictException("UAV is reserved by a flight test.");
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg
             && pg.ConstraintName is "IX_uavs_code" or "IX_gateways_code")
         { throw new ConflictException("The equipment code is already registered."); }
+        await transaction.CommitAsync(ct);
     }
 }

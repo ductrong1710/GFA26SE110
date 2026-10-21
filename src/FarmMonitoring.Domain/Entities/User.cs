@@ -6,6 +6,10 @@ public sealed class User
     public int Id { get; set; }
     public string Email { get; set; } = "";
     public string PasswordHash { get; set; } = "";
+    public int PasswordVersion { get; set; }
+    public string? PasswordResetHash { get; set; }
+    public DateTimeOffset? PasswordResetExpiresAt { get; set; }
+    public DateTimeOffset? PasswordResetRequestedAt { get; set; }
     public string FullName { get; set; } = "";
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }

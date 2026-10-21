@@ -41,6 +41,9 @@ public sealed class FarmService(FarmAccessService access, IFarmRepository reposi
     {
         await farmValidator.ValidateAndThrowAsync(request, ct);
         var farm = await RequireFarmAsync(id, ct);
+        if (request.Boundary is not null)
+            foreach (var boundary in await repository.GetZoneBoundariesAsync(id, ct))
+                BoundaryGeometry.EnsureInside(BoundaryGeometry.Deserialize(boundary), request.Boundary);
         Apply(farm, request);
         farm.UpdatedAt = clock.GetUtcNow();
         await repository.SaveAsync(ct);
@@ -60,7 +63,8 @@ public sealed class FarmService(FarmAccessService access, IFarmRepository reposi
     public async Task<ZoneResponse> CreateZoneAsync(int farmId, ZoneRequest request, CancellationToken ct)
     {
         await zoneValidator.ValidateAndThrowAsync(request, ct);
-        await RequireFarmAsync(farmId, ct);
+        var farm = await RequireFarmAsync(farmId, ct);
+        BoundaryGeometry.EnsureInside(request.Boundary, BoundaryGeometry.Deserialize(farm.BoundaryGeoJson));
         var zone = new Zone { FarmId = farmId, CreatedAt = clock.GetUtcNow() };
         Apply(zone, request);
         repository.AddZone(zone);
@@ -72,6 +76,8 @@ public sealed class FarmService(FarmAccessService access, IFarmRepository reposi
     {
         await zoneValidator.ValidateAndThrowAsync(request, ct);
         var zone = await RequireZoneAsync(id, ct);
+        var farm = await RequireFarmAsync(zone.FarmId, ct);
+        BoundaryGeometry.EnsureInside(request.Boundary, BoundaryGeometry.Deserialize(farm.BoundaryGeoJson));
         Apply(zone, request);
         zone.UpdatedAt = clock.GetUtcNow();
         await repository.SaveAsync(ct);
@@ -94,6 +100,8 @@ public sealed class FarmService(FarmAccessService access, IFarmRepository reposi
         farm.Description = request.Description;
         farm.Latitude = request.Latitude;
         farm.Longitude = request.Longitude;
+        farm.BoundaryGeoJson = BoundaryGeometry.Serialize(request.Boundary);
+        if (request.Boundary is not null) (farm.Latitude, farm.Longitude) = BoundaryGeometry.Center(request.Boundary);
     }
     private static void Apply(Zone zone, ZoneRequest request)
     {
@@ -101,7 +109,9 @@ public sealed class FarmService(FarmAccessService access, IFarmRepository reposi
         zone.Description = request.Description;
         zone.CenterLatitude = request.CenterLatitude;
         zone.CenterLongitude = request.CenterLongitude;
+        zone.BoundaryGeoJson = BoundaryGeometry.Serialize(request.Boundary);
+        if (request.Boundary is not null) (zone.CenterLatitude, zone.CenterLongitude) = BoundaryGeometry.Center(request.Boundary);
     }
-    private static FarmResponse ToResponse(Farm x) => new(x.Id, x.Name, x.Description, x.Latitude, x.Longitude, x.IsActive, x.CreatedAt, x.UpdatedAt);
-    private static ZoneResponse ToResponse(Zone x) => new(x.Id, x.FarmId, x.Name, x.Description, x.CenterLatitude, x.CenterLongitude, x.CreatedAt, x.UpdatedAt);
+    private static FarmResponse ToResponse(Farm x) => new(x.Id, x.Name, x.Description, x.Latitude, x.Longitude, x.IsActive, x.CreatedAt, x.UpdatedAt, BoundaryGeometry.Deserialize(x.BoundaryGeoJson));
+    private static ZoneResponse ToResponse(Zone x) => new(x.Id, x.FarmId, x.Name, x.Description, x.CenterLatitude, x.CenterLongitude, x.CreatedAt, x.UpdatedAt, BoundaryGeometry.Deserialize(x.BoundaryGeoJson));
 }

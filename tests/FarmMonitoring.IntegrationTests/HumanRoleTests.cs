@@ -32,8 +32,13 @@ public class HumanRoleTests(ApiFactory factory)
         var (admin, _) = await Login("admin@example.com");
         using var adminClient = admin;
         var email = $"matrix-{Guid.NewGuid():N}@example.com";
-        var created = await admin.PostAsJsonAsync("/api/users", new { email, fullName = role, password = "Test-password-123!", roles = new[] { role } });
+        var created = await admin.PostAsJsonAsync("/api/users", new { email, fullName = role, password = "Test-password-123!", roles = new[] { role == "FarmAdministrator" ? "FarmOwner" : role } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        if (role == "FarmAdministrator")
+        {
+            var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
+            (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new {roles = new[] {role}})).EnsureSuccessStatusCode();
+        }
         var (client, login) = await Login(email);
         using var human = client;
         Assert.Equal(role, Assert.Single(login.GetProperty("user").GetProperty("roles").EnumerateArray()).GetString());

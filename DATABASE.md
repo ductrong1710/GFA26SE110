@@ -66,6 +66,8 @@ The current baseline contains 24 tables, including the new `user_farms` assignme
 
 ### Identity and access
 
+Migration `PasswordRecovery` adds `users.password_version` (integer, default 0), nullable `password_reset_hash` (varchar 64, unique index), `password_reset_expires_at` and `password_reset_requested_at` (timestamptz), and `refresh_tokens.password_version` (integer, default 0). It preserves all existing accounts/password hashes. The current reset token hash is stored on its user; no plaintext token/password is persisted. Password replacement locks the user row, increments its version, clears reset credentials and revokes refresh tokens in one transaction. The version is also an EF concurrency token to prevent a concurrent login rehash overwriting a password change.
+
 1. `users`
 2. `roles`
 3. `user_roles`
@@ -929,3 +931,25 @@ Migration `20261013021208_GatewayCredentials` adds `gateway_credentials`:
 | created_by_user_id | nullable FK to users, restrictive delete |
 
 A unique filtered index on gateway_id WHERE is_active enforces at most one active key. A state check requires active credentials to have no revocation timestamp and inactive credentials to have one. The (gateway_id, created_at) index supports history; created_by_user_id is indexed. Raw API keys are never stored. Rotation revokes the old row and inserts the new hash in one transaction; revoke preserves all rows. Gateway row locks serialize create/rotate/revoke and device authentication. The migration preserves existing gateways and issues no credentials automatically; rollback removes the credential table/history.
+# Flight-test persistence
+
+Migrations `AdminFlightTests` and `FlightTestTakeoffEvidence` add `flight_tests`.
+Rows retain the gateway/UAV/requesting-user foreign keys, unique(gateway_id,request_key),
+status, creation/expiry/claim/report timestamps and nullable device evidence:
+gateway_connected, uav_connected, landed, takeoff_attempted, observed_altitude_cm,
+held_ms, error_code. Foreign keys restrict deletion of referenced operational history.
+Gateway/status and UAV/status indexes support reservation checks. PostgreSQL transaction
+advisory lock74611001 serializes flight-test create/claim/result, mission transitions,
+and equipment writes, preventing conflicting reservations across different gateways
+that share a UAV. This is a coarse lock appropriate to the short transactions here;
+no HTTP/device I/O runs while it is held.
+
+## Geographic boundaries
+
+Migration `20261020085024_GeographicBoundaries` adds nullable text column `boundary_geo_json` to `farms` and `zones`. Values are validated GeoJSON Polygon objects serialized by Application; no PostGIS extension is required. Existing rows remain null and existing center columns are unchanged. Apply from the backend directory with:
+
+```powershell
+dotnet ef database update --project src/FarmMonitoring.Infrastructure --startup-project src/FarmMonitoring.Api
+```
+
+Stop a running Debug API before building/applying, or specify `--configuration Release` to avoid locked Debug binaries. Connection configuration follows AppDbContextFactory (appsettings/environment/Development user secrets). Migration generation and integration tests do not update the user's application database.

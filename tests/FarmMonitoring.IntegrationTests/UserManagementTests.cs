@@ -67,7 +67,7 @@ public class UserManagementTests(ApiFactory factory)
     {
         using var admin = await Login();
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/users", new { email = "bad", fullName = "", password = "short", roles = new[] { "unknown" } })).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/users", new { email = "ADMIN@example.com", fullName = "Duplicate", password = "Test-password-123!", roles = new[] { "FarmAdministrator" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/users", new { email = "ADMIN@example.com", fullName = "Duplicate", password = "Test-password-123!", roles = new[] { "FarmOwner" } })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/users/2147483647")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/users?page=0")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/users?pageSize=101")).StatusCode);
@@ -95,9 +95,10 @@ public class UserManagementTests(ApiFactory factory)
     {
         using var admin = await Login();
         var email = $"temporary-admin-{Guid.NewGuid():N}@example.com";
-        var created = await admin.PostAsJsonAsync("/api/users", new { email, fullName = "Temporary Admin", password = "Test-password-123!", roles = new[] { "FarmAdministrator" } });
+        var created = await admin.PostAsJsonAsync("/api/users", new { email, fullName = "Temporary Admin", password = "Test-password-123!", roles = new[] { "FarmOwner" } });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
+        (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator" } })).EnsureSuccessStatusCode();
         using var target = await Login(email);
         (await admin.PatchAsJsonAsync($"/api/users/{id}/status", new { isActive = false })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await target.GetAsync("/api/users")).StatusCode);

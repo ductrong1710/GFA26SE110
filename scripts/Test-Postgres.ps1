@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$PostgresBin,
     [string]$Dotnet = 'dotnet',
+    [string]$Configuration = 'Debug',
     [switch]$NoRestore
 )
 
@@ -46,9 +47,9 @@ try {
         & $Dotnet restore
         if ($LASTEXITCODE -ne 0) { throw 'dotnet restore failed.' }
     }
-    & $Dotnet build --no-restore
+    & $Dotnet build --no-restore --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw 'dotnet build failed.' }
-    & $Dotnet test --no-build --logger 'console;verbosity=normal' --logger trx *> (Join-Path $backendRoot '.local/test-latest.log')
+    & $Dotnet test --no-build --configuration $Configuration --logger 'console;verbosity=normal' --logger trx *> (Join-Path $backendRoot '.local/test-latest.log')
     $testResult = $LASTEXITCODE
     Get-Content (Join-Path $backendRoot '.local/test-latest.log') -Tail 90
     if ($testResult -ne 0) { throw 'dotnet test failed. See .local/test-latest.log and TestResults.' }

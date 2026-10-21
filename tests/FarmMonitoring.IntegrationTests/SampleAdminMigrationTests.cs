@@ -56,9 +56,9 @@ public class SampleAdminMigrationTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var user = new User { Email = "admin@sep.local", FullName = "Existing owner", IsActive = false, CreatedAt = DateTimeOffset.UtcNow };
         user.PasswordHash = scope.ServiceProvider.GetRequiredService<IPasswordService>().Hash(user, "Existing-password-123!");
-        user.UserRoles.Add(new UserRole { RoleId = 3 });
-        db.Users.Add(user);
-        await db.SaveChangesAsync();
+        // Insert only the columns that existed before the migration under test.
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO users (email, full_name, password_hash, is_active, created_at) VALUES ({user.Email}, {user.FullName}, {user.PasswordHash}, {user.IsActive}, {user.CreatedAt})");
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO user_roles (user_id, role_id) SELECT id, 3 FROM users WHERE email = {user.Email}");
         var hash = user.PasswordHash;
         await db.GetService<IMigrator>().MigrateAsync();
         db.ChangeTracker.Clear();

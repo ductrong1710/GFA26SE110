@@ -17,6 +17,8 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         if (status is MissionStatus.SCHEDULED or MissionStatus.RUNNING)
         {
             await ValidateResources(mission, true, ct);
+            if (status == MissionStatus.RUNNING && gatewayId is null && TelloMissionRules.Applies(mission))
+                throw new ConflictException("Start Tello missions locally on the assigned gateway after download. A web status update cannot launch the UAV.");
             if (mission.ScheduledStartAt is null || mission.ScheduledEndAt is null || mission.ScheduledEndAt <= mission.ScheduledStartAt)
                 throw new BusinessRuleException("A valid scheduled start and end are required.");
             if (status == MissionStatus.SCHEDULED) ValidateFutureSchedule(mission);
@@ -65,6 +67,7 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         if (ready && mission.Targets.Any(t => t.Waypoint is null || !mission.Waypoints.Contains(t.Waypoint)))
             throw new BusinessRuleException("Every target must be assigned to a waypoint in this mission before scheduling or starting.");
         if (ready && sensors.Any(x => !x.IsActive)) throw new BusinessRuleException("Target sensors must be active.");
+        if (ready) TelloMissionRules.ValidateAndNormalize(mission);
     }
 
     public void ValidateFutureSchedule(Mission mission)

@@ -39,24 +39,30 @@ public class RoleMigrationTests
         }
         var legacy = Account("legacy@example.com", legacyId);
         var mixed = Account("mixed@example.com", 1, legacyId);
-        db.Users.AddRange(legacy, mixed);
         User? owner = null;
-        if (targetRolesAlreadyExist) { owner = Account("existing-owner@example.com", 2); db.Users.Add(owner); }
-        await db.SaveChangesAsync();
+        if (targetRolesAlreadyExist) owner = Account("existing-owner@example.com", 2);
+        foreach (var user in new[] { legacy, mixed, owner }.OfType<User>())
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO users (email, full_name, password_hash, is_active, created_at) VALUES ({user.Email}, {user.FullName}, {user.PasswordHash}, true, {user.CreatedAt})");
+            user.Id = await db.Users.Where(x => x.Email == user.Email).Select(x => x.Id).SingleAsync();
+            foreach (var role in user.UserRoles)
+                await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO user_roles (user_id, role_id) VALUES ({user.Id}, {role.RoleId})");
+        }
         var savedHash = legacy.PasswordHash;
         var refresh = scope.ServiceProvider.GetRequiredService<ITokenService>().CreateRefreshToken(DateTimeOffset.UtcNow);
-        db.RefreshTokens.Add(new RefreshToken { UserId = legacy.Id, TokenHash = refresh.Hash, CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = refresh.ExpiresAt });
-        await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at) VALUES ({legacy.Id}, {refresh.Hash}, {DateTimeOffset.UtcNow}, {refresh.ExpiresAt})");
         db.ChangeTracker.Clear();
         await db.GetService<IMigrator>().MigrateAsync("20261007041338_HumanUserRoles");
         Assert.Equal(new[] { "FarmAdministrator", "FarmEngineer", "FarmOwner" }, await db.Roles.OrderBy(x => x.Name).Select(x => x.Name).ToArrayAsync());
-        var persisted = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).SingleAsync(x => x.Id == legacy.Id);
+        var persisted = await db.Users.Where(x => x.Id == legacy.Id).Select(x => new {x.IsActive,x.PasswordHash}).SingleAsync();
         Assert.True(persisted.IsActive);
         Assert.Equal(savedHash, persisted.PasswordHash);
-        Assert.Empty(persisted.UserRoles);
+        Assert.False(await db.UserRoles.AnyAsync(x => x.UserId == legacy.Id));
         Assert.Equal("FarmAdministrator", Assert.Single(await db.UserRoles.Where(x => x.UserId == mixed.Id).Select(x => x.Role.Name).ToArrayAsync()));
         if (owner is not null) Assert.Equal("FarmOwner", Assert.Single(await db.UserRoles.Where(x => x.UserId == owner.Id).Select(x => x.Role.Name).ToArrayAsync()));
         Assert.Equal(targetRolesAlreadyExist ? 3 : 2, await db.Users.CountAsync());
+        // Runtime authentication runs against the current schema, after checking the historical upgrade.
+        await db.GetService<IMigrator>().MigrateAsync();
         using var client = factory.CreateApiClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new { email = legacy.Email, password = "Migration-password-123!" })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = refresh.Token })).StatusCode);

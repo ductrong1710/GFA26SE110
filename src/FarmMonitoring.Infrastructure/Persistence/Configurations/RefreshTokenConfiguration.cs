@@ -12,6 +12,7 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         b.Property(x => x.UserId).HasColumnName("user_id");
+        b.Property(x => x.PasswordVersion).HasColumnName("password_version").HasDefaultValue(0);
         b.Property(x => x.TokenHash).HasColumnName("token_hash").HasColumnType("text").IsRequired();
         b.HasIndex(x => x.TokenHash).IsUnique();
         b.Property(x => x.ExpiresAt).HasColumnName("expires_at").HasColumnType("timestamp with time zone");

@@ -619,3 +619,19 @@ No commit, push, branch merge, or destructive reset/clean was performed.
 ## Gateway credential management (2026-10-13)
 
 The four human gateway credential endpoints are connected to the Mobile Gateways Credential dialog. Device sync/telemetry remain device-only. See [Gateway Credential implementation](GATEWAY_CREDENTIAL_IMPLEMENTATION.md) for the API contract, database transition, security evidence, verification and ESP32 setup steps.
+
+## Tello mission compatibility (2026-10-20)
+
+The mission wizard selects the UAV before route planning. A model containing
+`Tello` uses local forward/right meters from takeoff, COLLECT/MOVE/HOLD and
+0.8–1.2 m altitude. It does not convert farm/sensor GPS to Tello coordinates.
+Changing coordinate mode clears the route for explicit replanning. Resume and
+request adapters preserve local coordinates and target waypoint assignments.
+Human start is disabled for Tello; the backend rejects it with 409. The gateway
+performs downloaded/start acknowledgments and still requires explicit local start.
+Generic UAV planning keeps its existing behavior. Local gateway control remains
+device-side; the browser does not receive or send device credentials.
+
+Firmware reads the existing success/data envelope and sends collection results
+through device sync before complete, or fail/cancel followed by outcomes. No new
+backend route or database migration is introduced for this change.

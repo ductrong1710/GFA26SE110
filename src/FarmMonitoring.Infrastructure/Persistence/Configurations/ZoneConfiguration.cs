@@ -14,6 +14,7 @@ public sealed class ZoneConfiguration : IEntityTypeConfiguration<Zone>
         b.Property(x => x.FarmId).HasColumnName("farm_id");
         b.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         b.Property(x => x.Description).HasColumnName("description").HasColumnType("text");
+        b.Property(x => x.BoundaryGeoJson).HasColumnName("boundary_geo_json").HasColumnType("text");
         b.Property(x => x.CenterLatitude).HasColumnName("center_latitude").HasPrecision(10, 7);
         b.Property(x => x.CenterLongitude).HasColumnName("center_longitude").HasPrecision(10, 7);
         b.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");

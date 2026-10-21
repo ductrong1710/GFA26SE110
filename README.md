@@ -18,6 +18,12 @@ scripts/Test-Postgres.ps1          Isolated Windows PostgreSQL test runner
 
 Domain has no external dependencies. Application references Domain. Infrastructure implements Application interfaces. API uses Infrastructure only for startup/composition.
 
+## Continuous integration
+
+[Backend CI](.github/workflows/backend-ci.yml) restores, builds and tests the solution
+with an isolated PostgreSQL 18 service on pushes and pull requests to `BackEnd`.
+See [CI setup and test reports](docs/CI.md).
+
 ## Prerequisites
 
 - .NET 10 SDK (`global.json` allows installed .NET 10 feature bands).

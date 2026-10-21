@@ -57,6 +57,13 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             var user = new User { Email = email, FullName = "Test Account", IsActive = active, CreatedAt = DateTimeOffset.UtcNow };
             user.PasswordHash = passwords.Hash(user, "Test-password-123!");
+            if (InitialMigration is not null)
+            {
+                // Historical schema fixtures must not insert columns from the latest EF model.
+                await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO users (email, full_name, password_hash, is_active, created_at) VALUES ({email}, {user.FullName}, {user.PasswordHash}, {active}, {user.CreatedAt})");
+                await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO user_roles (user_id, role_id) SELECT id, {roleId} FROM users WHERE email = {email}");
+                continue;
+            }
             user.UserRoles.Add(new UserRole { RoleId = roleId });
             db.Users.Add(user);
         }

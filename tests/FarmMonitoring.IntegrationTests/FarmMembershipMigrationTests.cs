@@ -17,8 +17,8 @@ public sealed class FarmMembershipMigrationTests
         await factory.InitializeAsync();
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Farms.Add(new Farm { Name = "Existing farm", CreatedAt = DateTimeOffset.UtcNow });
-        await db.SaveChangesAsync();
+        // Seed the historical schema without columns added by later migrations.
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO farms (name, created_at, is_active) VALUES ({"Existing farm"}, {DateTimeOffset.UtcNow}, {true})");
         var hashes = await db.Users.OrderBy(x => x.Id).Select(x => x.PasswordHash).ToArrayAsync();
         await db.GetService<IMigrator>().MigrateAsync("20261007094620_AddUserFarmAssignments");
         Assert.Empty(await db.UserFarms.ToArrayAsync());

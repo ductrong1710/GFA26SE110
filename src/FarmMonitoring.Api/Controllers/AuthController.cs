@@ -11,8 +11,32 @@ namespace FarmMonitoring.Api.Controllers;
 [Route("api/auth")]
 [Produces("application/json")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class AuthController(AuthService auth) : ControllerBase
+public sealed class AuthController(AuthService auth, PasswordRecoveryService passwords) : ControllerBase
 {
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<object>>> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
+    {
+        await passwords.ForgotAsync(request, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "If the account is eligible, password reset instructions will be sent."));
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<object>>> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
+    {
+        await passwords.ResetAsync(request, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Password reset. Sign in again."));
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<object>>> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        await passwords.ChangeAsync(CurrentUserId(), request, ct);
+        return Ok(ApiResponse<object>.Ok(new { }, "Password changed. Sign in again."));
+    }
+
     [HttpPost("login")]
     [AllowAnonymous]
     [ProducesResponseType<ApiResponse<AuthResponse>>(StatusCodes.Status200OK)]

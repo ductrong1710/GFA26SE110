@@ -85,7 +85,7 @@ For collection/list APIs:
 
 Login accepts only `email` and `password`; no role selection is accepted as part of authentication. Roles are loaded from the database and returned in the JWT, login response and `/api/auth/me`. Active users with correct passwords and any of the three supported roles can authenticate. Accounts with no supported role are denied login/refresh/me until an administrator assigns one.
 
-CreateUser and SetRoles accept only the three supported role names, require unique roles, and reject unknown or deprecated role names. Existing email/password validation remains in effect.
+CreateUser rejects `FarmAdministrator`, including mixed-role requests; it accepts `FarmOwner` and `FarmEngineer`. SetRoles retains the three supported role names. Both require unique roles and reject unknown or deprecated names. Existing email/password validation remains in effect.
 
 ### POST `/api/auth/login`
 
@@ -144,6 +144,24 @@ Behavior:
 Revoke current refresh token/session.
 
 Auth required.
+
+### Password recovery and change
+
+| Endpoint | Authentication | JSON body |
+|---|---|---|
+| POST `/api/auth/forgot-password` | Public | `{"email":"owner@example.com"}` |
+| POST `/api/auth/reset-password` | Public | `{"token":"<token from email>","newPassword":"<12–1024 characters>"}` |
+| POST `/api/auth/change-password` | Bearer JWT | `{"currentPassword":"<current password>","newPassword":"<12–1024 characters>"}` |
+
+Successful responses use the standard `success/data/message` envelope with HTTP 200. Forgot-password queues the address without looking up the account or waiting for SMTP; it always returns the same message for eligible, unknown, inactive, throttled accounts and failed email delivery. It never returns the token. Invalid input, an invalid/expired/used reset token or an incorrect current password returns 400; missing/revoked authentication returns 401.
+
+The background queue holds at most 100 addresses in memory. A server restart drops unprocessed requests; overload also drops requests with the same generic response. Users can request again if an email does not arrive. No raw reset token is stored in a queue/database/log. Delivery failures and queue overload emit generic operational warnings without account or token details.
+
+Reset tokens are random, single-use, expire after 15 minutes and are delivered as a token in a plain-text email. A later eligible request replaces the previous token. At most one email is attempted per account per 60 seconds. No password is changed by requesting a token. SMTP must be configured using the existing `Email:Enabled`, `Host`, `Port`, `FromAddress`, `EnableSsl`, `Username`, `Password` settings; `TimeoutSeconds` bounds delivery. Disabled or unavailable SMTP does not expose account existence in the public response. Credentials belong in environment variables/user secrets.
+
+Successful reset/change revokes all existing refresh tokens, invalidates previously issued access JWTs, and invalidates outstanding reset tokens. The user must sign in again. Each authenticated request checks the JWT password version against the account. Pre-migration tokens are version zero and remain valid until a password change or their normal expiry.
+
+`POST /api/users` returns 400 if `roles` includes `FarmAdministrator`, even alongside another role. Existing administrator accounts, administrator seeding and the separate role-update endpoint retain their existing behavior.
 
 ---
 
@@ -979,3 +997,56 @@ X-Gateway-Code: GW-ESP32-01
 X-Api-Key: <one-time generated API key>
 Content-Type: application/json
 ```
+# Admin gateway/UAV flight tests
+
+`POST /api/gateways/{gatewayId}/flight-tests` accepts `{ "requestKey": "unique-client-key" }`
+and returns HTTP 202 with the normal `success/data` envelope. Only a current active
+`FarmAdministrator` may create or read tests. `GET /api/gateways/{gatewayId}/flight-tests/{id}`
+returns status and connection/flight evidence. Repeating a request key for that gateway
+returns the original test, including after completion/expiry; use a new key for a new test.
+The gateway must have an assigned active UAV. Equipment reserved by a scheduled/running
+mission or another active flight test cannot be used. Target100cm and hold3000ms are fixed.
+
+Device-only routes require `X-Gateway-Code` and `X-Api-Key`, with route identity matching
+the authenticated gateway. Human JWTs cannot substitute:
+
+- `GET /api/device/gateways/{gatewayId}/flight-tests/next`: data is null or a queued command.
+- `POST /api/device/gateways/{gatewayId}/flight-tests/{id}/claim`: claims an unexpired command.
+- `POST /api/device/gateways/{gatewayId}/flight-tests/{id}/result`: reports
+  `{status,gatewayConnected,uavConnected,landed,takeoffAttempted,observedAltitudeCm,heldMs,errorCode}`.
+
+Command/response data includes `id,gatewayId,uavId,status,altitudeCm,holdMs,expiresAt` and
+nullable result fields. Results are idempotent only for identical evidence. COMPLETED
+requires takeoffAttempted, both connections, landed=true, altitude97..103cm, heldMs>=3000,
+and errorCode=null. FAILED after a takeoff requires confirmed landing; otherwise report
+RECOVERY_REQUIRED. A pre-takeoff interrupted claim may report FAILED with takeoffAttempted=false,
+zero altitude/hold and an error code even if the claim did not reach the backend.
+Queued commands expire after120seconds. Claimed/recovery commands never auto-requeue or
+auto-release reservations. See [setup and hardware boundaries](docs/FLIGHT_TEST_RUNBOOK.md).
+
+## Geographic Farm and Zone boundaries
+
+FarmRequest/ZoneRequest and their responses accept a nullable `boundary` GeoJSON object:
+`{"type":"Polygon","coordinates":[[[106,10],[107,10],[107,11],[106,11],[106,10]]]}`.
+Coordinates use longitude then latitude. One exterior ring is supported; holes and non-Polygon geometries are rejected. An unclosed input ring is closed before storage. At least three distinct vertices, valid coordinate ranges, non-zero area and no self-intersections are required (400 on invalid input).
+
+POST/PUT and list/detail responses retain existing center fields. When boundary is supplied the server calculates the vertex centroid (same as Turf.centroid), overriding supplied center values. Null/omitted boundary retains the legacy center-only representation; PUT with null/omitted boundary clears a prior boundary. The frontend always sends its current boundary explicitly.
+
+A Zone with a boundary must be covered by its parent Farm boundary, including shared edges. Without a parent boundary, containment cannot be checked. Updating a Farm boundary also validates existing Zone boundaries. Existing role and farm-access policies are unchanged.
+# Tello mission compatibility
+
+Mission schedule and start operations apply the ESP32 `mission_flight` contract when the assigned UAV's `model` contains `Tello` (case insensitive). Draft plans may remain incomplete. Unsupported ready plans return 422:
+
+- 1–16 waypoints and 1–8 explicitly mapped targets.
+- `localX` and `localY` are required meters relative to the takeoff origin, within ±100m, at whole-centimeter precision. GPS-only plans are rejected; no GPS conversion is performed.
+- `altitudeM` is required, 0.8–1.2m with whole-centimeter precision; nominal takeoff/mission altitude is 1m.
+- Actions are normalized to `MOVE`, `HOLD`, or `COLLECT`; `WAIT` and `COLLECT_SENSOR` are accepted aliases. Missing action defaults to `MOVE`. `plannedHoldSeconds` is 0–30, default 0.
+- Targets must map to `COLLECT` waypoints, and each `COLLECT` waypoint must have at least one target.
+- Each nonzero X/Y axis displacement must be at least 0.2m. The route includes automatic return to local origin at the final waypoint altitude. The 128-step capacity includes one altitude step and one waypoint marker per waypoint plus all outbound/return axis movements, split into segments up to 1m (short remainders are redistributed).
+
+Device `POST /api/device/gateways/{gatewayId}/missions/{id}/start` requires an existing `DOWNLOADED` acknowledgment for Tello missions; otherwise it returns 409. A repeat `/downloaded` during `RUNNING` succeeds only when the same gateway already has a download log, returns the current state and creates no log. Terminal missions reject `/downloaded`. Existing response envelopes and generic UAV planning behavior remain unchanged.
+
+Human `/api/missions/{id}/start` returns 409 for Tello missions. Start locally on
+the assigned gateway so it can acknowledge RUNNING before switching Wi-Fi.
+Changing status manually would otherwise remove the mission from the scheduled
+download queue without commanding the aircraft.

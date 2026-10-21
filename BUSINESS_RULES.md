@@ -613,6 +613,12 @@ Passwords:
 - never plaintext
 - always hashed
 
+Password recovery uses a cryptographically random token emailed to the active account. Only its SHA-256 hash is stored; it expires after 15 minutes and is consumed atomically once. Resending after a 60-second cooldown invalidates the earlier token. Public responses do not disclose account existence or email delivery outcome. Requesting recovery never changes the password.
+
+Changing one's password requires a valid human JWT and the current password. Reset and change require a new password of 12–1024 characters and invalidate all old access/refresh sessions and outstanding reset tokens. Concurrent resets cannot both succeed. Account password versions also reject tokens issued concurrently using stale credentials.
+
+Admin user creation cannot assign `FarmAdministrator`, alone or combined with other roles. This restriction is enforced in backend validation; the separate role-update operation and seeded administrator accounts retain their existing rules.
+
 JWT access token:
 
 - short-lived
@@ -819,3 +825,39 @@ The sample administrator migration automatically creates admin@sep.local with th
 - API keys have at least 256 bits of entropy; only SHA-256 hashes and an 8-character identification prefix persist. Raw keys are returned once at issuance, never retrievable later.
 - Device authentication requires both an active gateway and active/unrevoked database credential. Invalid requests do not update LastUsedAt. No configuration-key fallback is permitted.
 - The UI only presents credential management to DEVICES_MANAGE users for gateways. One-time keys live only in the open dialog, are discarded on close/account change, and are never saved in browser storage or URLs.
+# Admin flight-test rules
+
+An admin may request an independent gateway/UAV flight test, executed by firmware:
+reach1m, hold continuously3seconds, land with telemetry confirmation. The backend
+queues and records it; it never sends Tello UDP flight commands itself.
+Only the current active FarmAdministrator role creates/reads these requests.
+Device authentication separately restricts claim/result to the assigned gateway.
+
+Statuses: QUEUED, CLAIMED, COMPLETED, FAILED, RECOVERY_REQUIRED, EXPIRED.
+QUEUED expires after120seconds. CLAIMED and RECOVERY_REQUIRED reserve both gateway
+and UAV indefinitely; no automatic retry may cause another takeoff. Equipment edits
+and mission schedule/start conflict with active reservations. An exact request-key
+retry returns the existing test; conflicting result retries are rejected.
+COMPLETED requires connection, takeoff, altitude, duration and landing evidence.
+A failure before takeoff does not fabricate landing evidence; it may close an
+interrupted queued/expired claim as FAILED with takeoff_attempted=false and zero
+flight measurements. A failure after takeoff without confirmed landing must remain
+RECOVERY_REQUIRED. Existing mission statuses and sensor records are unchanged.
+
+## Geographic boundary rules
+
+Farm/Zone boundaries are optional simple polygons with one exterior ring. Validate longitude/latitude ranges, distinct vertices, positive area and non-intersection. Close the ring before persistence. Boundary coordinates are longitude-first; center fields are calculated as the mean of distinct vertices, matching Turf.centroid. Zone polygons must be covered by the parent polygon when present; shared edges are allowed. A Farm update cannot exclude an existing child boundary. Legacy center-only records remain valid. This feature does not enforce sensor or mission geofences.
+# Tello mission readiness
+
+UAV models containing `Tello` (case insensitive) use the ESP32 `mission_flight` planning limits at schedule and start, including scheduled create/update: local coordinates in meters (no GPS conversion), ±100m bounds, whole-centimeter precision, 1–16 waypoints, 1–8 targets, 0.8–1.2m required altitude (nominal 1m), 0–30s hold, and MOVE/HOLD/COLLECT actions. Normalize WAIT to HOLD and COLLECT_SENSOR to COLLECT; omitted action/hold become MOVE/0. Every target maps to COLLECT and every COLLECT has targets. Generic UAV rules are unchanged.
+
+Validate axis movements including automatic return to takeoff origin: zero is allowed, nonzero must be at least 0.2m. Limit routes to 128 steps, counting two markers per waypoint and axis segments up to 1m, including return. This is plan compatibility validation only; firmware owns flight execution, altitude control, return and landing.
+
+Tello device starts require a prior download acknowledgment. Lost start responses/reboots may retry `/downloaded` after RUNNING only when the same gateway's existing DOWNLOADED log proves a prior acknowledgment; this does not append another log or change timestamps/status. Scheduled first acknowledgments and existing idempotent start behavior remain intact.
+
+
+### Tello local start
+
+Tello missions enter RUNNING through the assigned gateway after its download
+acknowledgment. Human start is rejected; scheduling alone never launches the UAV.
+This preserves the scheduled download queue until the gateway explicitly starts.

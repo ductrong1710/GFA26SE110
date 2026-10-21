@@ -12,10 +12,12 @@ public class AdminSeedTests
     [Fact]
     public async Task Seed_creates_hashed_admin_once_and_does_not_reset_password()
     {
-        await using var factory = new ApiFactory { SeedAccounts = false, InitialMigration = "20261007094620_AddUserFarmAssignments" };
+        await using var factory = new ApiFactory { SeedAccounts = false };
         await factory.InitializeAsync();
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.UserRoles.ExecuteDeleteAsync();
+        await db.Users.ExecuteDeleteAsync();
         var seed = scope.ServiceProvider.GetRequiredService<DevelopmentAdminSeeder>();
         await seed.SeedAsync("  FIRST@EXAMPLE.COM ", "First-test-password!", default);
         var user = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).SingleAsync();
@@ -32,10 +34,12 @@ public class AdminSeedTests
     [Fact]
     public async Task Seed_does_not_promote_existing_account_and_missing_credentials_create_nothing()
     {
-        await using var factory = new ApiFactory { SeedAccounts = false, InitialMigration = "20261007094620_AddUserFarmAssignments" };
+        await using var factory = new ApiFactory { SeedAccounts = false };
         await factory.InitializeAsync();
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.UserRoles.ExecuteDeleteAsync();
+        await db.Users.ExecuteDeleteAsync();
         var seed = scope.ServiceProvider.GetRequiredService<DevelopmentAdminSeeder>();
         await seed.SeedAsync(null, null, default);
         Assert.Empty(await db.Users.ToListAsync());
