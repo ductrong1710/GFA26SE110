@@ -1,5 +1,7 @@
 import { useAuth } from '../../context/AuthContext'
 import { useEffect, useId, useRef, useState } from 'react'
+import BoundaryEditorMap from './BoundaryEditorMap'
+import { calculatePolygonCentroid, calculatePolygonArea } from '../../utils/geo'
 
 export default function FarmRecordDialog({ kind, record, farm, farms, onSave, onClose, remove = false, blocked }) {
   const { user } = useAuth()
@@ -7,10 +9,14 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
   const ref = useRef(null)
   const titleId = useId()
   const [error, setError] = useState('')
+  const [boundaryValid, setBoundaryValid] = useState(true)
   const [values, setValues] = useState(() => ({ name: record?.name ?? '', description: record?.description ?? '',
     location: record?.location ?? '', farmId: record?.farmId ?? farm?.id ?? '',
     latitude: record?.latitude ?? farm?.latitude ?? '', longitude: record?.longitude ?? farm?.longitude ?? '',
-    areaHectares: record?.areaHectares ?? '', boundarySummary: record?.boundarySummary ?? '' }))
+    areaHectares: record?.areaHectares ?? '', boundarySummary: record?.boundarySummary ?? '', boundary: record?.boundary ?? null }))
+  const parentFarm = farms.find(item => item.id === Number(values.farmId))
+  const changeBoundary = boundary => setValues(current => ({ ...current, boundary,
+    ...(boundary ? { ...calculatePolygonCentroid(boundary), areaHectares: calculatePolygonArea(boundary) / 10000 } : {}) }))
   const name = kind === 'farm' ? 'Farm' : 'Zone'
   const title = `${remove ? 'Delete' : record ? 'Edit' : 'Add'} ${name}`
   useEffect(() => {
@@ -27,6 +33,7 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
   const field = (key, label, props = {}) => <label>{label}<input name={key} value={values[key]} onChange={change} {...props} /></label>
   const submit = async (event) => {
     event.preventDefault()
+    if (!remove && !boundaryValid) return
     setPending(true); try { await onSave(values) } catch (err) { setError(err.message) } finally { setPending(false) }
   }
   return <dialog ref={ref} className="app-ui farm-dialog" aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose() }}>
@@ -37,13 +44,14 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
         {field('name', 'Name', { required: true, maxLength: 120 })}
         <label>Description<textarea name="description" value={values.description} onChange={change} maxLength={500} rows={3} /></label>
         {user?.isMock && kind === 'farm' && field('location', 'Location', { maxLength: 160 })}
-        <div className="farm-form-pair">{field('latitude', 'Latitude', { type: 'number', min: -90, max: 90, step: 'any', required: true })}{field('longitude', 'Longitude', { type: 'number', min: -180, max: 180, step: 'any', required: true })}</div>
-        {user?.isMock && field('areaHectares', 'Area (hectares)', { type: 'number', min: 0.01, max: 1000000, step: 'any', required: true })}
+        <BoundaryEditorMap boundary={values.boundary} parentBoundary={kind === 'zone' ? parentFarm?.boundary : null}
+          center={values} onChange={changeBoundary} onValidityChange={setBoundaryValid} isZone={kind === 'zone'} />
+        <div className="farm-form-pair">{field('latitude', 'Center latitude', { type: 'number', min: -90, max: 90, step: 'any', readOnly: Boolean(values.boundary) })}{field('longitude', 'Center longitude', { type: 'number', min: -180, max: 180, step: 'any', readOnly: Boolean(values.boundary) })}</div>
         {user?.isMock && kind === 'zone' && field('boundarySummary', 'Boundary summary', { maxLength: 300, placeholder: 'Describe the extent or nearby landmarks' })}
-        <p className="farm-form-note">Coordinates mark the center. The map is an illustrative overview, not a surveyed boundary.</p>
+        <p className="farm-form-note">The center is calculated from the boundary. Legacy records can keep only their center coordinates.</p>
       </div>}
       {error && <p className="farm-form-error" role="alert">{error}</p>}
-      <footer><button type="button" className="app-ui-button" onClick={onClose} autoFocus={remove}>Cancel</button><button type="submit" className={`app-ui-button ${remove ? 'farm-danger' : 'app-ui-button--primary'}`} disabled={pending || (remove && Boolean(blocked))}>{remove ? 'Delete' : 'Save'}</button></footer>
+      <footer><button type="button" className="app-ui-button" onClick={onClose} autoFocus={remove}>Cancel</button><button type="submit" className={`app-ui-button ${remove ? 'farm-danger' : 'app-ui-button--primary'}`} disabled={pending || (!remove && !boundaryValid) || (remove && Boolean(blocked))}>{remove ? 'Delete' : 'Save'}</button></footer>
     </form>
   </dialog>
 }

@@ -7,6 +7,16 @@ import { getFarmOwnerDashboard } from '../src/data/mock/farmOwnerDashboard.js'
 const values = { name: 'Test Farm', description: 'New growing site', location: 'Can Tho', latitude: 10.1, longitude: 105.7, areaHectares: 4 }
 const change = (state, operation, allowed = true) => updateFarmWorkspace(state, { ...operation, userId: 1 }, allowed)
 
+test('geographic mock CRUD keeps boundaries and rejects farm shrink around existing zones', () => {
+  const box = (x, y, size) => ({ type: 'Polygon', coordinates: [[[x, y], [x + size, y], [x + size, y + size], [x, y + size], [x, y]]] })
+  let state = change(createFarmWorkspace(), { kind: 'farm', values: { ...values, boundary: box(106, 10, 1) } })
+  const farm = state.farms.at(-1)
+  state = change(state, { kind: 'zone', values: { ...values, farmId: farm.id, boundary: box(106.2, 10.2, 0.2) } })
+  assert.equal(state.zones.at(-1).boundary.type, 'Polygon')
+  assert.ok(state.zones.at(-1).areaHectares > 0)
+  assert.throws(() => change(state, { kind: 'farm', id: farm.id, values: { ...values, boundary: box(106, 10, 0.1) } }), /completely inside/)
+})
+
 test('local CRUD preserves immutable fixtures and monotonically increasing identities', () => {
   const original = createFarmWorkspace()
   let state = change(original, { kind: 'farm', values })

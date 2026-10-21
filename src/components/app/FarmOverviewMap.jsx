@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import GeographicFarmMap from './GeographicFarmMap'
 
 // Schematic geography only. Domain identity/status and the route come from the farm view model.
 const plots = [
@@ -7,8 +8,9 @@ const plots = [
   { path: 'M328 194H592V326H310Z', x: 353, y: 226, width: 200, height: 65, fill: '#d9e9e7' },
 ]
 
-export default function FarmOverviewMap({ zones, nodes, mission }) {
+export default function FarmOverviewMap({ farm, zones, nodes, mission }) {
   const id = useId()
+  if (farm?.boundary || zones.some(zone => zone.boundary)) return <GeographicFarmMap {...{ farm, zones, nodes, mission }} />
   const layout = zones.length <= 3 ? plots : zones.map((_, index) => {
     const rowHeight = 280 / Math.ceil(zones.length / 2)
     const x = 30 + index % 2 * 300

@@ -2,7 +2,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useApiQuery } from './useApiQuery'
 import { listAll } from './resources'
 import { api } from './index'
-import { farmView, zoneView, nullableNumber } from './adapters'
+import { farmView, zoneView, farmRecordRequest } from './adapters'
 
 export function useFarmWorkspace(enabled = true) {
   const { user, activeRole } = useAuth()
@@ -17,11 +17,11 @@ export function useFarmWorkspace(enabled = true) {
     if (kind === 'reload') return refreshWorkspace()
     if (remove) throw new Error('Deletion is not supported. Deactivate farms instead.')
     if (kind === 'farm') {
-      const body = { name: values.name, description: values.description || null, latitude: nullableNumber(values.latitude), longitude: nullableNumber(values.longitude) }
+      const body = farmRecordRequest(kind, values)
       if (id) await api.put(`/api/farms/${id}`, body)
       else await api.post('/api/farms', body)
     } else {
-      const body = { name: values.name, description: values.description || null, centerLatitude: nullableNumber(values.latitude), centerLongitude: nullableNumber(values.longitude) }
+      const body = farmRecordRequest(kind, values)
       if (id) await api.put(`/api/zones/${id}`, body)
       else await api.post(`/api/farms/${values.farmId}/zones`, body)
     }

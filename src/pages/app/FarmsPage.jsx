@@ -51,7 +51,7 @@ export default function FarmsPage() {
       <div className="farm-detail-column">
         {farm ? <>
           <SectionCard title={farm.name} description={farm.location || farm.description} actions={canManage && <><button className="app-ui-button" onClick={() => openDialog('farm', farm)}>Edit Farm</button><button hidden={!user?.isMock} className="app-ui-button farm-danger" onClick={() => openDialog('farm', farm, true)}>Delete Farm</button></>}>
-            <FarmZoneMap zones={farmZones} selectedZoneId={zone?.id} onSelect={setSelectedZoneId} nodes={sensorNodes} />
+            <FarmZoneMap farm={farm} zones={farmZones} selectedZoneId={zone?.id} onSelect={setSelectedZoneId} nodes={sensorNodes} />
           </SectionCard>
           <FarmAccess farm={farm} onChanged={() => changeFarmRecord({ kind: 'reload' })} />
           <SectionCard title="Selected zone details" description={zone ? 'Coverage and boundary information' : 'Choose or add a growing area'} actions={canManage && zone && <><button className="app-ui-button" onClick={() => openDialog('zone', zone)}>Edit Zone</button><button hidden={!user?.isMock} className="app-ui-button farm-danger" onClick={() => openDialog('zone', zone, true)}>Delete Zone</button></>}>
