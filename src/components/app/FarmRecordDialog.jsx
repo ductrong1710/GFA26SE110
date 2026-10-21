@@ -1,14 +1,20 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import BoundaryEditorMap from './BoundaryEditorMap'
+import { calculatePolygonCentroid, calculatePolygonArea } from '../../utils/geo'
 
 export default function FarmRecordDialog({ kind, record, farm, farms, onSave, onClose }) {
   const [pending, setPending] = useState(false)
   const ref = useRef(null)
   const titleId = useId()
   const [error, setError] = useState('')
+  const [boundaryValid, setBoundaryValid] = useState(true)
   const [values, setValues] = useState(() => ({ name: record?.name ?? '', description: record?.description ?? '',
     farmId: record?.farmId ?? farm?.id ?? '',
     latitude: record?.latitude ?? farm?.latitude ?? '', longitude: record?.longitude ?? farm?.longitude ?? '',
-  }))
+    areaHectares: record?.areaHectares ?? '', boundarySummary: record?.boundarySummary ?? '', boundary: record?.boundary ?? null }))
+  const parentFarm = farms.find(item => item.id === Number(values.farmId))
+  const changeBoundary = boundary => setValues(current => ({ ...current, boundary,
+    ...(boundary ? { ...calculatePolygonCentroid(boundary), areaHectares: calculatePolygonArea(boundary) / 10000 } : {}) }))
   const name = kind === 'farm' ? 'Farm' : 'Zone'
   const title = `${record ? 'Edit' : 'Add'} ${name}`
   useEffect(() => {
@@ -25,6 +31,7 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
   const field = (key, label, props = {}) => <label>{label}<input name={key} value={values[key]} onChange={change} {...props} /></label>
   const submit = async (event) => {
     event.preventDefault()
+    if (!boundaryValid) return
     setPending(true); try { await onSave(values) } catch (err) { setError(err.message) } finally { setPending(false) }
   }
   return <dialog ref={ref} className="app-ui farm-dialog" aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose() }}>
@@ -34,11 +41,13 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
         {kind === 'zone' && <label>Farm<select aria-label="Farm" name="farmId" value={values.farmId} onChange={change} disabled={Boolean(record)} required>{farms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         {field('name', 'Name', { required: true, maxLength: 120 })}
         <label>Description<textarea name="description" value={values.description} onChange={change} maxLength={500} rows={3} /></label>
-        <div className="farm-form-pair">{field('latitude', 'Latitude', { type: 'number', min: -90, max: 90, step: 'any', required: true })}{field('longitude', 'Longitude', { type: 'number', min: -180, max: 180, step: 'any', required: true })}</div>
-        <p className="farm-form-note">Coordinates mark the center. The map is an illustrative overview, not a surveyed boundary.</p>
+        <BoundaryEditorMap boundary={values.boundary} parentBoundary={kind === 'zone' ? parentFarm?.boundary : null}
+          center={values} onChange={changeBoundary} onValidityChange={setBoundaryValid} isZone={kind === 'zone'} />
+        <div className="farm-form-pair">{field('latitude', 'Center latitude', { type: 'number', min: -90, max: 90, step: 'any', readOnly: Boolean(values.boundary) })}{field('longitude', 'Center longitude', { type: 'number', min: -180, max: 180, step: 'any', readOnly: Boolean(values.boundary) })}</div>
+        <p className="farm-form-note">The center is calculated from the boundary. Legacy records can keep only their center coordinates.</p>
       </div>
       {error && <p className="farm-form-error" role="alert">{error}</p>}
-      <footer><button type="button" className="app-ui-button" onClick={onClose}>Cancel</button><button type="submit" className="app-ui-button app-ui-button--primary" disabled={pending}>Save</button></footer>
+      <footer><button type="button" className="app-ui-button" onClick={onClose}>Cancel</button><button type="submit" className="app-ui-button app-ui-button--primary" disabled={pending || !boundaryValid}>Save</button></footer>
     </form>
   </dialog>
 }

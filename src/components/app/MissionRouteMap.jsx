@@ -1,6 +1,13 @@
 import { waypointPosition } from '../../services/api/planning'
 
-export default function MissionRouteMap({ farm, points = [], nodes = [], waypoints = [] }) {
+export default function MissionRouteMap({ farm, points = [], nodes = [], waypoints = [], tello = false }) {
+  if (tello) return <div className="mission-map" aria-label="Tello local route">
+    <p>Takeoff origin (0, 0) · X forward · Y right · meters relative to initial heading.</p>
+    <ol>{(waypoints.length ? waypoints : points).map((point, index) => <li key={point.id ?? index}>
+      {point.action ?? point.name}: forward {point.x === '' ? 'not set' : point.x} m, right {point.y === '' ? 'not set' : point.y} m
+    </li>)}<li>Return to origin (0, 0), then land.</li></ol>
+    <small>Each leg moves along X then Y. Measure coordinates at the takeoff site; no GPS conversion is used.</small>
+  </div>
   const route = waypoints.map((waypoint) => waypointPosition(waypoint, farm)).filter(Boolean)
   const valid = (point) => Number.isFinite(Number(point.latitude)) && Number.isFinite(Number(point.longitude))
   const all = [farm, ...points, ...nodes, ...route].filter((point) => point && valid(point))

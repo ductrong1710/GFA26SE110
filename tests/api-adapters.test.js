@@ -1,8 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { missionRequest, equipmentRequest, zoneView, nodeView } from '../src/services/api/adapters.js'
+import { missionRequest, equipmentRequest, farmView, farmRecordRequest, zoneView, nodeView } from '../src/services/api/adapters.js'
 import { availableUavs, planFromMission } from '../src/services/api/planning.js'
 import { readingThreshold } from '../src/services/api/analytics.js'
+
+test('farm and zone adapters preserve GeoJSON and nullable legacy centers', () => {
+  const boundary = { type: 'Polygon', coordinates: [[[106, 10], [107, 10], [107, 11], [106, 10]]] }
+  const values = { name: 'Field', latitude: '10.3', longitude: '106.6', boundary }
+  assert.deepEqual(farmRecordRequest('farm', values), { name: 'Field', description: null, latitude: 10.3, longitude: 106.6, boundary })
+  assert.deepEqual(farmRecordRequest('zone', values), { name: 'Field', description: null, centerLatitude: 10.3, centerLongitude: 106.6, boundary })
+  assert.equal(farmRecordRequest('farm', { name: 'Legacy' }).boundary, null)
+  assert.equal(farmRecordRequest('farm', { name: 'Legacy' }).latitude, null)
+  assert.equal(farmView({ boundary }).boundary, boundary)
+  assert.equal(zoneView({ boundary }).boundary, boundary)
+  assert.ok(zoneView({ boundary }).areaHectares > 0)
+})
 
 test('missing and one-sided thresholds do not become zero-value alarm limits', () => {
   assert.equal(readingThreshold(20, { warningMin: null, warningMax: null }).label, 'Not configured')

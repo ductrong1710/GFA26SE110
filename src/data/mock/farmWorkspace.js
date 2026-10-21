@@ -5,6 +5,7 @@ import { missions } from './missions.js'
 import { uavs } from './uavs.js'
 import { gateways } from './gateways.js'
 import { MOCK_NOW } from './scenario.js'
+import { normalizePolygonGeoJson, calculatePolygonArea, calculatePolygonCentroid, isPolygonInsidePolygon } from '../../utils/geo.js'
 
 export function createFarmWorkspace() {
   return {
@@ -38,12 +39,24 @@ export function updateFarmWorkspace(state, { kind, id, values, remove = false, u
       activity: [{ id: state.activity.length + 1, userId, at: MOCK_NOW, title: `Deleted ${kind}`, description: existing.name }, ...state.activity] }
   }
   const cleaned = Object.fromEntries(['name', 'description', ...(kind === 'farm' ? ['location'] : ['boundarySummary'])].map((field) => [field, String(values[field] ?? '').trim()]))
+  cleaned.boundary = values.boundary ? normalizePolygonGeoJson(values.boundary) : null
+  if (cleaned.boundary) values = { ...values, ...calculatePolygonCentroid(cleaned.boundary), areaHectares: calculatePolygonArea(cleaned.boundary) / 10000 }
   if (!cleaned.name || cleaned.name.length > 120) throw new Error('Enter a name between 1 and 120 characters.')
   if (cleaned.description.length > 500) throw new Error('Description must be 500 characters or fewer.')
   const farmId = existing?.farmId ?? Number(values.farmId)
   if (kind === 'zone' && !state.farms.some(({ id: farmIdValue }) => farmIdValue === farmId)) throw new Error('Choose an existing farm.')
+  const parent = state.farms.find(f => f.id === farmId)
+  if (kind === 'zone' && cleaned.boundary && parent?.boundary && !isPolygonInsidePolygon(cleaned.boundary, parent.boundary))
+    throw new Error('Zone boundary must be completely inside the farm boundary.')
+  if (kind === 'farm' && cleaned.boundary && state.zones.some(zone =>
+    zone.farmId === id && zone.boundary && !isPolygonInsidePolygon(zone.boundary, cleaned.boundary)))
+    throw new Error('Zone boundary must be completely inside the farm boundary.')
   if (state[key].some((record) => record.id !== id && record.name.toLowerCase() === cleaned.name.toLowerCase() && (kind === 'farm' || record.farmId === farmId))) throw new Error('A record with this name already exists here.')
   for (const [field, min, max] of [['latitude', -90, 90], ['longitude', -180, 180], ['areaHectares', 0.01, 1000000]]) {
+    if (field === 'areaHectares' && (cleaned.boundary || values[field] === '' || values[field] == null)) {
+      cleaned[field] = cleaned.boundary ? calculatePolygonArea(cleaned.boundary) / 10000 : null
+      continue
+    }
     const value = Number(values[field])
     if (String(values[field] ?? '').trim() === '' || !Number.isFinite(value) || value < min || value > max) throw new Error(`Enter a valid ${field} (${min} to ${max}).`)
     cleaned[field] = value

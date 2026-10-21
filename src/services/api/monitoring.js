@@ -1,6 +1,7 @@
 import { missionPlanProgress } from './planning.js'
+import { isTello } from './telloPlanning.js'
 export const supportsTelemetry = () => true
-export const allowedMissionStatuses = m => ({ PENDING: ['CANCELLED'], SCHEDULED: ['RUNNING', 'CANCELLED'], RUNNING: ['COMPLETED', 'FAILED', 'CANCELLED'] }[m.status] ?? [])
+export const allowedMissionStatuses = (m, state) => ({ PENDING: ['CANCELLED'], SCHEDULED: isTello(state?.uavs?.find(u => u.id === m.uavId)) ? ['CANCELLED'] : ['RUNNING', 'CANCELLED'], RUNNING: ['COMPLETED', 'FAILED', 'CANCELLED'] }[m.status] ?? [])
 export function getMissionMonitoring(id, state, workspace) {
   const mission = state.missions.find(m => m.id === id)
   if (!mission) return null
