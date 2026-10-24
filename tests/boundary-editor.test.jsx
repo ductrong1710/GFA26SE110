@@ -4,6 +4,56 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import L from 'leaflet'
 import BoundaryEditorMap from '../src/components/app/BoundaryEditorMap'
 import GeographicFarmMap from '../src/components/app/GeographicFarmMap'
+import { addMapTiles, TILE_URL } from '../src/components/app/mapTiles'
+
+test('satellite is the default and changing background preserves boundaries and view', () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const map = L.map(container).setView([10, 106], 17)
+  try {
+    const boundary = L.polygon([[10, 106], [10, 107], [11, 107]]).addTo(map)
+    const satellite = addMapTiles(map)
+    expect(satellite._url).toContain('World_Imagery/MapServer/tile/{z}/{y}/{x}')
+    const selector = screen.getByRole('combobox', { name: 'Map background' })
+    expect(selector.value).toBe('satellite')
+    satellite.fire('tileerror')
+    fireEvent.change(selector, { target: { value: 'street' } })
+    expect(screen.queryByRole('button', { name: 'Retry map background' })).toBeNull()
+    expect(map.hasLayer(satellite)).toBe(false)
+    expect(map.hasLayer(boundary)).toBe(true)
+    expect(map.getZoom()).toBe(17)
+    expect(map.getCenter().lat).toBeCloseTo(10)
+    const streets = Object.values(map._layers).find(layer => layer instanceof L.TileLayer)
+    expect(streets._url).toBe(TILE_URL)
+    satellite.fire('tileerror')
+    expect(map.hasLayer(streets)).toBe(true)
+    fireEvent.change(selector, { target: { value: 'satellite' } })
+    expect(map.hasLayer(satellite)).toBe(true)
+    expect(map.hasLayer(streets)).toBe(false)
+  } finally { map.remove(); container.remove() }
+})
+
+test('tile failure pauses background requests without removing boundaries and permits explicit retry', () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const map = L.map(container).setView([10, 106], 12)
+  try {
+    const boundary = L.polygon([[10, 106], [10, 107], [11, 107]]).addTo(map)
+    const tiles = addMapTiles(map)
+    expect(TILE_URL).toBe('https://tile.openstreetmap.org/{z}/{x}/{y}.png')
+    act(() => tiles.fire('tileerror'))
+    expect(map.hasLayer(tiles)).toBe(false)
+    expect(map.hasLayer(boundary)).toBe(true)
+    expect(screen.getByRole('status').textContent).toContain('Check your Internet connection or DNS')
+    map.setZoom(13)
+    expect(map.hasLayer(tiles)).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry map background' }))
+    expect(map.hasLayer(tiles)).toBe(true)
+    expect(screen.queryByRole('status')).toBeNull()
+    act(() => tiles.fire('tileerror'))
+    expect(screen.getAllByRole('button', { name: 'Retry map background' })).toHaveLength(1)
+  } finally { map.remove(); container.remove() }
+})
 
 beforeAll(() => {
   L.Browser.svg = true
@@ -32,6 +82,7 @@ test('denied location keeps manual editing available and permits retry', () => {
   render(<Editor />)
   fireEvent.click(screen.getByRole('button', { name: 'Current location' }))
   expect(screen.getByRole('alert').textContent).toContain('denied')
+  expect(getCurrentPosition).toHaveBeenCalledTimes(1)
   expect(screen.getByText('Save record').disabled).toBe(false)
   expect(screen.getByRole('button', { name: 'Current location' }).disabled).toBe(false)
 })
@@ -44,7 +95,25 @@ test('location timeout and insecure HTTP explain manual fallback', () => {
   vi.stubGlobal('isSecureContext', false)
   fireEvent.click(screen.getByRole('button', { name: 'Current location' }))
   expect(screen.getByRole('alert').textContent).toContain('HTTPS or localhost')
-  expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+  expect(getCurrentPosition).toHaveBeenCalledTimes(2)
+})
+test('location retries a timeout once and ignores the first attempt arriving late', () => {
+  const calls = []
+  const getCurrentPosition = vi.fn((success, fail, options) => calls.push({ success, fail, options }))
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+  render(<Editor />)
+  fireEvent.click(screen.getByRole('button', { name: 'Current location' }))
+    expect(calls[0].options).toEqual({ enableHighAccuracy: true, timeout: 30000, maximumAge: 0 })
+  act(() => calls[0].fail({ code: 3 }))
+  expect(calls).toHaveLength(2)
+  expect(calls[1].options).toEqual({ enableHighAccuracy: true, timeout: 30000, maximumAge: 0 })
+  expect(screen.queryByRole('alert')).toBeNull()
+  act(() => calls[0].success({ coords: { latitude: 1, longitude: 2, accuracy: 500 } }))
+  expect(screen.queryByRole('status', { name: 'Current coordinates' })).toBeNull()
+  act(() => calls[1].success({ coords: { latitude: 10, longitude: 106, accuracy: 25 } }))
+  expect(screen.getByRole('status', { name: 'Current coordinates' }).textContent).toContain('10.0000000, 106.0000000')
+    expect(screen.getByRole('status', { name: 'Current coordinates' }).textContent).toContain('approximately 25 m')
+  expect(screen.getByTestId('boundary').textContent).toBe('null')
 })
 test('late location callbacks are ignored after the dialog closes', () => {
   let success

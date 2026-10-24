@@ -10,6 +10,7 @@ import { isTello } from '../../services/api/telloPlanning'
 
 import { PageHeader, SectionCard, StatusBadge, DataTable, EmptyState, ProgressBar, BatteryIndicator } from '../../components/app/ui'
 import MissionMonitoringMap from '../../components/app/MissionMonitoringMap'
+import MissionLaunchPanel from '../../components/app/MissionLaunchPanel'
 import ManagementDialog from '../../components/app/ManagementDialog'
 import '../../styles/missions.css'
 import '../../styles/mission-monitoring.css'
@@ -48,7 +49,7 @@ function MissionMonitor({ data }) {
     <PageHeader eyebrow={mission.code} title={mission.name} description={`${farm?.name ?? 'Farm not selected'} · Mission monitoring`} actions={<><Link className="app-ui-button" to="/app/missions">Back to Missions</Link>{mission.status === 'PENDING' && can(PERMISSIONS.MISSIONS_CREATE) && <button className="app-ui-button app-ui-button--primary" disabled={resuming} onClick={async () => { setResuming(true); setActionError(''); try { await startMissionPlan(mission); navigate('/app/missions/create') } catch (e) { setActionError(e.message) } finally { setResuming(false) } }}>Resume Draft</button>}</>} />
     <div className="monitor-meta"><StatusBadge status={mission.status} /><div><span>Start time</span><strong>{mission.startedAt ? displayTime(mission.startedAt) : 'Not started'}</strong></div><div><span>Elapsed time</span><strong>{data.elapsed}</strong></div><div><span>Snapshot · Vietnam time</span><strong>{displayTime(telemetry?.recordedAt ?? mission.updatedAt ?? mission.createdAt)}</strong></div></div>
     {actionError && <p role="alert">{actionError}</p>}{notice && <p role="status" className="mission-success">{notice}</p>}
-    {isTello(uav) && <p role="note">Start a downloaded Tello mission locally on the gateway Wi-Fi. RUNNING confirms backend acceptance; actual takeoff must be checked in gateway status and telemetry.</p>}
+    {isTello(uav) && <MissionLaunchPanel key={`${mission.id}:${mission.planRevision}`} missionId={mission.id} planRevision={mission.planRevision} canManage={manage} />}
     {uav && !supportsTelemetry(uav) && <p className="monitor-telemetry-message" role="status">Live telemetry unavailable. Mission status may be updated manually.</p>}
     <div className="monitor-main-grid"><SectionCard title="Mission Map" description="Planned route and recorded positions. Individual waypoint completion is not supplied by the API." actions={<StatusBadge status={telemetry ? 'INFO' : 'INACTIVE'} label={telemetry ? 'Recorded telemetry' : 'No current position'} />}>
       <MissionMonitoringMap data={data} />

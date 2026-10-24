@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ManagementDialog from './ManagementDialog'
+import SensorLocationMap from './SensorLocationMap'
 import { GATEWAY_TYPES, deviceAssignmentLocked } from '../../services/api/selectors'
 
 export default function EquipmentDialog({ kind, record, mode = 'edit', workspace, operations, currentFarm, onSave, onClose }) {
@@ -18,7 +19,7 @@ export default function EquipmentDialog({ kind, record, mode = 'edit', workspace
   const select = (key, name, options, props = {}) => <label>{name}<select aria-label={name} value={values[key] ?? ''} onChange={(event) => change(key, event.target.value)} {...props}>{options.map(([value, title]) => <option key={value} value={value}>{title}</option>)}</select></label>
   const zones = workspace.zones.filter((zone) => zone.farmId === Number(values.farmId))
   const assignmentLocked = kind === 'gateway' && record && deviceAssignmentLocked('gateway', record.id, operations.missions)
-  const chooseFarm = <label>Farm<select aria-label="Farm" required disabled={Boolean(record)} value={values.farmId} onChange={(event) => setValues({ ...values, farmId: event.target.value, zoneId: workspace.zones.find((zone) => zone.farmId === Number(event.target.value))?.id ?? '' })}>{workspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
+  const chooseFarm = <label>Farm<select aria-label="Farm" required disabled={pending} value={values.farmId} onChange={(event) => setValues({ ...values, farmId: event.target.value, zoneId: workspace.zones.find((zone) => zone.farmId === Number(event.target.value))?.id ?? '' })}>{workspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
   return <ManagementDialog title={title} onClose={onClose}><form onSubmit={async (event) => { event.preventDefault(); setPending(true); try { await onSave(values) } catch (err) { setError(err.message) } finally { setPending(false) } }}>
     <div className="management-form">
       {mode === 'toggle' ? <p>{values.isActive ? 'Enable' : 'Disable'} <strong>{record.deviceCode ?? record.code}</strong> for future collection? Existing readings and contact status are retained.</p>
@@ -36,7 +37,11 @@ export default function EquipmentDialog({ kind, record, mode = 'edit', workspace
           </> : <>{select('gatewayType', 'Device Type', GATEWAY_TYPES.map((item) => [item, item.replaceAll('_', ' ')]))}{text('softwareVersion', 'Software Version', { required: true, maxLength: 40 })}<p className="management-note">Register the gateway first, then assign it to a UAV from the authorized inventory.</p></>}
           {!record && <p className="management-note">New equipment has no telemetry yet. Registration does not simulate a connection or create sensor channels.</p>}
         </>}
-      {mode !== 'toggle' && mode !== 'assign' && <>{text('status', 'Observed status', { required: true })}{kind === 'sensor' && <>{text('latitude', 'Latitude', { type: 'number', step: 'any' })}{text('longitude', 'Longitude', { type: 'number', step: 'any' })}{text('localX', 'Local X', { type: 'number', step: 'any' })}{text('localY', 'Local Y', { type: 'number', step: 'any' })}</>}</>}
+      {kind === 'sensor' && mode === 'edit' && <SensorLocationMap latitude={values.latitude} longitude={values.longitude}
+        farm={workspace.farms.find(farm => farm.id === Number(values.farmId))}
+        zone={zones.find(zone => zone.id === Number(values.zoneId))} disabled={pending}
+        onChange={coordinates => setValues(current => ({ ...current, ...coordinates }))} />}
+      {mode !== 'toggle' && mode !== 'assign' && <>{text('status', 'Observed status', { required: true, readOnly: kind === 'gateway' })}{kind === 'gateway' && <p className="management-note">Gateway status is calculated from its latest backend contact.</p>}{kind === 'sensor' && <>{text('latitude', 'Latitude', { type: 'number', step: 'any' })}{text('longitude', 'Longitude', { type: 'number', step: 'any' })}{text('localX', 'Local X', { type: 'number', step: 'any' })}{text('localY', 'Local Y', { type: 'number', step: 'any' })}</>}</>}
       {error && <p className="management-error" role="alert">{error}</p>}
     </div>
     <footer><button type="button" className="app-ui-button" onClick={onClose}>Cancel</button><button type="submit" className="app-ui-button app-ui-button--primary" disabled={pending || (mode === 'assign' && assignmentLocked)}>Save</button></footer>

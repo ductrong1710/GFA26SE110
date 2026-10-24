@@ -1,7 +1,13 @@
 .boundary-map { height: 420px; width: 100%; min-width: 0; isolation: isolate; border-radius: 8px; }
 .boundary-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .boundary-editor { min-width: 0; }
+.sensor-location-picker { grid-column: 1 / -1; min-width: 0; }
+.sensor-location-picker > button { margin-top: 10px; }
 .current-location-control { margin: 12px 0; }
 .boundary-editor .farm-form-pair { margin-bottom: 10px; }
 .farm-dialog:has(.boundary-editor) { width: min(900px, calc(100vw - 32px)); max-width: 900px; }
 @media (max-width: 640px) { .boundary-map { height: 330px; } }
+
+.map-tile-notice { max-width: 300px; padding: 10px; background: #fff; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 1px 5px #0002; }
+.map-tile-notice p { margin: 0 0 8px; }
+.map-background-control select { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; font: inherit; box-shadow: 0 1px 5px #0002; cursor: pointer; }

@@ -33,7 +33,7 @@ export default function ApiOperationsProvider({ children }) {
       Object.assign(state, { results, missionTargets: results.targets.map(t => ({ ...t, missionId: m.id })), missionWaypoints: waypoints.map(w => ({ ...w, missionId: m.id, altitudeMeters: w.altitudeM })), missionLogs: logs, collectionAttempts: attempts, telemetry, latestTelemetry, readings })
     }
     return state
-  }, category !== 'none' && Boolean(user))
+  }, category !== 'none' && Boolean(user), category === 'devices' || missionId ? 10000 : 0)
   const operations = query.data ?? empty
   const [missionWizard, setMissionWizard] = useState(() => ({ step: 1, plan: emptyMissionPlan() }))
   const changeOperations = async ({ kind, id, action, values }) => {

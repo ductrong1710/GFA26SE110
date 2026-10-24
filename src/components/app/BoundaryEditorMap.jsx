@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
+import { addMapTiles } from './mapTiles'
 import '@geoman-io/leaflet-geoman-free'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css'
@@ -45,10 +46,7 @@ export default function BoundaryEditorMap({ boundary, parentBoundary, center, on
   useEffect(() => {
     const map = L.map(container.current).setView([10.7777, 106.8053], 16)
     mapRef.current = map
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map)
+    addMapTiles(map)
     map.pm.addControls({ position: 'topleft', drawMarker: false, drawCircleMarker: false, drawPolyline: false,
       drawRectangle: false, drawCircle: false, drawText: false, cutPolygon: false, rotateMode: false })
     map.pm.setGlobalOptions({ allowSelfIntersection: false })
