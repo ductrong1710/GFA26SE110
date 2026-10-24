@@ -39,6 +39,7 @@ export default function DevicesPage() {
   const rows = (tab === 'uav' ? operations.uavs : operations.gateways).filter((record) => !farmId || record.farmId === Number(farmId))
   return <div className="app-ui operations-page">
     <ApiState loading={loading} error={error} reload={reload} />
+    <p className="operations-note">Gateway status reflects backend contact within 90 seconds. This page refreshes every 10 seconds while visible.</p>
     <PageHeader eyebrow="EQUIPMENT INVENTORY" title="UAVs & Gateways" description="Maintain equipment identity, capabilities, and gateway assignments." actions={manage ? <button className="app-ui-button app-ui-button--primary" onClick={() => open(tab)}>+ Register {tab === 'uav' ? 'UAV' : 'Gateway'}</button> : <StatusBadge status="INFO" label="Read-only access" />} />
     <p className="operations-note">Authorized equipment inventory · Status, battery, and contact times are observed values, not flight commands. Synchronization is performed by devices.</p>
     {notice && <p className="management-success" role="status">{notice}</p>}

@@ -85,6 +85,10 @@
 @media (max-width: 900px) { .equipment-hero { min-height: 0; grid-template-columns: 1fr 1fr; gap: 5%; }.equipment-hero-visual { height: 330px; }.equipment-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media (max-width: 680px) { .site-header.site-header--inner { min-height: 66px; padding: 0 6%; }.site-header--inner .main-nav { background: #fff; }.site-header--inner .main-nav a { color: #313a33; border-color: #edf0eb; }.equipment-title { padding-top: 36px; }.equipment-title h1 { font-size: clamp(33px, 8vw, 46px); }.equipment-hero { padding-block: 48px 54px; grid-template-columns: 1fr; gap: 28px; }.equipment-hero h1 { font-size: clamp(44px, 12vw, 62px); }.equipment-hero-visual { height: 270px; }.equipment-catalog { padding-block: 36px 65px; }.catalog-heading { align-items: flex-start; flex-direction: column; gap: 5px; }.catalog-heading h2 { font-size: 43px; }.catalog-filters { max-width: 100%; overflow-x: auto; }.catalog-filters button { flex: 0 0 auto; }.equipment-grid { grid-template-columns: 1fr; gap: 13px; }.equipment-image { height: 210px; }.equipment-card-copy > p, .equipment-card-copy ul { min-height: auto; }.equipment-contact { padding: 44px 0; }.equipment-contact-inner { align-items: flex-start; flex-direction: column; }.consultation-popover { right: auto; left: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } .hero-video { display: none; } }
+/* Toastify uses this animation as its dismissal timer, even with reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .Toastify__progress-bar--animated { animation-duration: 3000ms !important; opacity: 0; }
+}
 
 /* Preserve the original full-frame hero while the lower sections use the new layout. */
 .site-header { position: absolute; top: 34px; left: 0; width: 100%; min-height: 68px; padding: 0 max(6.5vw, calc((100vw - 1420px) / 2)); color: #fff; background: transparent; border: 0; backdrop-filter: none; }

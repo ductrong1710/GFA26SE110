@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useState } from 'react'
 import { session } from './session'
 
-export function useApiQuery(key, load, enabled = true) {
+export function useApiQuery(key, load, enabled = true, pollInterval = 0) {
   const [result, setResult] = useState({ key: null, data: null, loading: enabled, error: null })
   const [revision, setRevision] = useState(0)
   const requestKey = `${session.identity()}:${key}:${revision}`
@@ -11,13 +11,32 @@ export function useApiQuery(key, load, enabled = true) {
   useEffect(() => {
     if (!enabled) return
     const controller = new AbortController()
-    run(controller.signal).then(data => {
-      if (!controller.signal.aborted) setResult({ key: requestKey, data, loading: false, error: null })
-    }).catch(error => {
-      if (!controller.signal.aborted) setResult({ key: requestKey, data: null, loading: false, error })
-    })
-    return () => controller.abort()
+    let timer
+    const fetchData = async () => {
+      try {
+        const data = await run(controller.signal)
+        if (!controller.signal.aborted) setResult({ key: requestKey, data, loading: false, error: null })
+      } catch (error) {
+        if (!controller.signal.aborted) setResult(previous => ({ key: requestKey,
+          data: previous.key === requestKey ? previous.data : null, loading: false, error }))
+      } finally {
+        if (!controller.signal.aborted && pollInterval > 0) timer = setTimeout(() => {
+          // Poll only while visible; preserve the last snapshot during refresh.
+          if (document.visibilityState === 'hidden') scheduleVisibleCheck()
+          else fetchData()
+        }, pollInterval)
+      }
+    }
+    const scheduleVisibleCheck = () => {
+      if (controller.signal.aborted) return
+      timer = setTimeout(() => {
+        if (document.visibilityState === 'hidden') scheduleVisibleCheck()
+        else fetchData()
+      }, pollInterval)
+    }
+    fetchData()
+    return () => { controller.abort(); clearTimeout(timer) }
     // The serialized key describes the request; caller closures are deliberately not dependencies.
-  }, [requestKey, enabled])
+  }, [requestKey, enabled, pollInterval])
   return { ...(enabled && result.key === requestKey ? result : { data: null, loading: enabled, error: null }), reload, replaceData }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
+import { addMapTiles } from './mapTiles'
 import 'leaflet/dist/leaflet.css'
 import '../../styles/boundary-map.css'
 import CurrentLocationControl from './CurrentLocationControl'
@@ -11,9 +12,7 @@ export default function GeographicFarmMap({ farm, zones = [], nodes = [], missio
   useEffect(() => {
     const map = L.map(container.current).setView([10.7777, 106.8053], 15)
     mapRef.current = map
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19,
-    }).addTo(map)
+    addMapTiles(map)
     const group = L.featureGroup().addTo(map)
     const label = text => { const element = document.createElement('span'); element.textContent = text; return element }
     const marker = (record, color) => {
