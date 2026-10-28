@@ -4,6 +4,36 @@
 #include <iostream>
 uint32_t testMillis=1000;TestSerial Serial;
 int main() {
+    {
+        FlightSafetyController assessment(AltitudeLimits(120,100,80));
+        TelloTelemetry sample;sample.valid=true;sample.heightCm=80;sample.tofCm=110;
+        sample.sample=1;sample.lastReceivedMs=testMillis;
+        assessment.update(sample,true);
+        assert(assessment.filterVerticalRc(3)==0); // Disagreement even below ceiling.
+        assert(!assessment.allowMove("up",5));
+        assert(!assessment.inOperatingRange());
+        assert(assessment.sensorsDisagree() && !assessment.disagreementConfirmed());
+        testMillis+=2100;assessment.update(sample,true);
+        assert(!assessment.disagreementConfirmed()); // Re-reading a packet is not sustained evidence.
+        for(unsigned i=0;i<5;++i) {
+            ++sample.sample;sample.lastReceivedMs+=500;assessment.update(sample,true);
+        }
+        assert(assessment.disagreementConfirmed());
+        sample.heightCm=100;sample.tofCm=125;++sample.sample;assessment.update(sample,true);
+        assert(!assessment.sensorsDisagree()); // Exactly 25 cm is within threshold.
+        assert(assessment.limitActive() && !assessment.allowMove("up",1));
+        sample.heightCm=80;sample.tofCm=124;++sample.sample;assessment.update(sample,true);
+        assert(!assessment.disagreementConfirmed());
+        sample.lastReceivedMs+=3000;++sample.sample;assessment.update(sample,true);
+        assert(!assessment.disagreementConfirmed()); // A packet gap restarts the window.
+        assessment.update(sample,false);assert(!assessment.disagreementConfirmed());
+        sample.heightCm=-1;sample.tofCm=100;++sample.sample;assessment.update(sample,true);
+        assert(!assessment.altitudeFresh() && assessment.altitudeCm()==-1);
+        assert(assessment.filterVerticalRc(3)==0); // No silent fallback to ToF.
+        sample.heightCm=100;sample.tofCm=-1;++sample.sample;assessment.update(sample,true);
+        assert(assessment.altitudeCm()==100 && !assessment.sensorsDisagree());
+        assert(assessment.inOperatingRange());
+    }
     Mission m;m.id=1;m.gatewayId=1;m.uavId=1;strcpy(m.name,"route");m.waypointCount=1;
     auto& w=m.waypoints[0];w.id=1;w.sequenceNo=1;w.xCm=121;w.altitudeCm=35;
     MissionRoutePlanner planner;MissionRoutePlan plan;const char* error="";

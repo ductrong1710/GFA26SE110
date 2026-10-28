@@ -13,11 +13,11 @@ class ResultTransport:public MissionTransport {
 public:
     unsigned uploads=0;bool fail=true;
     bool configured()const override{return true;}
-    bool request(const char*,const char* method,const JsonDocument* body,JsonDocument& response,int& code)override {
+    bool request(const char*,const char* method,const JsonDocument*,JsonDocument& response,int& code)override {
         if(strcmp(method,"POST")){code=204;return true;}
         ++uploads;code=fail?503:200;if(fail)return false;
-        response["success"]=true;response["missionId"]=(*body)["missionId"];
-        response["fingerprint"]=(*body)["fingerprint"];return true;
+        response["success"]=true;response["data"]["id"]=15;
+        response["data"]["status"]="COMPLETED";return true;
     }
 };
 int main(){

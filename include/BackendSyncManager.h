@@ -17,4 +17,7 @@ private:
     GatewayMeasurement batch_[Config::BACKEND_BATCH_SIZE];
     uint32_t lastAttempt_ = 0, retryMs_ = Config::BACKEND_SYNC_INTERVAL_MS, lastCleanup_ = 0;
     void retry(size_t count);
+    const char* loggedState_ = nullptr;
+    uint32_t lastStateLog_ = 0;
+    void logState(const char* state, size_t pending);
 };

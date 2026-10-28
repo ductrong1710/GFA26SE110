@@ -1,8 +1,10 @@
 #include "MissionStorage.h"
+#include <Arduino.h>
 #include <cassert>
 #include <iostream>
 #include <map>
 #include <string>
+TestSerial Serial;
 
 // Fault injection operates below production serialization/commit logic.
 class MemoryFiles : public MissionFiles {

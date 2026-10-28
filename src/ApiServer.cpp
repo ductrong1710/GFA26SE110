@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include <WiFi.h>
 #include "Logger.h"
+#include "RuntimeConfig.h"
+#include "ConfigurationSafety.h"
 
 namespace {
 bool validIpv4(const char* text) {
@@ -42,8 +44,8 @@ bool ApiServer::begin() {
     Logger::api("Starting HTTP server");
     setupRoutes();
     const char* headers[] = {"Content-Length", "Content-Type", "Transfer-Encoding",
-                             "X-Device-Code", "X-Device-Token"};
-    server_.collectHeaders(headers, 5);
+                             "X-Device-Code", "X-Device-Token", "Authorization", "X-Config-Token"};
+    server_.collectHeaders(headers, 7);
     server_.begin();
     started_ = server_.listening();
     if (!started_) {
@@ -55,10 +57,19 @@ bool ApiServer::begin() {
 }
 
 void ApiServer::handleClient() {
-    if (started_) server_.handleClient();
+    if (started_ && !restartPending_) {
+        RuntimeConfig::instance().setIdentityChangeAllowed(storage_.isReady() && storage_.getPendingCount()==0 && !mission_.hasActive());
+        RuntimeConfig::instance().setPendingAdoptionAllowed(storage_.isReady() && storage_.getPendingCount()>0 && !mission_.hasActive());
+        server_.handleClient();
+    }
+}
+
+bool ApiServer::configurationAllowed() const {
+    return !restartPending_ && (!flightTest_ || !flightTest_->locked()) && configurationSafe(flight_.state(),flight_.mayBeAirborne(),tello_.commandPending(),mission_.state());
 }
 
 void ApiServer::setupRoutes() {
+    configuration_.begin();
     server_.on("/api/gateway/status", HTTP_GET, [this]() { handleGatewayStatus(); });
     server_.on("/api/gateway/nodes", HTTP_GET, [this]() { handleGatewayNodes(); });
     server_.on("/api/gateway/time", HTTP_GET, [this]() { handleGatewayTime(); });
@@ -66,21 +77,30 @@ void ApiServer::setupRoutes() {
                [this]() { handleNodeRegistration(); });
     server_.onNotFound([this]() { handleNotFound(); });
     server_.on("/api/tello/status", HTTP_GET, [this]() { handleTelloStatus(); });
-    server_.on("/api/tello/prepare", HTTP_POST, [this]() { handleTelloPrepare(); });
-    server_.on("/api/tello/takeoff", HTTP_POST, [this]() { if(manualFlightAllowed()) sendFlightResult(flight_.takeoff()); });
-    server_.on("/api/tello/land", HTTP_POST, [this]() { if(mission_.ownsFlight()) sendMissionResult(mission_.landNow()); else sendFlightResult(flight_.land()); });
-    server_.on("/api/tello/move", HTTP_POST, [this]() { handleTelloControl("move"); });
-    server_.on("/api/tello/rotate", HTTP_POST, [this]() { handleTelloControl("rotate"); });
-    server_.on("/api/tello/rc", HTTP_POST, [this]() { handleTelloControl("rc"); });
-    server_.on("/api/tello/disconnect", HTTP_POST, [this]() { if(manualFlightAllowed()) sendFlightResult(flight_.disconnect()); });
+    configuration_.onControl("/api/tello/prepare", [this]() { handleTelloPrepare(); });
+    configuration_.onControl("/api/tello/takeoff", [this]() { if(manualFlightAllowed()) sendFlightResult(flight_.takeoff()); });
+    configuration_.onControl("/api/tello/land", [this]() { if(flightTest_ && flightTest_->locked()) {flightTest_->abort();sendFlightResult(true);} else if(mission_.ownsFlight()) sendMissionResult(mission_.landNow()); else sendFlightResult(flight_.land()); });
+    configuration_.onControl("/api/tello/move", [this]() { handleTelloControl("move"); });
+    configuration_.onControl("/api/tello/rotate", [this]() { handleTelloControl("rotate"); });
+    configuration_.onControl("/api/tello/rc", [this]() { handleTelloControl("rc"); });
+    configuration_.onControl("/api/tello/disconnect", [this]() { if(manualFlightAllowed()) sendFlightResult(flight_.disconnect()); });
     server_.on("/api/mission/status",HTTP_GET,[this](){handleMissionStatus();});
     server_.on("/api/mission/active",HTTP_GET,[this](){handleMissionActive();});
-    server_.on("/api/mission/pull",HTTP_POST,[this](){sendMissionResult(mission_.requestPull());});
-    server_.on("/api/mission/start",HTTP_POST,[this](){sendMissionResult(mission_.start());});
-    server_.on("/api/mission/abort",HTTP_POST,[this](){sendMissionResult(mission_.abort());});
-    server_.on("/api/mission/land",HTTP_POST,[this](){sendMissionResult(mission_.landNow());});
+    configuration_.onControl("/api/mission/pull",[this](){if(testAvailable())sendMissionResult(mission_.requestPull());});
+    configuration_.onControl("/api/mission/start",[this](){if(testAvailable())sendMissionResult(mission_.start());});
+    configuration_.onControl("/api/mission/abort",[this](){if(testAvailable())sendMissionResult(mission_.abort());});
+    configuration_.onControl("/api/mission/land",[this](){if(testAvailable())sendMissionResult(mission_.landNow());});
+}
+bool ApiServer::testAvailable() {
+#if defined(GATEWAY_FLIGHT_TEST_PROFILE) && GATEWAY_FLIGHT_TEST_PROFILE
+    sendError(403,"FLIGHT_TEST_PROFILE_ONLY","This profile accepts flight starts only from admin backend commands; Tello land remains available");return false;
+#else
+    if(!flightTest_ || !flightTest_->locked())return true;
+    sendError(409,"FLIGHT_TEST_ACTIVE","A backend flight test owns flight control; use Tello land to stop it");return false;
+#endif
 }
 bool ApiServer::manualFlightAllowed() {
+    if(!testAvailable())return false;
     if(!mission_.ownsFlight()) return true;
     sendError(409,"MISSION_OWNS_FLIGHT","Use mission abort or land while a mission owns flight control");return false;
 }
@@ -202,7 +222,7 @@ void ApiServer::handleGatewayStatus() {
     Logger::api("GET /api/gateway/status");
     StaticJsonDocument<768> doc;
     doc["success"] = true;
-    doc["gatewayCode"] = Config::GATEWAY_CODE;
+    doc["gatewayCode"] = RuntimeConfig::instance().values().gatewayCode;
     doc["status"] = "ONLINE";
     doc["uptimeMs"] = millis();
     doc["freeHeap"] = ESP.getFreeHeap();
@@ -219,6 +239,9 @@ void ApiServer::handleGatewayStatus() {
     doc["pendingUploadRecords"] = storage_.getPendingCount();
     doc["storedRecords"] = storage_.getStoredCount();
     doc["storageReady"] = storage_.isReady();
+    doc["flightTestId"] = flightTest_ ? flightTest_->id() : 0;
+    doc["flightTestLocked"] = flightTest_ && flightTest_->locked();
+    doc["flightTestError"] = flightTest_ ? flightTest_->error() : "";
     sendJson(200, doc);
 }
 

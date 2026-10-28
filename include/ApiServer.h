@@ -10,6 +10,8 @@
 #include "TimeManager.h"
 #include "FlightStateManager.h"
 #include "MissionManager.h"
+#include "ConfigurationPortal.h"
+#include "FlightTestManager.h"
 
 // WebServer::begin() returns void; expose the listener state for startup checks.
 class GatewayWebServer : public WebServer {
@@ -21,9 +23,13 @@ public:
 class ApiServer {
 public:
     ApiServer(NodeRegistry& registry, const NodeAuthenticator& authenticator, StorageManager& storage, GatewayWiFiManager& wifi, TimeManager& time, TelloController& tello, FlightStateManager& flight, MissionManager& mission)
-        : wifi_(wifi), time_(time), storage_(storage), registry_(registry), authenticator_(authenticator), tello_(tello), flight_(flight), mission_(mission) {}
+        : wifi_(wifi), time_(time), storage_(storage), registry_(registry), authenticator_(authenticator), tello_(tello), flight_(flight), mission_(mission),
+          configuration_(server_, [this]() { return configurationAllowed(); }, [this]() { restartPending_=true; restartAt_=millis(); }) {}
     bool begin();
     void handleClient();
+    void setFlightTest(FlightTestManager& test) { flightTest_=&test; }
+    bool restartPending() const { return restartPending_; }
+    bool restartReady() const { return restartPending_ && millis()-restartAt_>=1200; }
 
 private:
     GatewayWiFiManager& wifi_;
@@ -35,6 +41,12 @@ private:
     FlightStateManager& flight_;
     MissionManager& mission_;
     GatewayWebServer server_;
+    ConfigurationPortal configuration_;
+    bool restartPending_=false;
+    uint32_t restartAt_=0;
+    bool configurationAllowed() const;
+    FlightTestManager* flightTest_=nullptr;
+    bool testAvailable();
     bool started_ = false;
     void setupRoutes();
     void handleGatewayStatus();

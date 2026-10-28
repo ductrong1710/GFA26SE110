@@ -70,6 +70,7 @@ bool MissionStorage::saveResult(const MissionResult& r) {
     doc["completedWaypoints"]=r.completedWaypoints;doc["failedWaypointSequence"]=r.failedWaypointSequence;
     doc["failureReason"]=r.failureReason;doc["uploaded"]=r.uploaded;doc["mockUpload"]=r.mockUpload;
     JsonArray targets=doc.createNestedArray("targetOutcomes");for(auto t:r.targets) targets.add(static_cast<unsigned>(t));
+    JsonArray counts=doc.createNestedArray("targetRecords");for(auto n:r.targetRecords) counts.add(n);
     return writeJson(resultPath,doc);
 }
 bool MissionStorage::loadResult(MissionResult& out) {
@@ -90,6 +91,14 @@ bool MissionStorage::loadResult(MissionResult& out) {
     for(size_t i=0;i<targets.size();++i) {
         if(!targets[i].is<unsigned>() || targets[i].as<unsigned>()>static_cast<unsigned>(TargetOutcome::Skipped)) return false;
         r.targets[i]=static_cast<TargetOutcome>(targets[i].as<unsigned>());
+    }
+    if(!doc["targetRecords"].isNull()) {
+        JsonArrayConst counts=doc["targetRecords"];
+        if(counts.size()!=Config::MAX_MISSION_TARGETS) return false;
+        for(size_t i=0;i<counts.size();++i) {
+            if(!counts[i].is<size_t>()) return false;
+            r.targetRecords[i]=counts[i].as<size_t>();
+        }
     }
     r.missionId=doc["missionId"];r.fingerprint=doc["fingerprint"];r.completedWaypoints=doc["completedWaypoints"];
     r.failedWaypointSequence=doc["failedWaypointSequence"];r.uploaded=doc["uploaded"];r.mockUpload=doc["mockUpload"];

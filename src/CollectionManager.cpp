@@ -1,4 +1,5 @@
 #include "CollectionManager.h"
+#include "RuntimeConfig.h"
 #include "Logger.h"
 
 void CollectionManager::setMissionMode(bool enabled) {
@@ -7,13 +8,14 @@ void CollectionManager::setMissionMode(bool enabled) {
 }
 void CollectionManager::cancelTarget() {
     response_.clear();ackCount_=0;state_=State::Select;
-    targetCycle_=false;targetAcked_=0;targetState_=MissionCollectionState::Idle;
+    targetCycle_=false;targetAcked_=batchNewRecords_=0;targetMissionId_=0;targetState_=MissionCollectionState::Idle;
 }
 bool CollectionManager::requestTarget(const char* deviceCode) {
-    if(!missionMode_ || !storage_.isReady() || targetCycle_ || state_!=State::Select) return false;
+    if(RuntimeConfig::validate(RuntimeConfig::instance().values()) || !missionMode_ || !storage_.isReady() || targetCycle_ || state_!=State::Select) return false;
     const SensorNode* node=registry_.findNode(deviceCode);
     if(!node || !node->authenticated || !node->online) return false;
     node_=*node;batches_=0;targetAcked_=0;cycleFailed_=false;targetCycle_=true;
+    targetMissionId_=missionId_;
     targetState_=MissionCollectionState::Pending;state_=State::Info;return true;
 }
 void CollectionManager::finishNode(bool success) {
@@ -22,7 +24,8 @@ void CollectionManager::finishNode(bool success) {
     response_.clear(); ackCount_ = 0; state_ = State::Select;
 }
 void CollectionManager::update() {
-    if (!storage_.isReady()) {if(targetCycle_) finishNode();return;}
+    // Leave records on sensors until provisioning establishes their destination.
+    if (RuntimeConfig::validate(RuntimeConfig::instance().values()) || !storage_.isReady()) {if(targetCycle_) finishNode();return;}
     if (state_ == State::Select) {
         if(missionMode_) return;
         if (nextNode_ == 0 && millis() - lastCycle_ < Config::NODE_COLLECTION_INTERVAL_MS) return;
@@ -50,7 +53,7 @@ void CollectionManager::update() {
             Logger::warn("Collection batch stopped or invalid response"); finishNode(); return;
         }
         registry_.touchNode(node_.deviceCode); ++batches_;
-        recordIndex_ = ackCount_ = 0;
+        recordIndex_ = ackCount_ = batchNewRecords_ = 0;
         if (!response_["records"].size()) finishNode(); else state_ = State::Persist;
         break;
     case State::Persist: {
@@ -61,8 +64,15 @@ void CollectionManager::update() {
             cycleFailed_=true;Logger::warn("Invalid sensor record skipped"); return;
         }
         record.collectedTimeSynced = time_.isTimeSynced(); record.collectedAt = time_.collectionTime();
+        record.gatewayCode = RuntimeConfig::instance().values().gatewayCode;
         record.gatewayRssi = node_.rssi;
+        record.missionId = targetCycle_ ? targetMissionId_ : 0;
         const SaveResult result = storage_.saveMeasurement(record);
+        // Duplicates retain their original stored mission and must not inflate a new mission's result.
+        if (result == SaveResult::Saved) {
+            ++batchNewRecords_;
+            if(targetCycle_) ++targetAcked_; // Count durable readings even when the sensor ACK is lost.
+        }
         if (result != SaveResult::Failed) ackIds_[ackCount_++] = record.recordId;
         else {cycleFailed_=true;Logger::error("Sensor record not persisted; excluded from ACK");}
         break;
@@ -71,8 +81,9 @@ void CollectionManager::update() {
         if (!client_.acknowledge(node_, ackIds_, ackCount_)) {
             Logger::warn("ACK failed; local records retained"); finishNode(); return;
         }
+        for (size_t i = 0; i < ackCount_; ++i)
+            if (!storage_.markNodeAcknowledged(node_.deviceCode, ackIds_[i])) Logger::warn("Node ACK retention marker failed; duplicate evidence retained");
         registry_.touchNode(node_.deviceCode);
-        if(targetCycle_) targetAcked_+=ackCount_;
         Serial.printf("[COLLECT] ACK sent for %u persisted records\n", unsigned(ackCount_));
         pending_ = pending_ > ackCount_ ? pending_ - ackCount_ : 0;
         if(!pending_) finishNode(true);

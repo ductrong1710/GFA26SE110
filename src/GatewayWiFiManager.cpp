@@ -1,3 +1,4 @@
+#include "RuntimeConfig.h"
 #include "GatewayWiFiManager.h"
 
 #include <WiFi.h>
@@ -50,11 +51,11 @@ const char* GatewayWiFiManager::targetName(StaTarget target) {
 }
 const char* GatewayWiFiManager::targetSsid() const {
     return target_ == StaTarget::Tello ? Secrets::TELLO_SSID :
-        target_ == StaTarget::Internet ? Secrets::INTERNET_SSID : "";
+        target_ == StaTarget::Internet ? RuntimeConfig::instance().values().internetSsid.c_str() : "";
 }
 bool GatewayWiFiManager::targetConfigured(StaTarget target) const {
     return target == StaTarget::Tello ? Secrets::TELLO_SSID[0] :
-        target == StaTarget::Internet ? Secrets::INTERNET_SSID[0] : true;
+        target == StaTarget::Internet ? RuntimeConfig::instance().values().internetSsid.c_str()[0] : true;
 }
 void GatewayWiFiManager::requestStaTarget(StaTarget target) {
     if (target_ == target) return;
@@ -64,8 +65,12 @@ void GatewayWiFiManager::requestStaTarget(StaTarget target) {
     internetReachable_ = wasConnected_ = false;
     disconnecting_ = true;
     transitionAt_ = millis();
+    loggedStatus_ = -1;
+    connectionAttempts_ = 0;
     WiFi.disconnect(false, false);
     Serial.printf("[WIFI] STA target=%s; SoftAP remains enabled\n", targetName(target));
+    if (target != StaTarget::None && !targetSsid()[0])
+        Serial.printf("[WIFI] target=%s NOT CONFIGURED: SSID is empty\n", targetName(target));
 }
 bool GatewayWiFiManager::isStaConnected() const {
     return !disconnecting_ && target_ != StaTarget::None && targetSsid()[0] &&
@@ -81,6 +86,13 @@ IPAddress GatewayWiFiManager::getStaIp() const { return isStaConnected() ? WiFi.
 void GatewayWiFiManager::update() {
     if (!started_) return;
     const uint32_t now = millis();
+    const int status = WiFi.status();
+    if (status != loggedStatus_) {
+        loggedStatus_ = status;
+        Serial.printf("[WIFI] target=%s status=%d switching=%d elapsed=%lu ms\n",
+            targetName(target_), status, disconnecting_ ? 1 : 0,
+            static_cast<unsigned long>(now - transitionAt_));
+    }
     if (disconnecting_) {
         // Wait for disconnect to be observable, not merely for disconnect() to return.
         if (WiFi.status() == WL_CONNECTED || now - transitionAt_ < 100) return;
@@ -90,7 +102,13 @@ void GatewayWiFiManager::update() {
     if (target_ == StaTarget::None || !targetSsid()[0]) return;
     const bool connected = isStaConnected();
     if (connected != wasConnected_) {
-        Logger::info(connected ? "STA connected" : "STA disconnected; AP remains active");
+        if (connected)
+            Serial.printf("[WIFI] CONNECTED target=%s ip=%s elapsed=%lu ms; AP remains active\n",
+                targetName(target_), WiFi.localIP().toString().c_str(),
+                static_cast<unsigned long>(now - transitionAt_));
+        else
+            Serial.printf("[WIFI] DISCONNECTED target=%s status=%d; AP remains active\n",
+                targetName(target_), status);
         wasConnected_ = connected;
         if (connected) lastProbe_ = now - Config::INTERNET_PROBE_INTERVAL_MS;
         else { internetReachable_ = false; lastReconnect_ = now; }
@@ -98,8 +116,9 @@ void GatewayWiFiManager::update() {
     if (!connected && now - lastReconnect_ >= Config::INTERNET_RECONNECT_INTERVAL_MS) {
         lastReconnect_ = now;
         WiFi.disconnect(false, false);
-        WiFi.begin(targetSsid(), target_ == StaTarget::Tello ? Secrets::TELLO_PASSWORD : Secrets::INTERNET_PASSWORD);
-        Logger::info("STA connection attempt; AP remains active");
+        WiFi.begin(targetSsid(), target_ == StaTarget::Tello ? Secrets::TELLO_PASSWORD : RuntimeConfig::instance().values().internetPassword.c_str());
+        Serial.printf("[WIFI] CONNECT attempt=%lu target=%s statusBefore=%d; AP remains active\n",
+            static_cast<unsigned long>(++connectionAttempts_), targetName(target_), status);
     }
     if (isInternetNetworkReady() && now - lastProbe_ >= Config::INTERNET_PROBE_INTERVAL_MS) {
         lastProbe_ = now;

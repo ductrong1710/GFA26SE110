@@ -13,6 +13,7 @@ public:
     bool request(const char*,const char*,const JsonDocument*,JsonDocument&,int&) override;
 };
 enum class MissionPull { Idle, NoMission, Downloaded, Error };
+enum class RemoteLaunch { Waiting, Due, Reload, Retired, Consumed };
 class MissionBackendClient {
 public:
     MissionBackendClient(GatewayWiFiManager& wifi,MissionTransport& transport,
@@ -21,7 +22,13 @@ public:
     MissionPull update(bool mayPull,Mission& candidate);
     void requestPull(){requested_=true;}
     bool uploadResult(const Mission& mission,const MissionResult& result);
+    bool acknowledgeDownloaded(const Mission& mission);
+    bool startMission(const Mission& mission);
+    void beginLaunchSession();
+    RemoteLaunch pollLaunch(const Mission& mission);
+    bool consumeLaunch(const Mission& mission);
     bool isMock() const {return mock_;}
+    void setStartupGatewayId(int id) { gatewayId_=id; }
     bool isConfigured() const {return gatewayId_>0 && (mock_ || transport_.configured());}
     const char* error() const {return error_;}
 private:
@@ -31,4 +38,10 @@ private:
     bool mock_,requested_=false,attempted_=false;
     uint32_t lastAttempt_=0;
     const char* error_="";
+    char launchSession_[33]={};
+    uint32_t lastLaunchPoll_=0;
+    bool launchPolled_=false;
+    bool launchRequest(const Mission&,bool consume,JsonDocument&,int&);
+    bool stateRequest(const Mission&,const char* action,const char* expected,const JsonDocument* body=nullptr);
+    bool uploadCollectionResults(const Mission&,const MissionResult&);
 };

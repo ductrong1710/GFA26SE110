@@ -1,5 +1,7 @@
 #pragma once
 namespace Secrets {
+constexpr char BACKEND_BASE_URL[]="";
+constexpr char BACKEND_API_KEY[]="";
 constexpr char GATEWAY_AP_PASSWORD[]="test-ap-password";
 constexpr char INTERNET_SSID[]="TEST-INTERNET";
 constexpr char INTERNET_PASSWORD[]="test-internet-password";

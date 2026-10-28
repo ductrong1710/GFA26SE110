@@ -43,6 +43,8 @@ bool MissionCodec::decode(JsonObjectConst obj,Mission& out,const char*& error) {
     error="INVALID_MISSION";
     // Decode into a temporary object so a rejected payload cannot partially alter active state.
     Mission next;
+    if(obj.containsKey("planRevision") && (!obj["planRevision"].is<int>() || obj["planRevision"].as<int>()<0)) return false;
+    next.planRevision=obj["planRevision"] | 0;
     if(!positive(obj["id"],next.id) || !positive(obj["gatewayId"],next.gatewayId) ||
        !positive(obj["uavId"],next.uavId) || !text(obj["name"],next.name,sizeof(next.name))) return false;
     if(!obj["status"].is<const char*>() || strcmp(obj["status"],"SCHEDULED")) {error="MISSION_NOT_SCHEDULED";return false;}
@@ -58,12 +60,13 @@ bool MissionCodec::decode(JsonObjectConst obj,Mission& out,const char*& error) {
             error="MISSION_LOCAL_COORDINATES_REQUIRED";return false;
         }
         if(!centimeters(w["altitudeM"],dst.altitudeCm) || dst.altitudeCm<=0) {error="INVALID_MISSION_ALTITUDE";return false;}
-        if(!w["plannedHoldSeconds"].is<uint32_t>() || w["plannedHoldSeconds"].as<uint32_t>()>Config::MISSION_MAX_HOLD_SECONDS) return false;
-        dst.holdSeconds=w["plannedHoldSeconds"];
+        if(!w["plannedHoldSeconds"].isNull() && (!w["plannedHoldSeconds"].is<uint32_t>() ||
+           w["plannedHoldSeconds"].as<uint32_t>()>Config::MISSION_MAX_HOLD_SECONDS)) return false;
+        dst.holdSeconds=w["plannedHoldSeconds"] | 0u;
         char action[16]; if(!text(w["actionType"],action,sizeof(action))) return false;
         if(!strcmp(action,"MOVE")) dst.action=MissionAction::Move;
-        else if(!strcmp(action,"HOLD")) dst.action=MissionAction::Hold;
-        else if(!strcmp(action,"COLLECT")) dst.action=MissionAction::Collect;
+        else if(!strcmp(action,"HOLD") || !strcmp(action,"WAIT")) dst.action=MissionAction::Hold;
+        else if(!strcmp(action,"COLLECT") || !strcmp(action,"COLLECT_SENSOR")) dst.action=MissionAction::Collect;
         else {error="MISSION_ACTION_UNSUPPORTED";return false;}
     }
     for(JsonObjectConst t:targets) {
@@ -74,6 +77,7 @@ bool MissionCodec::decode(JsonObjectConst obj,Mission& out,const char*& error) {
     out=next; error="";return true;
 }
 void MissionCodec::encode(const Mission& m,JsonObject obj) {
+    if(m.planRevision) obj["planRevision"]=m.planRevision;
     obj["id"]=m.id;obj["name"]=m.name;obj["gatewayId"]=m.gatewayId;obj["uavId"]=m.uavId;obj["status"]="SCHEDULED";
     JsonArray waypoints=obj.createNestedArray("waypoints");
     for(size_t i=0;i<m.waypointCount;++i) {

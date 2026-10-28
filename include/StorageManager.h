@@ -13,10 +13,15 @@ public:
     size_t loadPendingBatch(GatewayMeasurement* records, size_t capacity);
     bool markSynced(const GatewayMeasurement& record);
     bool cleanup();
+    bool markNodeAcknowledged(const String& deviceCode, const String& recordId);
+    size_t getPendingCount(uint32_t missionId);
+    bool deleteAllPending(size_t& removed);
 private:
     bool ready_ = false;
     size_t pending_ = 0, stored_ = 0;
     size_t pendingCursor_ = 0;
+    uint32_t pendingRevision_ = 0, countedRevision_ = UINT32_MAX, countedMission_ = 0;
+    size_t missionPending_ = 0;
     String key(const String& deviceCode, uint32_t sequence) const;
     bool readRecord(const String& path, GatewayMeasurement& out);
     bool writeVerified(const GatewayMeasurement& record, const String& destination);

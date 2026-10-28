@@ -7,7 +7,9 @@ enum class SyncStatus { Pending, Synced };
 struct GatewayMeasurement {
     String recordId, deviceCode;
     uint32_t sequence = 0;
+    uint32_t missionId = 0; // Zero denotes collection outside a mission.
     uint64_t measuredAt = 0, collectedAt = 0;
+    bool nodeAcknowledged = false;
     bool timeSynced = false, collectedTimeSynced = false;
     OptionalReading temperature, humidity, soilMoisture, lightIntensity, ph, waterLevel, batteryVoltage;
     String gatewayCode = Config::GATEWAY_CODE;

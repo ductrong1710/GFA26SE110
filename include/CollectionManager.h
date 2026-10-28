@@ -11,9 +11,12 @@ public:
         : registry_(registry), client_(client), storage_(storage), time_(time), response_(Config::COLLECTION_JSON_CAPACITY) {}
     void update();
     void setMissionMode(bool enabled);
+    void setMissionId(uint32_t missionId) override { missionId_=missionId; }
+    size_t targetRecordCount() const override { return targetAcked_; }
     bool requestTarget(const char* deviceCode) override;
     MissionCollectionState targetState() const override {return targetState_;}
     void cancelTarget() override;
+    bool isIdle() const { return state_ == State::Select; }
 private:
     enum class State { Select, Info, SendTime, Fetch, Persist, Ack };
     NodeRegistry& registry_;
@@ -29,6 +32,8 @@ private:
     String ackIds_[Config::COLLECTION_BATCH_SIZE];
     bool missionMode_=false,targetCycle_=false,cycleFailed_=false;
     size_t targetAcked_=0;
+    size_t batchNewRecords_=0;
+    uint32_t missionId_=0, targetMissionId_=0;
     MissionCollectionState targetState_=MissionCollectionState::Idle;
     void finishNode(bool success=false);
 };

@@ -61,5 +61,21 @@ bool MissionRoutePlanner::build(Mission& m,int gatewayId,MissionRoutePlan& plan,
         if(!add(RouteStepKind::Waypoint,RouteDirection::Forward,0,i)) return false;
         x=w.xCm;y=w.yCm;
     }
+#if defined(GATEWAY_MISSION_FLIGHT_PROFILE) && GATEWAY_MISSION_FLIGHT_PROFILE
+    // Return along local axes at the final waypoint altitude before landing.
+    const int home[]={-x,-y};
+    for(size_t axis=0;axis<2;++axis) {
+        int remaining=abs(home[axis]);
+        if(remaining && remaining<20){error="MISSION_MOVE_BELOW_SDK_MINIMUM";return false;}
+        RouteDirection direction=axis==0 ? (home[axis]>0 ? RouteDirection::Forward:RouteDirection::Back)
+            : (home[axis]>0 ? RouteDirection::Right:RouteDirection::Left);
+        while(remaining) {
+            int segment=std::min(remaining,Config::MISSION_MAX_MOVE_SEGMENT_CM);
+            if(remaining>segment && remaining-segment<20) segment=remaining-20;
+            if(!add(RouteStepKind::Move,direction,segment,m.waypointCount-1)) return false;
+            remaining-=segment;
+        }
+    }
+#endif
     error="";return true;
 }

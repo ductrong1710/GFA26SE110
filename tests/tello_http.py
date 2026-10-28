@@ -3,7 +3,9 @@
 No prepare/takeoff/land or valid movement is sent. Run on UAV_GATEWAY:
 python tests/tello_http.py [http://192.168.4.1]
 """
-import http.client
+import getpass
+import urllib.request
+import urllib.error
 import json
 import sys
 import unittest
@@ -13,17 +15,26 @@ BASE = urlsplit(sys.argv.pop(1) if len(sys.argv) > 1 else "http://192.168.4.1")
 
 
 class TelloHttpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.base = BASE.geturl().rstrip('/')
+        passwords = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+        passwords.add_password(None, cls.base, 'admin', getpass.getpass('Gateway AP password: '))
+        cls.opener = urllib.request.build_opener(urllib.request.HTTPDigestAuthHandler(passwords))
+        with cls.opener.open(cls.base + '/api/config', timeout=5) as response:
+            cls.token = json.load(response)['csrfToken']
+
     def request(self, path, expected=200, body=None):
-        connection = http.client.HTTPConnection(BASE.hostname, BASE.port or 80, timeout=5)
+        request = urllib.request.Request(self.base + path, data=None if body is None else body.encode(),
+            headers={'Content-Type': 'application/json', 'X-Config-Token': self.token})
         try:
-            connection.request("GET" if body is None else "POST", path, body,
-                               {"Content-Type": "application/json"})
-            response = connection.getresponse()
+            response = self.opener.open(request, timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
             self.assertEqual(response.status, expected)
-            self.assertEqual(response.getheader("Content-Type"), "application/json")
-            return json.loads(response.read())
-        finally:
-            connection.close()
+            self.assertEqual(response.headers.get('Content-Type'), 'application/json')
+            return json.load(response)
 
     def test_status_and_existing_apis(self):
         tello = self.request("/api/tello/status")

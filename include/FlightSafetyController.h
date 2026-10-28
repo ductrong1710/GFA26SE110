@@ -15,14 +15,18 @@ public:
     void update(const TelloTelemetry& telemetry,bool packetFresh);
     bool configurationValid() const {return limits_.valid();}
     bool altitudeFresh() const {return fresh_;}
+    bool sensorsDisagree() const {return disagree_;}
+    bool disagreementConfirmed() const {return disagree_ && disagreementConfirmed_;}
     int altitudeCm() const {return fresh_ ? altitude_ : -1;}
     bool limitActive() const {return fresh_ && upper_>=limits_.maximum;}
-    bool inOperatingRange() const {return configurationValid() && fresh_ && altitude_>=limits_.minimum && upper_<=limits_.maximum;}
+    bool inOperatingRange() const {return configurationValid() && fresh_ && !disagree_ && altitude_>=limits_.minimum && upper_<=limits_.maximum;}
     bool allowMove(const char* direction,int cm) const;
     int filterVerticalRc(int value) const;
     const char* error() const;
 private:
     AltitudeLimits limits_;
     bool fresh_=false;
+    bool disagree_=false, disagreementConfirmed_=false, disagreementTracking_=false;
+    uint32_t disagreementSince_=0, disagreementLast_=0, observedSample_=0, logAt_=0;
     int altitude_=-1,upper_=-1,lastLog_=-1;
 };

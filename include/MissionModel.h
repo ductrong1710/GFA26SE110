@@ -19,8 +19,9 @@ struct MissionTarget {
     char deviceCode[Config::MAX_DEVICE_CODE_BYTES+1]={};
 };
 struct Mission {
+    int planRevision=0;
     int id=0, gatewayId=0, uavId=0;
-    char name[65]={};
+    char name[601]={}; // Backend permits 150 Unicode characters (UTF-8 up to 4 bytes each).
     size_t waypointCount=0, targetCount=0;
     MissionWaypoint waypoints[Config::MAX_MISSION_WAYPOINTS];
     MissionTarget targets[Config::MAX_MISSION_TARGETS];
@@ -40,6 +41,7 @@ struct MissionResult {
     bool uploaded=false, mockUpload=false;
     char failureReason[97]={};
     TargetOutcome targets[Config::MAX_MISSION_TARGETS]={};
+    size_t targetRecords[Config::MAX_MISSION_TARGETS]={};
 };
 namespace MissionCodec {
 const char* stateName(MissionState state);

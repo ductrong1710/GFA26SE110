@@ -26,9 +26,97 @@ void fly(FlightStateManager& flight,TelloController& controller) {
     testMillis+=500; assert(flight.state()==FlightState::Flying);
 }
 int main() {
+    // A live manual setpoint must be refreshed, then expire from request time.
+    {
+        GatewayWiFiManager w;TelloController t(w);assert(t.begin());assert(t.requestSdkMode());
+        reply("ok");t.update();testMillis+=500;state("h:25;tof:25;vgz:0;");t.update();
+        assert(t.sendRc(20,0,0,0));t.update();const size_t initial=outgoing.size();
+        testMillis+=99;t.update();assert(outgoing.size()==initial);
+        testMillis+=1;t.update();assert(outgoing.size()==initial+1);
+        assert(outgoing.back().body=="rc 20 0 0 0");
+        testMillis+=400;t.update();assert(outgoing.back().body=="rc 0 0 0 0");
+        testMillis+=500;const size_t idlePackets=outgoing.size();
+        assert(t.sendRc(0,0,0,0));assert(outgoing.size()==idlePackets+1);
+        assert(outgoing.back().body=="rc 0 0 0 0"); // Keepalive also works when already idle.
+        t.stop();
+    }
+    // Pulse lifetime starts with delivery to UDP, including across millis wrap.
+    for(unsigned rollover=0;rollover<2;++rollover) {
+        testMillis=rollover ? 0xfffffc00u : 1000;
+        GatewayWiFiManager w;TelloController t(w);assert(t.begin());assert(t.requestSdkMode());
+        reply("ok");t.update();testMillis+=500;state("h:25;tof:25;vgz:0;");t.update();
+        assert(t.sendRcPulse(10,300));WiFiUDP::failedSends()=1;
+        const size_t before=outgoing.size();t.update();assert(outgoing.size()==before && t.rcBusy());
+        testMillis+=99;t.update();assert(outgoing.size()==before);
+        testMillis+=1;t.update();assert(outgoing.back().body=="rc 0 0 10 0");
+        testMillis+=200;t.update();assert(outgoing.back().body=="rc 0 0 10 0" && t.rcBusy());
+        WiFiUDP::failedSends()=1;testMillis+=100;t.update();assert(t.rcBusy() && t.rcFailed());
+        assert(!t.canSend());const size_t moving=outgoing.size();t.update();assert(outgoing.size()==moving);
+        testMillis+=100;t.update();assert(outgoing.back().body=="rc 0 0 0 0" && !t.rcBusy());
+        t.clearRcFailure();assert(!t.rcFailed());
+        testMillis+=500;state("h:25;tof:25;vgz:0;");t.update();
+        // A pending pulse that never transmits expires without inventing motion.
+        assert(t.sendRcPulse(10,300));WiFiUDP::failedSends()=5;
+        for(unsigned i=0;i<5;++i) {t.update();testMillis+=100;}
+        t.update();assert(!t.rcBusy() && t.rcFailed());
+        assert(outgoing.back().body=="rc 0 0 0 0");
+        t.stop();
+    }
+    // Invalid H or disagreement cancels every axis; recovered data cannot resume it.
+    for(const char* unsafe : {"tof:25;vgz:0;","h:25;tof:70;vgz:0;"}) {
+        GatewayWiFiManager w;TelloController t(w);assert(t.begin());assert(t.requestSdkMode());
+        reply("ok");t.update();testMillis+=500;state("h:25;tof:25;vgz:0;");t.update();
+        assert(t.sendRc(20,20,0,20));t.update();testMillis+=100;
+        state(unsafe);t.update();assert(outgoing.back().body=="rc 0 0 0 0" && !t.rcBusy());
+        const size_t stopped=outgoing.size();testMillis+=100;state("h:25;tof:25;vgz:0;");t.update();
+        assert(outgoing.size()==stopped);t.stop();
+    }
+    // A rejected land command is not evidence of landing. Recovery needs new,
+    // sustained, complete ground telemetry after the response.
+    for (int scenario=0;scenario<5;++scenario) {
+        GatewayWiFiManager w;TelloController t(w);FlightStateManager f(w,t);
+        w.requestStaTarget(StaTarget::Tello);f.restoreRecovery();f.update();
+        reply("ok");t.update();f.update();testMillis+=500;
+        state("h:0;tof:10;vgz:0;");t.update();
+        assert(f.land());f.update();reply("error");t.update();f.update();
+        assert(f.state()==FlightState::Landing && f.mayBeAirborne());
+        const auto sent=outgoing.size();
+        for(unsigned i=0;i<12;++i) {
+            testMillis+=500;
+            if(scenario==0) state("h:0;tof:10;vgz:0;");
+            if(scenario==1) state("h:100;tof:100;vgz:0;");
+            if(scenario==2) state("h:0;vgz:0;");
+            if(scenario==3) state("h:0;tof:10;vgz:10;");
+            t.update();f.update();
+            if(f.state()==FlightState::LandedConfirmed) break;
+        }
+        assert(outgoing.size()==sent); // No automatic repeat land or takeoff.
+        if(scenario==0) {
+            assert(f.state()==FlightState::LandedConfirmed && !f.mayBeAirborne());
+            assert(!strcmp(f.landingEvidence(),"LAND_REJECTED_BUT_STABLE_GROUND_TELEMETRY"));
+        } else {
+            assert(f.mayBeAirborne() && w.staTarget()==StaTarget::Tello);
+            testMillis+=Config::TELLO_LAND_CONFIRM_TIMEOUT_MS+1;t.update();f.update();
+            assert(f.state()==FlightState::Error && f.mayBeAirborne());
+        }
+        t.stop();
+    }
+    {
+        GatewayWiFiManager w;TelloController t(w);FlightStateManager f(w,t);
+        assert(f.prepare());f.update();reply("OK");t.update();f.update();
+        testMillis+=500;f.update();reply("90\r\n");t.update();f.update();
+        assert(f.state()==FlightState::LandedReady && !t.hasFreshTelemetry());
+        assert(!f.mayBeAirborne());
+        const auto sent=outgoing.size();
+        assert(f.cancelPreparation());
+        assert(w.staTarget()==StaTarget::Internet && outgoing.size()==sent);
+        f.restoreRecovery();assert(!f.cancelPreparation());
+    }
     GatewayWiFiManager wifi;
     TelloController controller(wifi);
     assert(controller.begin());
+    assert(WiFiUDP::bindings()[Config::TELLO_COMMAND_PORT]==wifi.getStaIp());
+    assert(WiFiUDP::bindings()[Config::TELLO_STATE_PORT]==IPAddress());
     assert(!controller.isSdkReady());
     assert(!controller.queryBattery());
     assert(controller.requestSdkMode());
@@ -36,14 +124,22 @@ int main() {
     const uint8_t wrongIp[]={192,168,10,99};
     incoming[Config::TELLO_COMMAND_PORT].push_back({IPAddress(wrongIp),8889,"ok"});
     controller.update(); assert(!controller.isSdkReady());
-    reply("ok"); controller.update();
+    reply("xx"); controller.update(); // Correct source and length do not prove an SDK ACK.
+    assert(!controller.isSdkReady() && controller.commandPending());
+    reply("OKAY"); controller.update(); // Never accept a prefix match.
+    assert(!controller.isSdkReady() && controller.commandPending());
+    reply("OK"); controller.update(); // Observed physical Tello response: 4F 4B.
     assert(controller.isSdkReady());
     testMillis += 500;
     assert(controller.queryBattery());
     reply("ok"); controller.update(); // unrelated ACK cannot satisfy a numeric query
     assert(controller.commandPending());
+    reply("OK"); controller.update();
+    assert(controller.commandPending());
     reply("75"); controller.update();
     assert(controller.batteryPercent()==75);
+    incoming[Config::TELLO_STATE_PORT].push_back({IPAddress(wrongIp),8890,"h:0;tof:10;vgz:0;bat:74;"});
+    controller.update();assert(!controller.hasFreshTelemetry()); // Wildcard binding still rejects other senders.
     state("h:0;tof:10;vgz:0;bat:74;pitch:1;roll:2;yaw:3;time:0;");
     controller.update();
     assert(controller.hasFreshTelemetry());

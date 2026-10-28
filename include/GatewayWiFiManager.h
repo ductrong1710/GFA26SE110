@@ -26,4 +26,6 @@ private:
     const char* targetSsid() const;
     bool started_ = false, wasConnected_ = false, internetReachable_ = false;
     uint32_t lastReconnect_ = 0, lastProbe_ = 0;
+    int loggedStatus_ = -1;
+    uint32_t connectionAttempts_ = 0;
 };

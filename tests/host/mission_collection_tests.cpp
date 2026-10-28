@@ -1,12 +1,15 @@
 #include "CollectionManager.h"
+#include "configured_gateway.h"
 #include <cassert>
 #include <iostream>
 #include <vector>
 #include <algorithm>
 uint32_t testMillis=10000;TestSerial Serial;
-std::vector<std::string> events;bool saveOk=true,ackOk=true;
+std::vector<std::string> events;bool saveOk=true,ackOk=true,duplicate=false;
+uint32_t savedMission=0;
+bool StorageManager::markNodeAcknowledged(const String&,const String&){return true;}
 bool StorageManager::begin(){ready_=true;return true;}
-SaveResult StorageManager::saveMeasurement(const GatewayMeasurement&){events.push_back("save");return saveOk?SaveResult::Saved:SaveResult::Failed;}
+SaveResult StorageManager::saveMeasurement(const GatewayMeasurement& r){events.push_back("save");savedMission=r.missionId;return !saveOk?SaveResult::Failed:duplicate?SaveResult::Duplicate:SaveResult::Saved;}
 bool TimeManager::isTimeSynced()const{return true;}
 uint64_t TimeManager::unixTime()const{return 1700000000;}
 uint64_t TimeManager::collectionTime()const{return unixTime();}
@@ -22,18 +25,34 @@ int main(){
     CollectionManager collection(registry,client,storage,time);
     collection.setMissionMode(true);assert(!collection.requestTarget("SENSOR-001"));
     SensorNode node;node.deviceCode="SENSOR-001";node.authenticated=true;
-    registry.addOrUpdate(node);assert(collection.requestTarget("SENSOR-001"));
+    registry.addOrUpdate(node);
+    assert(!collection.requestTarget("SENSOR-001"));
+    collection.setMissionMode(false);
+    for(unsigned i=0;i<12;++i)collection.update();
+    assert(events.empty()); // First setup cannot create pending data that locks provisioning.
+    provisionTestGateway();collection.setMissionMode(true);collection.setMissionId(15);
+    assert(collection.requestTarget("SENSOR-001"));
     for(unsigned i=0;i<12;++i)collection.update();
     assert(collection.targetState()==MissionCollectionState::Collected);
+    assert(savedMission==15 && collection.targetRecordCount()==1);
     auto saved=std::find(events.begin(),events.end(),"save"),ack=std::find(events.begin(),events.end(),"ack");
     assert(saved!=events.end() && ack!=events.end() && saved<ack);
     events.clear();saveOk=false;assert(collection.requestTarget("SENSOR-001"));
     for(unsigned i=0;i<12;++i)collection.update();
     assert(collection.targetState()==MissionCollectionState::Failed);
+    assert(collection.targetRecordCount()==0);
     assert(std::find(events.begin(),events.end(),"ack")==events.end());
     events.clear();saveOk=true;ackOk=false;assert(collection.requestTarget("SENSOR-001"));
     for(unsigned i=0;i<12;++i)collection.update();
     assert(collection.targetState()==MissionCollectionState::Failed);
+    assert(collection.targetRecordCount()==1); // Persisted data survives a lost sensor ACK.
+    events.clear();ackOk=true;duplicate=true;collection.setMissionId(16);
+    assert(collection.requestTarget("SENSOR-001"));
+    for(unsigned i=0;i<12;++i)collection.update();
+    assert(collection.targetState()==MissionCollectionState::Failed);
+    assert(collection.targetRecordCount()==0); // Older persisted identities are never reattributed.
+    assert(std::find(events.begin(),events.end(),"ack")!=events.end());
+    duplicate=false;
     events.clear();ackOk=true;assert(collection.requestTarget("SENSOR-001"));collection.cancelTarget();
     for(unsigned i=0;i<12;++i)collection.update();
     assert(events.empty());

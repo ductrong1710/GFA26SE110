@@ -10,9 +10,10 @@ public:
         TelloController& tello,FlightStateManager& flight,int gatewayId=Config::BACKEND_GATEWAY_ID)
         :storage_(storage),backend_(backend),wifi_(wifi),tello_(tello),flight_(flight),gatewayId_(gatewayId) {}
     bool begin();
+    void setStartupGatewayId(int id) { gatewayId_=id; }
     void update(bool sensorStorageHealthy,size_t pendingRecords,bool timeSynced);
     bool requestPull();
-    bool start();
+    bool start(bool remote=false);
     bool abort();
     bool landNow();
     bool ownsFlight() const;
@@ -33,14 +34,14 @@ private:
     Mission mission_;MissionRoutePlan plan_;MissionRoutePlanner planner_;
     MissionStateRecord record_;MissionResult result_;
     bool hasActive_=false,sensorHealthy_=false,stopRequested_=false,waitingMove_=false;
-    bool altitudeDownPending_=false,altitudePulse_=false,altitudeWaiting_=false,altitudeStarted_=false;
     bool arrived_=false,targetRequested_=false;
     bool landRequested_=false,recoveryLandRequested_=false;
+    bool downloadAcknowledged_=false;
+    uint32_t lastDownloadAck_=0;
     size_t stepIndex_=0,targetIndex_=0;
-    uint32_t stateAt_=0,altitudeAt_=0,altitudeSample_=0,altitudeWaitAt_=0,stableAt_=0;
+    uint32_t stateAt_=0;
     uint32_t holdAt_=0,targetAt_=0,keepaliveAt_=0,lastResultAttempt_=0;
     uint32_t resultRetryMs_=Config::BACKEND_RETRY_BASE_MS;
-    unsigned stableSamples_=0;
     char error_[97]={};
     bool reject(const char* error);
     bool transition(MissionState state);
@@ -50,8 +51,7 @@ private:
     void finishLanded();
     void updateRoute();
     void updateCollection();
-    void beginAltitude();
-    int adjustAltitude(int targetCm);
+    void failCollectionTarget(const char* reason);
     void keepAlive();
     bool saveProgress();
     void updateSync(size_t pendingRecords,bool timeSynced);

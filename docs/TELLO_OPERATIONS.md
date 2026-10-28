@@ -303,3 +303,22 @@ measurements; never rewrite historical timestamps by guessing. Existing storage
 capacity/dedup receipt limits still apply. A reboot preserves LittleFS but loses
 flight-state knowledge; preparation is required again and takeoff requires fresh
 ground telemetry. Do not reboot during flight as a recovery method.
+
+## Audit remediation (2026-10-28)
+
+All local Tello and mission POST controls, including land/abort, require access through
+UAV_GATEWAY, HTTP Digest authentication (`admin`, configured AP password), and the
+current `X-Config-Token` returned as `csrfToken` by authenticated GET `/api/config`.
+Basic authentication and requests arriving through STA are rejected. The token changes
+at reboot. Existing unauthenticated curl/PowerShell examples must supply these credentials.
+Public status GETs and node registration retain their existing contracts.
+
+PowerShell example (prompts for the AP password, does not put it in shell history):
+```powershell
+$gatewayConfig = curl.exe --silent --show-error --digest --user admin http://192.168.4.1/api/config | ConvertFrom-Json
+# Run a control only when intended; this example requests landing.
+curl.exe --digest --user admin -X POST -H "X-Config-Token: $($gatewayConfig.csrfToken)" http://192.168.4.1/api/tello/land
+```
+The manual `tests/tello_http.py` checks prompt for the password and fetch the token;
+they send invalid control inputs only. Neither this documentation nor tests were used
+to send live flight commands during remediation.

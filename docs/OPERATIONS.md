@@ -1,5 +1,9 @@
 # ESP32 gateway: phases 5–8
 
+After the initial firmware upload, use the [Wi-Fi configuration page](CONFIGURATION.md)
+to set Internet/backend credentials. Compiled settings below are first-boot defaults;
+saved NVS settings take precedence. Collection waits for valid provisioning.
+
 The current branch also includes the isolated Tello extension. See
 [Tello operations](TELLO_OPERATIONS.md) for STA target switching, ground/flight
 tests and post-land synchronization. Internet reconnect/NTP/backend now run only
@@ -20,15 +24,17 @@ Identity is `deviceCode + sequence`; `recordId` must be `deviceCode-sequence`.
 A staging file is flushed, closed, read back byte-for-byte, renamed, and checked
 again before a record is eligible for ACK. Failed saves are never ACKed.
 An atomic rename to `/synced` records backend confirmation. Directory location
-is authoritative. Cleanup first commits a verified compact `/receipts` entry,
-then removes the synced payload. Receipts preserve deduplication after cleanup
+is authoritative. If sensor ACK is uncertain, cleanup first commits a verified
+compact `/receipts` entry, then removes the synced payload. Receipts preserve deduplication after cleanup
 and reboot. Corrupt entries are retained and cannot authorize an ACK.
 
-`MAX_LOCAL_RECORDS=1000` counts identities including receipts. This deliberately
-imposes a lifetime capacity: cleanup frees payload space but does not reclaim an
-identity slot. At capacity, new measurements stay on the sensor; no pending data
-or deduplication history is silently discarded. Flash can fill before this limit.
-Never run uploadfs on a filesystem containing data you need to retain.
+`MAX_LOCAL_RECORDS=1000` bounds pending measurements, not lifetime identities.
+After the backend accepts a record, its payload can be reclaimed when a successful
+exact-ID sensor ACK has been durably recorded. If that ACK is uncertain, a receipt
+retains duplicate evidence until a later ACK succeeds. Legacy receipts are retained
+and reclaimed when their sensor retries; they do not consume pending-record slots.
+Failed writes/deletions retain data and require retry/recovery; never erase flash to
+recover capacity. No receipt is discarded solely because it is old.
 
 Phase 6 uses SensorNodeClient for authenticated HTTP and CollectionManager for a
 cooperative state machine: info → optional time push → fetch → validate/store →
@@ -322,3 +328,54 @@ radio continuity, flash power interruption and prolonged full-storage behavior
 still require hardware integration testing. No hardware validation or upload was
 performed for phases 5–8 during this implementation. Backend endpoint already
 exists in the repository; no new endpoint or ESP8266 firmware was created.
+# Serial data-sync diagnostics
+
+Use Serial Monitor at 115200 baud. `[SYNC]` describes sensor-data upload;
+`[MISSION-SYNC]` describes mission-result upload.
+
+- `STORAGE_NOT_READY` or `BACKEND_NOT_CONFIGURED`: upload cannot start.
+- `WAITING_FOR_WIFI`: Internet/LAN station connection is not ready; public Internet probe success is not required.
+- `IDLE_NO_PENDING_RECORDS`: nothing remains to upload.
+- `WAITING_FOR_NEXT_ATTEMPT`: normal upload interval or retry backoff.
+- `PAUSED_FLIGHT_TEST`: flight-test execution/recovery temporarily owns the gateway.
+- `UPLOADING`, followed by `POST`: endpoint path, gateway ID, local record count and payload bytes.
+- `Response`: HTTP status, whether the response was accepted by the HTTP/JSON reader, and elapsed time. Nonpositive status means no successful HTTP status was obtained; 401 suggests device credentials, 404 endpoint/resource, and 5xx backend failure. A 2xx response with `parsed=0` can indicate a malformed, oversized or otherwise unsupported response.
+- `Batch result`: `acknowledged` counts local records whose exported channels were all accepted/duplicate; `markedSynced` counts successful flash updates. `unacceptedOrUnexported` includes rejected or unexportable records. `flashMarkFailures` means backend acknowledgment was received but local marking failed. Unmarked data stays pending.
+- Mission logs distinguish backend acknowledgment from saving that acknowledgment locally.
+
+Waiting states print when they change and at most once every 30 seconds while
+records remain pending. Each upload attempt prints its own result and retry interval.
+Raw payloads, response bodies, Wi-Fi passwords and API keys are not logged.
+# Delete all pending measurements using USB Serial
+
+Upload firmware containing this command, then open Serial Monitor at 115200 baud.
+Send the following exact line and press Enter (LF or CRLF):
+
+```text
+DELETE_PENDING CONFIRM
+```
+
+This permanently deletes all measurement files currently in `/pending`, including
+unreadable records. It does not mark them synced or send fabricated acknowledgments
+to the backend. `/synced`, `/receipts`, mission/flight-test files, NVS Wi-Fi settings
+and API keys are preserved. Sensor devices may provide new records afterward.
+
+The command is refused during flight preparation/flight/recovery, an active
+flight-test lock, an unuploaded mission result, a busy collection cycle or
+unavailable storage. A busy collection cycle can be retried when idle.
+It never runs automatically at boot and is not exposed as an unauthenticated API.
+
+Expected success, for example: `[STORAGE] DELETE_PENDING OK deleted=17 pending=0`.
+`PARTIAL_OR_FAILED` reports the actual deletion count; retained files can be retried.
+After power loss, startup recounts the files that remain. Never use flash erase or
+filesystem image upload to perform this operation.
+
+Tello mission setup, build profiles, local start and result synchronization:
+see [MISSION_FLIGHT.md](MISSION_FLIGHT.md).
+
+Unresolved readings (unknown/inconsistent timestamps or all-null values) are sent in
+`unresolvedRecords`, preserving the original payload without invented measurement time.
+The gateway clears them only after explicit per-record backend acceptance. Backend
+migration ArchiveUnresolvedSensorRecords must be applied before using this contract.
+Mission-result upload waits for that mission's pending records, not unrelated backlog.
+Normal readings continue through `records`; no archived reading enters charts/alerts.

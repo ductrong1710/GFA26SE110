@@ -5,6 +5,39 @@
 #include <errno.h>
 #include <string.h>
 #include "Logger.h"
+#include "PendingDeletion.h"
+
+namespace {
+class LittleFSPendingFiles : public PendingFiles {
+public:
+    int next(char* path, size_t capacity) override {
+        File directory = LittleFS.open("/pending");
+        if (!directory || !directory.isDirectory()) return -1;
+        File file = directory.openNextFile();
+        if (!file) { directory.close(); return 0; }
+        if (file.isDirectory()) { file.close(); directory.close(); return -1; }
+        const int length = snprintf(path, capacity, "%s", file.path());
+        file.close(); directory.close();
+        return length > 0 && size_t(length) < capacity ? 1 : -1;
+    }
+    bool remove(const char* path) override { return LittleFS.remove(path); }
+};
+}
+
+bool StorageManager::deleteAllPending(size_t& removed) {
+    removed = 0;
+    if (!ready_) return false;
+    LittleFSPendingFiles files;
+    const bool complete = deletePendingFiles(files, removed, Config::MAX_LOCAL_RECORDS);
+    pending_ -= std::min(pending_, removed);
+    stored_ -= std::min(stored_, removed);
+    pendingCursor_ = 0; ++pendingRevision_;
+    const bool verifiedEmpty = complete && pending_ == 0;
+    // File removals are individually committed; after power loss begin() recounts remaining files.
+    Serial.printf("[STORAGE] DELETE_PENDING %s deleted=%u pending=%u\n",
+        verifiedEmpty ? "OK" : "PARTIAL_OR_FAILED", unsigned(removed), unsigned(pending_));
+    return verifiedEmpty;
+}
 
 String StorageManager::key(const String& device, uint32_t sequence) const {
     const String identity = device + ":" + String(sequence);
@@ -27,6 +60,7 @@ String StorageManager::key(const String& device, uint32_t sequence) const {
 }
 bool StorageManager::begin() {
     ready_ = false; pending_ = stored_ = pendingCursor_ = 0;
+    pendingRevision_ = 0; countedRevision_ = UINT32_MAX;
     if (!LittleFS.begin(Config::FORMAT_LITTLEFS_ON_FAILURE, "/littlefs", 10, "spiffs")) {
         Logger::error("LittleFS mount failed; do not format existing data"); return false;
     }
@@ -150,7 +184,7 @@ SaveResult StorageManager::saveMeasurement(const GatewayMeasurement& record) {
     if (measurementExists(record.deviceCode, record.sequence)) return SaveResult::Duplicate;
     const String hash = key(record.deviceCode, record.sequence);
     if (LittleFS.exists(String("/pending/") + hash) || LittleFS.exists(String("/synced/") + hash) ||
-        LittleFS.exists(String("/receipts/") + hash) || stored_ >= Config::MAX_LOCAL_RECORDS) {
+        LittleFS.exists(String("/receipts/") + hash) || pending_ >= Config::MAX_LOCAL_RECORDS) {
         Logger::error("Storage full or identity unreadable; no ACK allowed"); return SaveResult::Failed;
     }
     GatewayMeasurement pending = record; pending.syncStatus = SyncStatus::Pending;
@@ -159,7 +193,7 @@ SaveResult StorageManager::saveMeasurement(const GatewayMeasurement& record) {
         if (LittleFS.exists(String("/pending/") + hash)) ready_ = false;
         return SaveResult::Failed;
     }
-    ++stored_; ++pending_; return SaveResult::Saved;
+    ++stored_; ++pending_; ++pendingRevision_; return SaveResult::Saved;
 }
 size_t StorageManager::loadPendingBatch(GatewayMeasurement* records, size_t capacity) {
     if (!ready_ || !records) return 0;
@@ -186,6 +220,10 @@ bool StorageManager::markSynced(const GatewayMeasurement& record) {
     // Directory location is authoritative; rename is one LittleFS transaction.
     if (!LittleFS.rename(pending, String("/synced/") + hash)) return false;
     if (pending_) --pending_;
+    ++pendingRevision_;
+    if (saved.nodeAcknowledged && LittleFS.remove(String("/synced/") + hash)) {
+        if (stored_) --stored_;
+    }
     return true;
 }
 bool StorageManager::cleanup() {
@@ -197,6 +235,11 @@ bool StorageManager::cleanup() {
     const String path = file.path(); file.close(); directory.close();
     GatewayMeasurement record;
     if (!readRecord(path, record) || path != String("/synced/") + key(record.deviceCode, record.sequence)) return false;
+    if (record.nodeAcknowledged) {
+        if (!LittleFS.remove(path)) return false;
+        if (stored_) --stored_;
+        return true;
+    }
     const String receipt = String("/receipts/") + key(record.deviceCode, record.sequence);
     if (receiptExists(receipt, record.deviceCode, record.sequence)) return LittleFS.remove(path);
     StaticJsonDocument<384> doc;
@@ -208,4 +251,52 @@ bool StorageManager::cleanup() {
     if (written != measureJson(doc) || !receiptExists("/staging.tmp", record.deviceCode, record.sequence)) return false;
     if (!LittleFS.rename("/staging.tmp", receipt) || !receiptExists(receipt, record.deviceCode, record.sequence)) return false;
     return LittleFS.remove(path);
+}
+
+size_t StorageManager::getPendingCount(uint32_t missionId) {
+    if (!ready_) return pending_;
+    if (countedMission_ == missionId && countedRevision_ == pendingRevision_) return missionPending_;
+    File directory = LittleFS.open("/pending");
+    if (!directory) return pending_;
+    size_t count = 0;
+    for (File file = directory.openNextFile(); file; file = directory.openNextFile()) {
+        const String path = file.path(); file.close();
+        GatewayMeasurement record;
+        // Unreadable records keep the completion gate closed until recovered.
+        if (!readRecord(path, record) || record.missionId == missionId) ++count;
+    }
+    directory.close();
+    countedMission_ = missionId; countedRevision_ = pendingRevision_; missionPending_ = count;
+    return count;
+}
+
+bool StorageManager::markNodeAcknowledged(const String& device, const String& recordId) {
+    const String prefix = device + "-";
+    if (!ready_ || !recordId.startsWith(prefix.c_str())) return false;
+    const char* text = recordId.c_str() + prefix.length();
+    char* end = nullptr;
+    const unsigned long long value = strtoull(text, &end, 10);
+    if (!*text || *end || !value || value > UINT32_MAX || recordId != prefix + String(uint32_t(value))) return false;
+    const String hash = key(device, uint32_t(value));
+    for (const char* dir : {"/pending/", "/synced/"}) {
+        const String path = String(dir) + hash;
+        if (!LittleFS.exists(path)) continue;
+        GatewayMeasurement record;
+        if (!readRecord(path, record) || record.deviceCode != device || record.recordId != recordId) return false;
+        if (!strcmp(dir, "/synced/")) {
+            // Remove the receipt first: a crash leaves the synced payload as duplicate evidence.
+            const String receipt = String("/receipts/") + hash;
+            if (LittleFS.exists(receipt) && !LittleFS.remove(receipt)) return false;
+            if (!LittleFS.remove(path)) return false;
+            if (stored_) --stored_;
+            return true;
+        }
+        if (record.nodeAcknowledged) return true;
+        record.nodeAcknowledged = true;
+        return writeVerified(record, path);
+    }
+    const String receipt = String("/receipts/") + hash;
+    if (!receiptExists(receipt, device, uint32_t(value)) || !LittleFS.remove(receipt)) return false;
+    if (stored_) --stored_;
+    return true;
 }

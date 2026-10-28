@@ -19,6 +19,38 @@ void tick(TelloController& tello,FlightStateManager& flight,MissionManager& miss
     testMillis+=ms;if(telemetry) packet(8890,telemetry);tello.update();flight.update();mission.update(true,0,true);
 }
 int main() {
+    if(!Config::GROUND_TEST_MODE) {
+        GatewayWiFiManager w;w.requestStaTarget(StaTarget::Internet);TelloController t(w);FlightStateManager f(w,t);
+        MissionMemoryFiles fs;MissionStorage s(fs);NoTransport transport;
+        MissionBackendClient b(w,transport,1,true);MissionManager m(s,b,w,t,f,1);
+        assert(m.begin());m.update(true,0,true);assert(m.start());
+        tick(t,f,m);packet(8889,"ok");tick(t,f,m);
+        tick(t,f,m,nullptr,500);packet(8889,"80");tick(t,f,m);
+        tick(t,f,m,"h:0;tof:10;vgz:0;bat:80;",500);
+        assert(m.state()==MissionState::TakingOff);
+        packet(8889,"ok");tick(t,f,m,"h:35;tof:35;vgz:0;bat:80;");
+        assert(m.state()==MissionState::Stabilizing);
+        // A 20 cm up step cannot overshoot the narrow test profile's band.
+        const auto beforeUp=outgoing.size();
+        tick(t,f,m,"h:20;tof:20;vgz:0;bat:80;",500);
+        assert(outgoing.size()==beforeUp);
+        tick(t,f,m,"h:10;tof:10;vgz:0;bat:80;",500);
+        assert(outgoing.back().body=="up 20");
+        const auto awaitingAck=outgoing.size();
+        tick(t,f,m,"h:10;tof:10;vgz:0;bat:80;",500);
+        assert(outgoing.size()==awaitingAck); // Never replay an outstanding move.
+        packet(8889,"ok");tick(t,f,m,"h:30;tof:30;vgz:0;bat:80;");
+        tick(t,f,m,"h:30;tof:30;vgz:0;bat:80;",500);
+        assert(outgoing.size()==awaitingAck); // 5 cm gap cannot use up 20 or RC.
+        const auto sent=outgoing.size();
+        tick(t,f,m,"h:20;tof:60;vgz:0;bat:80;");
+        assert(m.state()==MissionState::Stabilizing);
+        for(unsigned i=0;i<4;++i) tick(t,f,m,"h:20;tof:60;vgz:0;bat:80;",500);
+        assert(m.state()==MissionState::Landing);
+        assert(!strcmp(m.result().failureReason,"ALTITUDE_SENSOR_DISAGREEMENT"));
+        assert(outgoing.size()==sent); // No corrective movement while readings disagree.
+        t.stop();incoming.clear();outgoing.clear();
+    }
     {
         // READY may coexist with manual flight; abort must use actual aircraft
         // state rather than persisting a false LANDED marker.
@@ -47,6 +79,11 @@ int main() {
     assert(mission.start());assert(mission.ownsFlight());assert(!mission.start());
     tick(tello,flight,mission);packet(8889,"ok");tick(tello,flight,mission);
     tick(tello,flight,mission,nullptr,500);packet(8889,"80");
+    tick(tello,flight,mission);
+    if(!Config::GROUND_TEST_MODE) {
+        assert(mission.state()==MissionState::PreparingTello);
+        for(auto& p:outgoing) assert(p.body!="takeoff");
+    }
     tick(tello,flight,mission,"h:0;tof:10;vgz:0;bat:80;");
     if(Config::GROUND_TEST_MODE) {
         assert(mission.state()==MissionState::GroundReady);

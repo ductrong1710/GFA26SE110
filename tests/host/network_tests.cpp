@@ -4,6 +4,7 @@
 #include "WiFi.h"
 #include "Secrets.h"
 #include "Logger.h"
+#include "RuntimeConfig.h"
 #include <cassert>
 #include <iostream>
 uint32_t testMillis=1000;
@@ -45,5 +46,14 @@ int main() {
     assert(recovery.begin(StaTarget::Tello));testMillis+=100;recovery.update();
     assert(WiFi.attempts.size()==1 && WiFi.attempts[0]==Secrets::TELLO_SSID);
     assert(!recovery.isBackendNetworkReady());
+    auto& runtime=RuntimeConfig::instance();assert(runtime.begin());
+    GatewaySettings settings=runtime.values();
+    settings.internetSsid="NEW-INTERNET";settings.internetPassword="new-password";
+    settings.backendBaseUrl="http://192.168.10.8:5043/api";settings.gatewayId=23;
+    settings.apiKey="0123456789abcdefghijklmnopqrstuvwxyz0123456";
+    assert(runtime.save(settings));assert(runtime.begin());
+    WiFi.link=0;WiFi.attempts.clear();GatewayWiFiManager configured;
+    assert(configured.begin(StaTarget::Internet));testMillis+=100;configured.update();
+    assert(WiFi.attempts.size()==1 && WiFi.attempts[0]=="NEW-INTERNET");
     std::cout << "Production Wi-Fi role and NTP gating tests passed\n";
 }

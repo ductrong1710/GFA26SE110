@@ -41,6 +41,12 @@ bool MeasurementCodec::fromJson(JsonObjectConst o, const String& expected, Gatew
         !readOptional(o["soilMoisture"], r.soilMoisture) || !readOptional(o["lightIntensity"], r.lightIntensity) ||
         !readOptional(o["ph"], r.ph) || !readOptional(o["waterLevel"], r.waterLevel) || !readOptional(o["batteryVoltage"], r.batteryVoltage)) return false;
     if (local) {
+        if (!o["nodeAcknowledged"].isNull() && !o["nodeAcknowledged"].is<bool>()) return false;
+        r.nodeAcknowledged = o["nodeAcknowledged"] | false;
+        if (!o["missionId"].isNull()) {
+            if (!o["missionId"].is<uint32_t>()) return false;
+            r.missionId = o["missionId"].as<uint32_t>();
+        }
         if (!safeString(o["gatewayCode"], 64) || !o["collectedAt"].is<uint64_t>() || !o["collectedTimeSynced"].is<bool>() ||
             !o["gatewayRssi"].is<int>() || !o["syncStatus"].is<const char*>()) return false;
         const String status = o["syncStatus"].as<const char*>();
@@ -53,6 +59,8 @@ bool MeasurementCodec::fromJson(JsonObjectConst o, const String& expected, Gatew
     out = r; return true;
 }
 void MeasurementCodec::toJson(const GatewayMeasurement& r, JsonObject o) {
+    o["nodeAcknowledged"] = r.nodeAcknowledged;
+    if (r.missionId) o["missionId"] = r.missionId; else o["missionId"] = nullptr;
     o["recordId"] = r.recordId; o["deviceCode"] = r.deviceCode; o["sequence"] = r.sequence;
     o["measuredAt"] = r.measuredAt; o["timeSynced"] = r.timeSynced;
     o["collectedAt"] = r.collectedAt; o["collectedTimeSynced"] = r.collectedTimeSynced;

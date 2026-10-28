@@ -30,16 +30,21 @@ bool BoundedHttp::request(const String& url, const char* method, const String& b
     http.addHeader("Accept", "application/json");
     if (h1) http.addHeader(h1, v1);
     if (h2) http.addHeader(h2, v2);
-    if (strcmp(method, "POST") == 0) http.addHeader("Content-Type", "application/json");
+    if (strcmp(method, "POST") == 0) {
+        http.addHeader("Content-Type", "application/json");
+        // Arduino HTTPClient omits this for empty payloads. Kestrel rejects an
+        // HTTP/1.0 POST without an explicit body length before endpoint routing.
+        if (body.isEmpty()) http.addHeader("Content-Length", "0");
+    }
     status = http.sendRequest(method, body);
     const int length = http.getSize();
-    if (status < 200 || status >= 300 || length > int(Config::MAX_HTTP_RESPONSE_BYTES) || http.hasHeader("Transfer-Encoding")) {
+    if (status < 100 || length > int(Config::MAX_HTTP_RESPONSE_BYTES) || http.hasHeader("Transfer-Encoding")) {
         http.end(); return false;
     }
     String received;
     if (!received.reserve(length >= 0 ? length + 1 : Config::MAX_HTTP_RESPONSE_BYTES + 1)) { http.end(); return false; }
     WiFiClient* stream = http.getStreamPtr();
-    if (!stream) { http.end(); return allowEmpty && (length == 0 || status == 204); }
+    if (!stream) { http.end(); return status >= 200 && status < 300 && allowEmpty && (length == 0 || status == 204); }
     const uint32_t start = millis();
     bool ok = true;
     while ((length < 0 || received.length() < size_t(length)) && (http.connected() || stream->available())) {
@@ -56,9 +61,9 @@ bool BoundedHttp::request(const String& url, const char* method, const String& b
     }
     http.end();
     if (!ok || (length >= 0 && received.length() != size_t(length))) return false;
-    if (received.isEmpty()) return allowEmpty;
+    if (received.isEmpty()) return status >= 200 && status < 300 && allowEmpty;
     Reader reader(received);
-    if (deserializeJson(response, reader, DeserializationOption::NestingLimit(6))) return false;
-    for (int ch = reader.read(); ch >= 0; ch = reader.read()) if (!isspace((unsigned char)ch)) return false;
-    return !response.overflowed();
+    if (deserializeJson(response, reader, DeserializationOption::NestingLimit(6))) { response.clear(); return false; }
+    for (int ch = reader.read(); ch >= 0; ch = reader.read()) if (!isspace((unsigned char)ch)) { response.clear(); return false; }
+    return status >= 200 && status < 300 && !response.overflowed();
 }
