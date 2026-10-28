@@ -17,6 +17,7 @@ export default function SensorsPage() {
   const { can } = useAuth()
   const navigate = useNavigate()
   const manage = can(PERMISSIONS.SENSORS_MANAGE)
+  const create = manage || can(PERMISSIONS.SENSORS_CREATE)
   const [filters, setFilters] = useState({ farm: '', zone: '', status: '', protocol: '', search: '' })
   const [dialog, setDialog] = useState(null)
   const [notice, setNotice] = useState('')
@@ -29,7 +30,7 @@ export default function SensorsPage() {
   const save = async (values) => { await changeOperations({ kind: 'sensor', id: dialog.record?.id, action: dialog.mode === 'toggle' ? 'toggle' : 'save', values }, farmWorkspace); setNotice('Sensor saved successfully.'); setDialog(null) }
   return <div className="app-ui operations-page">
     <ApiState loading={loading} error={error} reload={reload} />
-    <PageHeader eyebrow="SENSOR NETWORK" title="Sensor Nodes" description="Registration, availability, and collection status across your farms." actions={manage ? <button className="app-ui-button app-ui-button--primary" onClick={() => open()}>+ Register Sensor</button> : <StatusBadge status="INFO" label="Read-only access" />} />
+    <PageHeader eyebrow="SENSOR NETWORK" title="Sensor Nodes" description="Registration, availability, and collection status across your farms." actions={create ? <button className="app-ui-button app-ui-button--primary" onClick={() => open()}>+ Register Sensor</button> : <StatusBadge status="INFO" label="Read-only access" />} />
     <p className="operations-note">Enabled sensors are eligible for collection. Disabled sensors retain their readings. Times use Vietnam time (UTC+7).</p>
     {notice && <p role="status" className="management-success">{notice}</p>}
     <FilterBar label="Sensor filters" actions={<button type="button" className="app-ui-button" onClick={() => setFilters({ farm: '', zone: '', status: '', protocol: '', search: '' })}>Reset filters</button>}>
@@ -44,7 +45,7 @@ export default function SensorsPage() {
       { key: 'lastSeenAt', header: 'Last Seen', render: displayTime }, { key: 'lastCollectedAt', header: 'Last Collected', render: displayTime },
       { key: 'actions', header: 'Actions', render: (_, row) => manage ? <div className="management-row-actions"><button onClick={() => open(row)}>Edit Sensor</button><button onClick={() => open(row, 'assign')}>Assign to Zone</button><button onClick={() => open(row, 'toggle')}>{row.isActive ? 'Disable' : 'Enable'}</button></div> : <Link className="operations-link" to={`/app/sensors/${row.id}`}>View</Link> },
     ]} footer={`${rows.length} of ${operations.sensorNodes.length} sensors`} />
-    {manage && dialog && <EquipmentDialog kind="sensor" {...dialog} workspace={farmWorkspace} operations={operations} currentFarm={currentFarm} onSave={save} onClose={() => setDialog(null)} />}
+    {dialog && (manage || (create && !dialog.record)) && <EquipmentDialog kind="sensor" {...dialog} workspace={farmWorkspace} operations={operations} currentFarm={currentFarm} onSave={save} onClose={() => setDialog(null)} />}
   </div>
 }
 

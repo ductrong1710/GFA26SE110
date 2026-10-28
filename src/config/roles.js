@@ -8,13 +8,13 @@ export const ROLES = Object.freeze({
 
 export const HUMAN_ROLES = Object.freeze(Object.values(ROLES))
 export const USER_ASSIGNABLE_ROLES = Object.freeze(
-  HUMAN_ROLES.filter(role => ![ROLES.ADMINISTRATOR, ROLES.UAV_DEVICE_OPERATOR].includes(role)),
+  HUMAN_ROLES.filter(role => role !== ROLES.ADMINISTRATOR),
 )
 
 export const ROLE_LABELS = Object.freeze({
   [ROLES.FARM_OWNER]: 'Farm Owner',
   [ROLES.ADMINISTRATOR]: 'Administrator',
-  [ROLES.UAV_DEVICE_OPERATOR]: 'UAV / Device Operator',
+  [ROLES.UAV_DEVICE_OPERATOR]: 'UAV and Device Operator',
   [ROLES.AGRICULTURAL_ENGINEER]: 'Agricultural Engineer',
 })
 

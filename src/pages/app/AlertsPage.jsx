@@ -14,7 +14,7 @@ import { PageHeader, StatCard, FilterBar, DataTable, StatusBadge, AlertSeverityB
 import ManagementDialog from '../../components/app/ManagementDialog'
 import '../../styles/management.css'
 
-const typeLabels = { SENSOR_THRESHOLD: 'Sensor threshold', SENSOR_DATA_TIMEOUT: 'Sensor offline', SENSOR_LOW_BATTERY: 'Low battery', MISSION_ERROR: 'Mission failed', COLLECTION_FAILED: 'Collection failed', GATEWAY_ERROR: 'Gateway error' }
+const typeLabels = { SENSOR_THRESHOLD: 'Sensor threshold', SENSOR_DATA_TIMEOUT: 'Sensor offline', SENSOR_LOW_BATTERY: 'Low battery', MISSION_ERROR: 'Mission failed', GATEWAY_ERROR: 'Gateway error', GATEWAY_OFFLINE: 'Gateway offline', UAV_LOW_BATTERY: 'UAV low battery' }
 const historyLabels = { OPEN: 'Alert detected', ACKNOWLEDGED: 'Acknowledged', CLOSED: 'Closed', REOPENED: 'Reopened', NOTE: 'Handling note' }
 const emptyFilters = { severity: '', type: '', status: '', farm: '', zone: '', date: '' }
 const measurement = (value, unit) => value === undefined || value === null ? 'Not supplied' : `${value}${unit ? ` ${unit}` : ''}`

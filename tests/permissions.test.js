@@ -50,7 +50,7 @@ test('administration and operational management remain separate', () => {
 })
 
 test('user management cannot assign additional administrator accounts', () => {
-  assert.deepEqual(USER_ASSIGNABLE_ROLES, [ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER])
+  assert.deepEqual(USER_ASSIGNABLE_ROLES, [ROLES.FARM_OWNER, ROLES.UAV_DEVICE_OPERATOR, ROLES.AGRICULTURAL_ENGINEER])
 })
 
 test('operator alerts are related-only; engineer reports and alerts are read-only', () => {

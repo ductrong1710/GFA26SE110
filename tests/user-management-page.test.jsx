@@ -9,7 +9,7 @@ afterEach(() => {
 })
 
 describe('Users page role selection', () => {
-  it('allows only one assignable role and submits it with the Save button', async () => {
+  it.each(['AGRICULTURAL_ENGINEER', 'UAV_DEVICE_OPERATOR'])('submits the selected role %s with the Save button', async (selectedRole) => {
     const changeManagement = vi.fn().mockResolvedValue(undefined)
     HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
     HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
@@ -30,9 +30,15 @@ describe('Users page role selection', () => {
     expect(owner.checked).toBe(true)
     expect(engineer.checked).toBe(false)
 
+    const operator = screen.getByRole('radio', { name: 'UAV and Device Operator' })
+    fireEvent.click(operator)
+    expect(operator.checked).toBe(true)
+    expect(owner.checked).toBe(false)
     fireEvent.click(engineer)
     expect(owner.checked).toBe(false)
     expect(engineer.checked).toBe(true)
+
+    if (selectedRole === 'UAV_DEVICE_OPERATOR') fireEvent.click(operator)
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } })
@@ -42,7 +48,7 @@ describe('Users page role selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }))
 
     await waitFor(() => expect(changeManagement).toHaveBeenCalledWith(expect.objectContaining({
-      values: expect.objectContaining({ roles: ['AGRICULTURAL_ENGINEER'] }),
+      values: expect.objectContaining({ roles: [selectedRole] }),
     })))
   })
 })

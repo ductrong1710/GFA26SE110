@@ -190,8 +190,8 @@ test('validation messages displayed by forms include the backend field guidance'
 })
 
 test('role normalization never maps unsupported operator into a human backend role', () => {
-  assert.deepEqual(normalizeUser({ roles: ['FarmAdministrator', 'FarmEngineer', 'UavDeviceOperator'] }).roles, ['ADMINISTRATOR', 'AGRICULTURAL_ENGINEER'])
-  assert.deepEqual(normalizeUser({ roles: ['UavDeviceOperator'] }).roles, [])
+  assert.deepEqual(normalizeUser({ roles: ['FarmAdministrator', 'FarmEngineer', 'UavDeviceOperator'] }).roles, ['ADMINISTRATOR', 'AGRICULTURAL_ENGINEER', 'UAV_DEVICE_OPERATOR'])
+  assert.deepEqual(normalizeUser({ roles: ['UavDeviceOperator'] }).roles, ['UAV_DEVICE_OPERATOR'])
 })
 
 test('refresh preserves a selected assigned role and drops revoked roles', () => {
@@ -271,7 +271,7 @@ test('session serializes to storage and restores the saved session', () => {
   }
   const first = createSession(storage, createAuthStorage(storage))
   first.set(tokens())
-  assert.deepEqual(JSON.parse(values.get('smartfarm.api.session')), { refreshToken: 'refresh-first' })
+  assert.deepEqual(JSON.parse(values.get('smartfarm.api.session')), { ...tokens(), sessionId: 'refresh-first' })
   assert.deepEqual(createSession(storage, createAuthStorage(storage)).get(), tokens())
   first.set(null)
   assert.equal(values.has('smartfarm.api.session'), false)
@@ -288,7 +288,7 @@ test('session migrates previously stored token and user data to auth storage', (
   assert.deepEqual(createSession(storage, auth).get(), tokens())
   assert.equal(auth.getToken(), 'first')
   assert.deepEqual(auth.getUser(), tokens().user)
-  assert.deepEqual(JSON.parse(values.get('smartfarm.api.session')), { refreshToken: 'refresh-first' })
+  assert.deepEqual(JSON.parse(values.get('smartfarm.api.session')), { ...tokens(), sessionId: 'refresh-first' })
 })
 
 test('auth storage safely serializes user data and clears both auth values', () => {

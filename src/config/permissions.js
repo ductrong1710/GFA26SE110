@@ -5,6 +5,8 @@ export const PERMISSIONS = Object.freeze({
   FARMS_VIEW: 'farms.view',
   FARMS_MANAGE: 'farms.manage',
   SENSORS_VIEW: 'sensors.view',
+  SENSORS_CREATE: 'sensors.create',
+  DEVICES_CREATE: 'devices.create',
   SENSORS_MANAGE: 'sensors.manage',
   SENSOR_DATA_VIEW: 'sensorData.view',
   ZONES_COMPARE: 'sensorData.compareZones',

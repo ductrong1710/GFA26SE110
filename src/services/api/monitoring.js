@@ -11,7 +11,8 @@ export function getMissionMonitoring(id, state, workspace) {
   const points = waypoints.filter(w => targets.some(t => t.waypointId === w.id)).map(w => ({ ...w, name: `Waypoint ${w.sequenceNo}`, sensorIds: targets.filter(t => t.waypointId === w.id).map(t => t.sensorNodeId) }))
   const rows = targets.map(t => {
     const attempts = state.collectionAttempts.filter(a => a.missionTargetId === t.id).map(a => ({ ...a, displayStatus: a.status }))
-    const lastError = attempts.filter(a => a.errorCode || a.errorMessage).at(-1)
+      .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt) || b.id - a.id)
+    const lastError = attempts.find(a => a.errorCode || a.errorMessage)
     return { ...t, node: state.sensorNodes.find(n => n.id === t.sensorNodeId), point: points.find(p => p.id === t.waypointId), attempts, records: attempts.reduce((sum, a) => sum + a.recordsReceived, 0), lastError, errorRecovered: Boolean(lastError && t.status === 'COLLECTED') }
   })
   const telemetry = state.latestTelemetry
