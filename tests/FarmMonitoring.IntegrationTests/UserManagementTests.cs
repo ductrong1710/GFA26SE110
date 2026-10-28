@@ -122,7 +122,7 @@ public class UserManagementTests(ApiFactory factory)
     public async Task Concurrent_role_replacements_do_not_merge_privileges()
     {
         using var admin = await Login();
-        var created = await admin.PostAsJsonAsync("/api/users", new { email = $"role-race-{Guid.NewGuid():N}@example.com", fullName = "Role Race", password = "Test-password-123!", roles = Array.Empty<string>() });
+        var created = await admin.PostAsJsonAsync("/api/users", new { email = $"role-race-{Guid.NewGuid():N}@example.com", fullName = "Role Race", password = "Test-password-123!", roles = new[] { "FarmEngineer" } });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         await using var connection = new NpgsqlConnection(factory.ConnectionString);
@@ -151,6 +151,7 @@ public class UserManagementTests(ApiFactory factory)
         finally { await transaction.CommitAsync(); }
         foreach (var response in await Task.WhenAll(first, second)) response.EnsureSuccessStatusCode();
         var user = (await admin.GetFromJsonAsync<JsonElement>($"/api/users/{id}")).GetProperty("data");
-        Assert.Single(user.GetProperty("roles").EnumerateArray());
+        var role = Assert.Single(user.GetProperty("roles").EnumerateArray()).GetString();
+        Assert.Contains(role, new[] { "FarmAdministrator", "FarmOwner" });
     }
 }
