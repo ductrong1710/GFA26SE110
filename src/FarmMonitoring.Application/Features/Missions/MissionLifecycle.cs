@@ -1,5 +1,6 @@
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Alerts;
+using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
 using FluentValidation;
@@ -7,7 +8,8 @@ using FluentValidation;
 namespace FarmMonitoring.Application.Features.Missions;
 
 // Callers own authentication, transaction and mission row lock. Both actor types share these rules.
-public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider clock, AlertService alerts)
+public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider clock, AlertService alerts,
+    FarmAccessService access, ICurrentUser currentUser)
 {
     public async Task ChangeStatusAsync(Mission mission, MissionStatus status, MissionActionRequest request,
         int? userId, int? gatewayId, CancellationToken ct)
@@ -18,7 +20,7 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         {
             await ValidateResources(mission, true, ct);
             if (status == MissionStatus.RUNNING && gatewayId is null && TelloMissionRules.Applies(mission))
-                throw new ConflictException("Start Tello missions locally on the assigned gateway after download. A web status update cannot launch the UAV.");
+                throw new ConflictException("Confirm the scheduled Tello launch in mission details, or start locally on the assigned gateway. A status update cannot launch the UAV.");
             if (mission.ScheduledStartAt is null || mission.ScheduledEndAt is null || mission.ScheduledEndAt <= mission.ScheduledStartAt)
                 throw new BusinessRuleException("A valid scheduled start and end are required.");
             if (status == MissionStatus.SCHEDULED) ValidateFutureSchedule(mission);
@@ -36,6 +38,7 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         }
         if (status == MissionStatus.PENDING)
         {
+            MissionLaunchRules.Invalidate(mission);
             mission.ScheduledStartAt = null;
             mission.ScheduledEndAt = null;
         }
@@ -76,8 +79,10 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
     }
     public async Task CheckOverlap(Mission mission, bool starting, CancellationToken ct)
     {
-        if (await repository.HasOverlapAsync(mission, starting, ct))
-            throw new ConflictException("The UAV or gateway is already reserved for an overlapping mission.");
+        var scope = currentUser.UserId.HasValue ? await access.GetScopeAsync(ct) : null;
+        var conflicts = await repository.ReservationConflictsAsync(mission, starting, scope, ct);
+        if (conflicts.Count > 0)
+            throw new ConflictException("The UAV or gateway is already reserved. " + string.Join("; ", conflicts));
     }
     // PostgreSQL timestamps have microsecond precision; first response and retries must agree.
     private DateTimeOffset Timestamp()

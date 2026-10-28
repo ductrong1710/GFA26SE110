@@ -5,7 +5,7 @@ using FarmMonitoring.Infrastructure;
 using FarmMonitoring.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddApiServices();
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
 {

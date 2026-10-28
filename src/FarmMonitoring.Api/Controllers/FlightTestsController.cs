@@ -12,6 +12,9 @@ namespace FarmMonitoring.Api.Controllers;
 [Authorize(Policy = AccessPolicies.ManageUsers)]
 public sealed class FlightTestsController(FlightTestService tests) : ControllerBase
 {
+    [HttpPost("{id:int}/cancel")]
+    public async Task<ActionResult<ApiResponse<FlightTestResponse>>> Cancel(int gatewayId, int id, CancelFlightTestRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<FlightTestResponse>.Ok(await tests.CancelAsync(gatewayId, id, request, ct)));
     [HttpPost]
     public async Task<ActionResult<ApiResponse<FlightTestResponse>>> Create(int gatewayId, CreateFlightTestRequest request, CancellationToken ct)
     {

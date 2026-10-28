@@ -121,6 +121,7 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         var human = asEngineer ? engineer : owner;
         var f = farms[1].Id; var z = channels[1].SensorNode.ZoneId; var n = channels[1].SensorNodeId; var c = channels[1].Id; var m = missions[1].Id;
         var forbidden = new[] {
+            $"/api/sensor-nodes/{n}/unresolved-records",
             $"/api/farms/{f}", $"/api/farms/{f}/zones", $"/api/zones/{z}", $"/api/sensor-nodes/{n}", $"/api/sensor-nodes/{n}/channels", $"/api/sensor-nodes/{n}/latest",
             $"/api/sensor-channels/{c}/history", $"/api/sensor-channels/{c}/threshold", $"/api/sensor-nodes?farmId={f}", $"/api/sensor-nodes?zoneId={z}",
             $"/api/sensor-readings?farmId={f}", $"/api/sensor-readings?zoneId={z}", $"/api/sensor-readings?sensorNodeId={n}", $"/api/sensor-readings?sensorChannelId={c}", $"/api/sensor-readings?missionId={m}",
@@ -130,6 +131,7 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
             $"/api/reports/sensor-data?farmId={f}", $"/api/reports/missions?farmId={f}", $"/api/reports/alerts?farmId={f}", $"/api/reports/devices?farmId={f}", $"/api/dashboard/overview?farmId={f}" };
         foreach (var path in forbidden) await Status(HttpStatusCode.Forbidden, await human.GetAsync(path));
         foreach (var path in new[] { $"/api/farms/{farms[0].Id}", $"/api/zones/{channels[0].SensorNode.ZoneId}", $"/api/sensor-nodes/{channels[0].SensorNodeId}",
+            $"/api/sensor-nodes/{channels[0].SensorNodeId}/unresolved-records",
             $"/api/sensor-channels/{channels[0].Id}/history", $"/api/sensor-channels/{channels[0].Id}/threshold", $"/api/missions/{missions[0].Id}/results",
             $"/api/missions/{missions[0].Id}/logs", $"/api/missions/{missions[0].Id}/waypoints", $"/api/missions/{missions[0].Id}/collection-attempts", $"/api/missions/{missions[0].Id}/telemetry",
             $"/api/alerts/{alerts[0].Id}" }) await Status(HttpStatusCode.OK, await human.GetAsync(path));

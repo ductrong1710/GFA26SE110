@@ -18,7 +18,7 @@ public sealed class FarmAccessService(IFarmAccessRepository repository, IAuthRep
         if (user is not { IsActive: true }) throw new AccessDeniedException("Access denied.");
         var roles = user.UserRoles.Select(x => x.Role.Name).ToArray();
         if (roles.Contains(RoleNames.FarmAdministrator)) return new(id, true);
-        if (!roles.Any(x => x is RoleNames.FarmOwner or RoleNames.FarmEngineer)) throw new AccessDeniedException("Access denied.");
+        if (!roles.Any(x => x is RoleNames.FarmOwner or RoleNames.FarmEngineer or RoleNames.UavDeviceOperator)) throw new AccessDeniedException("Access denied.");
         return new(id, false);
     }
 

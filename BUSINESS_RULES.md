@@ -1,5 +1,34 @@
 # BUSINESS_RULES.md
 
+Flight tests have an additional terminal status CANCELLED. Only an administrator
+may cancel a QUEUED, CLAIMED or EXPIRED test after explicitly confirming that the
+aircraft is grounded and the test was never started by firmware. Recorded takeoff,
+positive altitude/hold evidence, or RECOVERY_REQUIRED prevents this cancellation.
+It preserves device evidence, records actor/reason in error_code and time in
+reported_at, and releases reservations under the existing shared transaction lock.
+Cancelled tests cannot be claimed or replaced by device results. Cancellation is
+not a flight-control/landing command; running firmware must not be executing the test.
+
+Reservation-conflict messages identify blocking missions only within the current
+human user's farm access. Device callers may see only blockers assigned to their
+gateway. Flight-test IDs/status are shown only to administrators or the assigned
+device. Hidden blockers still prevent scheduling/starting and produce a generic
+notice. Overlap rules and reservation locking are unchanged.
+
+## Gateway connectivity
+
+Gateway catalog/detail and report status is ONLINE only for an active gateway
+with server-recorded contact in the last 90 seconds (inclusive). Never-seen,
+inactive, expired or future-dated contacts are OFFLINE. This describes backend
+connectivity, not whether the gateway has electrical power or whether a UAV is airborne.
+Heartbeat, successful sync and telemetry update contact. Human gateway edits cannot
+set contact time. Stored administrative status remains separate from computed
+connectivity, including existing error monitoring. Heartbeat requires device credentials
+and matching route identity; it only writes last_seen_at and does not acquire or
+release flight reservations. Firmware attempts heartbeat every 30 seconds when
+Internet is available and flight/collection work is safe; Tello operation can cause
+expected OFFLINE periods. Dashboard and gateway device reports use the same 90-second rule.
+
 ## 1. Project Scope
 
 The system is a UAV-assisted IoT platform for farm monitoring and sensor data collection.
@@ -26,7 +55,7 @@ The initial project scope does NOT include direct UAV flight control from the ba
 
 ## 2. Roles
 
-The only human account roles are FarmAdministrator, FarmOwner and FarmEngineer.
+Human account roles are FarmAdministrator, FarmOwner, FarmEngineer and UavDeviceOperator.
 
 - FarmAdministrator: system/user administration; farm, zone and device management; farm data access; threshold configuration; mission management; alerts and reports.
 - FarmOwner: farm/zone and device metadata management; farm/sensor data, alerts and reports; existing mission create/update/schedule/start/complete/fail/cancel actions. Cannot manage users or configure thresholds.
@@ -638,22 +667,23 @@ A revoked refresh token must not issue a new access token.
 
 ## 28. Authorization Rules
 
-| Policy | FarmAdministrator | FarmOwner | FarmEngineer |
-|---|---|---|---|
-| ManageUsers | Yes | No | No |
-| ManageFarms | Yes | Yes | No |
-| ReadFarmData | Yes | Yes | Yes |
-| ManageDevices | Yes | Yes | No |
-| ConfigureThresholds | Yes | No | Yes |
-| ManageMissions | Yes | Yes | No |
+| Policy | FarmAdministrator | FarmOwner | FarmEngineer | UavDeviceOperator |
+|---|---|---|---|---|
+| ManageUsers | Yes | No | No | No |
+| ManageFarms | Yes | Yes | No | No |
+| ReadFarmData | Yes | Yes | Yes | Yes |
+| CreateDevices | Yes | Yes | No | Yes |
+| ManageDevices | Yes | Yes | No | No |
+| ConfigureThresholds | Yes | No | Yes | No |
+| ManageMissions | Yes | Yes | No | No |
 
 Human users authenticate with JWT Bearer. Gateway/device endpoints use independent Device Authentication with both `X-Api-Key` and `X-Gateway-Code`; human JWTs never substitute for device credentials. Device credentials do not grant access to human endpoints.
 
-All three human roles may read farms/zones, sensor data/history, alerts, dashboard and reports. Only FarmAdministrator manages users. FarmAdministrator/FarmOwner manage farms/zones, device metadata and missions. FarmAdministrator/FarmEngineer configure thresholds. Alert handling also requires farm access; private notification APIs retain recipient ownership checks.
+All four human roles may read farms/zones, sensor data/history, alerts, dashboard and reports. Only FarmAdministrator manages users. FarmAdministrator/FarmOwner manage farms/zones, device metadata and missions. FarmAdministrator/FarmEngineer configure thresholds. Alert handling also requires farm access; private notification APIs retain recipient ownership checks.
 
-FarmAdministrator has global farm access without membership. FarmOwner and FarmEngineer require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+FarmAdministrator has global farm access without membership. FarmOwner, FarmEngineer and UavDeviceOperator require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
 
-UAV Operator may describe an external/use-case actor, but is NOT an authenticated backend user role and cannot receive JWTs as an operator. Historical mission fields such as `operatorNotes` describe operational notes, not authorization roles.
+UavDeviceOperator is an authenticated human role that can register sensor nodes, UAVs and gateways through CreateDevices. It does not grant device-edit, user-management, farm-management, threshold or mission-control permissions. Historical mission fields such as `operatorNotes` describe operational notes, not authorization roles.
 
 Backend policy enforcement is mandatory; do not rely on frontend visibility.
 
@@ -756,9 +786,9 @@ Backend can store information from those systems, but should not own their low-l
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
 - FarmAdministrator has global access, with no `user_farms` row required.
-- FarmOwner and FarmEngineer access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- FarmOwner, FarmEngineer and UavDeviceOperator access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
 - Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
-- Assignment requires an existing active FarmOwner/FarmEngineer user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Assignment requires an existing active FarmOwner/FarmEngineer/UavDeviceOperator user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
 - Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
 - Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
 - Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
@@ -861,3 +891,54 @@ Tello device starts require a prior download acknowledgment. Lost start response
 Tello missions enter RUNNING through the assigned gateway after its download
 acknowledgment. Human start is rejected; scheduling alone never launches the UAV.
 This preserves the scheduled download queue until the gateway explicitly starts.
+
+## Scheduled launch with operator confirmation
+The web can authorize the assigned gateway to begin a Tello mission without changing
+laptop Wi-Fi. This authorization is not a direct flight command: the gateway owns
+preflight checks and flight control. Confirmation is tied to the downloaded plan revision
+and current device boot session, requires fresh readiness, and is allowed from 10 minutes
+before schedule until min(start + 60 seconds, end). No approval, stale session, early
+consume or expired window permits flight. An expired mission is cancelled on the next
+device readiness report with MISSED_LAUNCH_WINDOW. No automatic late catch-up occurs.
+Concurrent consumes serialize with other reservations and transitions; exactly one
+returns START_ACCEPTED. A reboot/lost consume response requires reconciliation and must
+never replay takeoff. RUNNING indicates accepted execution, not observed physical flight.
+While the gateway connects to Tello it cannot receive an immediate web stop command.
+
+
+### UAV and Device Operator (2026-10-27)
+
+`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
+The AddUavDeviceOperator migration seeds this role without restoring historical
+operator memberships removed by HumanUserRoles. Administrators must explicitly
+assign the role and farm memberships. Sensor creation requires an assigned farm;
+UAV/gateway catalogs retain their existing global scope. Only the POST collection
+endpoints for sensor-nodes, uavs and gateways use CreateDevices. Editing, status
+changes, gateway credentials, channel management and flight actions retain their
+existing policies. Existing administrator/owner permissions remain unchanged.
+
+
+### UAV and Device Operator (2026-10-27)
+
+`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
+The AddUavDeviceOperator migration seeds this role without restoring historical
+operator memberships removed by HumanUserRoles. Administrators must explicitly
+assign the role and farm memberships. Sensor creation requires an assigned farm;
+UAV/gateway catalogs retain their existing global scope. Only the POST collection
+endpoints for sensor-nodes, uavs and gateways use CreateDevices (administrator,
+owner and operator). ReadFarmData also includes operator. Editing, status
+changes, gateway credentials, channel management and flight actions retain their
+existing policies. Existing administrator/owner permissions remain unchanged.
+
+
+User creation (`POST /api/users`) requires exactly one supported role in `roles`.
+Missing/null, empty, duplicate or multiple roles are rejected with HTTP 400.
+The existing prohibition on creating FarmAdministrator accounts remains.
+
+
+### Audit remediation recovery rules
+- Unknown-time/all-null sensor records are durably archived, never assigned fabricated
+  measurement times or included in normal analytics/threshold evaluation.
+- Partial sync retries reconsider rejected indexes; accepted outcomes are stable.
+- A recovered flight test requires gateway-confirmed landing and unchanged original
+  failure evidence before releasing its reservation as FAILED.

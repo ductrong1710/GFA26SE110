@@ -5,6 +5,7 @@ namespace FarmMonitoring.Infrastructure.Persistence;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    public DbSet<ArchivedSensorRecord> ArchivedSensorRecords => Set<ArchivedSensorRecord>();
     public DbSet<FlightTest> FlightTests => Set<FlightTest>();
     public DbSet<UserFarm> UserFarms => Set<UserFarm>();
     public DbSet<User> Users => Set<User>();

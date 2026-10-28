@@ -13,4 +13,5 @@ public interface IEquipmentRepository
     void AddUav(Uav uav);
     void AddGateway(Gateway gateway);
     Task SaveAsync(CancellationToken ct);
+    Task<bool> RecordHeartbeatAsync(int id, DateTimeOffset receivedAt, CancellationToken ct);
 }

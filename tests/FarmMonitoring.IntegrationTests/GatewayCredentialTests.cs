@@ -19,6 +19,47 @@ namespace FarmMonitoring.IntegrationTests;
 public sealed class GatewayCredentialTests(ApiFactory factory)
 {
     [Fact]
+    public async Task Heartbeat_authenticates_device_and_catalog_expires_contact()
+    {
+        var gateway = await Gateway();
+        using var human = await Login();
+        var key = (await Create(human, gateway.Id)).GetProperty("apiKey").GetString()!;
+        using var device = Device(gateway.Code, key);
+        var path = $"/api/device/gateways/{gateway.Id}/heartbeat";
+        Assert.Equal("OFFLINE", (await Data(await human.GetAsync($"/api/gateways/{gateway.Id}"))).GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await human.PostAsync(path, null)).StatusCode);
+        using var wrong = Device(gateway.Code, "invalid-key");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await wrong.PostAsync(path, null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await device.PostAsync($"/api/device/gateways/{gateway.Id + 10000}/heartbeat", null)).StatusCode);
+        var beat = await Data(await device.PostAsync(path, null));
+        Assert.Equal("ONLINE", beat.GetProperty("status").GetString());
+        Assert.Equal("ONLINE", (await Data(await human.GetAsync($"/api/gateways/{gateway.Id}"))).GetProperty("status").GetString());
+        var list = await Data(await human.GetAsync($"/api/gateways?search={gateway.Code}"));
+        Assert.Equal("ONLINE", list[0].GetProperty("status").GetString());
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Gateways.Where(x => x.Id == gateway.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSeenAt, DateTimeOffset.UtcNow.AddSeconds(-91)));
+        Assert.Equal("OFFLINE", (await Data(await human.GetAsync($"/api/gateways/{gateway.Id}"))).GetProperty("status").GetString());
+        // Human metadata cannot spoof connectivity.
+        (await human.PutAsJsonAsync($"/api/gateways/{gateway.Id}", new { code = gateway.Code, name = gateway.Name,
+            gatewayType = gateway.GatewayType, status = "ONLINE", lastSeenAt = DateTimeOffset.UtcNow })).EnsureSuccessStatusCode();
+        Assert.Equal("OFFLINE", (await Data(await human.GetAsync($"/api/gateways/{gateway.Id}"))).GetProperty("status").GetString());
+        var uav = new Uav { Code = Guid.NewGuid().ToString("N"), Name = "Heartbeat reserved UAV", CreatedAt = DateTimeOffset.UtcNow };
+        db.Uavs.Add(uav);
+        await db.SaveChangesAsync();
+        var reserved = new FlightTest { GatewayId = gateway.Id, UavId = uav.Id,
+            RequestedByUserId = await db.Users.Where(x => x.Email == "admin@example.com").Select(x => x.Id).SingleAsync(),
+            RequestKey = Guid.NewGuid().ToString("N"), Status = FlightTestStatus.CLAIMED,
+            CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2) };
+        db.FlightTests.Add(reserved);
+        await db.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.OK, (await device.PostAsync(path, null)).StatusCode);
+        Assert.Equal(FlightTestStatus.CLAIMED, (await db.FlightTests.AsNoTracking().SingleAsync(x => x.Id == reserved.Id)).Status);
+        await db.Gateways.Where(x => x.Id == gateway.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await device.PostAsync(path, null)).StatusCode);
+    }
+
+    [Fact]
     public async Task Create_returns_key_once_and_persists_only_hash_with_creator()
     {
         var gateway = await Gateway();

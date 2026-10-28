@@ -19,8 +19,15 @@ namespace FarmMonitoring.Api.Controllers;
 [ProducesResponseType<ApiError>(StatusCodes.Status404NotFound)]
 [ProducesResponseType<ApiError>(StatusCodes.Status409Conflict)]
 [ProducesResponseType<ApiError>(StatusCodes.Status422UnprocessableEntity)]
-public sealed class MissionsController(MissionService missions) : ControllerBase
+public sealed class MissionsController(MissionService missions, MissionLaunchService launch) : ControllerBase
 {
+    [HttpGet("{id:int}/launch")]
+    public async Task<ActionResult<ApiResponse<MissionLaunchResponse>>> Launch(int id, CancellationToken ct) =>
+        Ok(ApiResponse<MissionLaunchResponse>.Ok(await launch.GetAsync(id, ct)));
+    [HttpPost("{id:int}/launch/approve")]
+    [Authorize(Policy = AccessPolicies.ManageMissions)]
+    public async Task<ActionResult<ApiResponse<MissionLaunchResponse>>> ApproveLaunch(int id, ApproveMissionLaunchRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<MissionLaunchResponse>.Ok(await launch.ApproveAsync(id, request, Actor, ct)));
     private int Actor => int.Parse(User.FindFirst("sub")!.Value, CultureInfo.InvariantCulture);
     [HttpGet]
     public async Task<ActionResult<ApiPageResponse<MissionSummary>>> List([FromQuery] MissionQuery query, CancellationToken ct) =>

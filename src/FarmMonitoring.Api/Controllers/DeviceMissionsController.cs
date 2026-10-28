@@ -17,8 +17,14 @@ namespace FarmMonitoring.Api.Controllers;
 [ProducesResponseType<ApiError>(StatusCodes.Status404NotFound)]
 [ProducesResponseType<ApiError>(StatusCodes.Status409Conflict)]
 [ProducesResponseType<ApiError>(StatusCodes.Status422UnprocessableEntity)]
-public sealed class DeviceMissionsController(DeviceMissionService missions) : ControllerBase
+public sealed class DeviceMissionsController(DeviceMissionService missions, MissionLaunchService launch) : ControllerBase
 {
+    [HttpPost("{missionId:int}/launch/ready")]
+    public async Task<ActionResult<ApiResponse<MissionLaunchResponse>>> Ready(int gatewayId, int missionId, MissionLaunchRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<MissionLaunchResponse>.Ok(await launch.DeviceAsync(missionId, gatewayId, Gateway, request, false, ct)));
+    [HttpPost("{missionId:int}/launch/consume")]
+    public async Task<ActionResult<ApiResponse<MissionLaunchResponse>>> Consume(int gatewayId, int missionId, MissionLaunchRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<MissionLaunchResponse>.Ok(await launch.DeviceAsync(missionId, gatewayId, Gateway, request, true, ct)));
     private int Gateway => int.Parse(User.FindFirst("gateway_id")!.Value, CultureInfo.InvariantCulture);
     [HttpGet("next")]
     public async Task<ActionResult<ApiResponse<DeviceMissionResponse?>>> Next(int gatewayId, CancellationToken ct) =>

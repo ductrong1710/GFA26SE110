@@ -10,6 +10,14 @@ namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
 public sealed class SensorDataRepository(AppDbContext db) : ISensorDataRepository
 {
+    public async Task<PagedResult<ArchivedRecordResponse>> UnresolvedAsync(int nodeId, PageQuery query, CancellationToken ct)
+    {
+        var rows = db.ArchivedSensorRecords.AsNoTracking().Where(x => x.SensorNodeId == nodeId);
+        var count = await rows.CountAsync(ct);
+        var items = await rows.OrderByDescending(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToArrayAsync(ct);
+        return new(items.Select(x => new ArchivedRecordResponse(x.Id, x.SensorNodeId, x.GatewayId, x.MissionId, x.SourceRecordKey,
+            System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(x.PayloadJson), x.ReceivedAt)).ToArray(), count, query.Page, query.PageSize);
+    }
     private static readonly Expression<Func<SensorReading, ReadingResponse>> Projection = x => new(x.Id, x.SensorChannelId,
         x.SensorChannel.SensorNodeId, x.SensorChannel.ChannelCode, x.SensorChannel.SensorType.Unit, x.GatewayId, x.MissionId,
         x.SourceRecordKey, x.Value, x.MeasuredAt, x.CollectedAt, x.ReceivedAt, x.QualityStatus, x.IsValid, x.ValidationError);

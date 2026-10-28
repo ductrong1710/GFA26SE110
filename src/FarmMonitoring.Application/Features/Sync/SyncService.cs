@@ -29,37 +29,82 @@ public sealed class SyncService(ISyncRepository repository, IMissionRepository m
             var gateway = await missions.LockGatewayAsync(gatewayId, ct);
             if (gateway is not { IsActive: true }) throw new AccessDeniedException("Gateway is inactive.");
             var previous = await repository.FindBatchAsync(gatewayId, request.BatchKey, ct);
+            SyncResponse? savedResponse = null;
             if (previous is not null)
             {
                 if (previous.PayloadHash != hash) throw new ConflictException("Batch key was already used for a different payload.");
-                gateway.LastSeenAt = clock.GetUtcNow();
-                await repository.SaveAsync(ct);
-                return JsonSerializer.Deserialize<SyncResponse>(previous.ResponseJson)!;
+                savedResponse = JsonSerializer.Deserialize<SyncResponse>(previous.ResponseJson)!;
+                if (previous.Status == SyncBatchStatuses.Completed)
+                {
+                    gateway.LastSeenAt = clock.GetUtcNow();
+                    await repository.SaveAsync(ct);
+                    return savedResponse;
+                }
             }
             if (mission is { Status: MissionStatus.PENDING or MissionStatus.SCHEDULED })
                 throw new BusinessRuleException("Collection requires a mission that has started.");
             var now = clock.GetUtcNow();
             gateway.LastSeenAt = now;
-            var channels = await repository.LockChannelsAsync(request.Records.Where(x => x?.SensorNodeCode is { Length: <= 100 } code && SafeText(code)).Select(x => x!.SensorNodeCode!).Distinct().ToArray(), ct);
+            var channels = await repository.LockChannelsAsync(request.Records.Select(x => x?.SensorNodeCode)
+                .Concat((request.UnresolvedRecords ?? []).Select(x => x?.SensorNodeCode))
+                .Where(code => code is { Length: > 0 and <= 100 } && SafeText(code)).Select(code => code!).Distinct().ToArray(), ct);
             var outcomes = new List<SyncRecordOutcome>();
             for (var index = 0; index < request.Records.Length; index++)
-                outcomes.Add(await ProcessRecord(index, request.Records[index], channels, mission, gatewayId, now, ct));
+                outcomes.Add(savedResponse?.Records[index] is { Status: not SyncOutcomeStatuses.Rejected } saved
+                    ? saved : await ProcessRecord(index, request.Records[index], channels, mission, gatewayId, now, ct));
             var attempts = mission is null ? [] : (await repository.AttemptsAsync(mission.Id, ct)).ToList();
-            var collection = (request.CollectionResults ?? []).Select((item, index) => ProcessAttempt(index, item, mission!, gatewayId, now, attempts)).ToArray();
+            var collection = (request.CollectionResults ?? []).Select((item, index) =>
+                savedResponse?.CollectionResults[index] is { Status: not SyncOutcomeStatuses.Rejected } saved
+                    ? saved : ProcessAttempt(index, item, mission!, gatewayId, now, attempts)).ToArray();
+            var unresolved = new List<SyncRecordOutcome>();
+            for (var index = 0; index < (request.UnresolvedRecords?.Length ?? 0); index++)
+                unresolved.Add(savedResponse?.UnresolvedRecords?.ElementAtOrDefault(index) is { Status: not SyncOutcomeStatuses.Rejected } saved
+                    ? saved : await ProcessUnresolved(index, request.UnresolvedRecords![index], mission, gatewayId, now, ct));
             var response = new SyncResponse(request.BatchKey, outcomes.Count(x => x.Status == SyncOutcomeStatuses.Accepted), outcomes.Count(x => x.Status == SyncOutcomeStatuses.Duplicate),
-                outcomes.Count(x => x.Status == SyncOutcomeStatuses.Rejected), outcomes, collection);
-            repository.AddBatch(new SyncBatch
+                outcomes.Count(x => x.Status == SyncOutcomeStatuses.Rejected), outcomes, collection, unresolved);
+            var batch = previous ?? new SyncBatch
             {
                 GatewayId = gatewayId, MissionId = request.MissionId, BatchKey = request.BatchKey, PayloadHash = hash,
-                RecordCount = outcomes.Count, AcceptedCount = response.Accepted, DuplicateCount = response.Duplicates, RejectedCount = response.Rejected,
-                Status = response.Rejected == 0 && collection.All(x => x.Status != SyncOutcomeStatuses.Rejected) ? SyncBatchStatuses.Completed : SyncBatchStatuses.Partial,
-                StartedAt = now, CompletedAt = clock.GetUtcNow(), ResponseJson = JsonSerializer.Serialize(response)
-            });
-            if (mission is not null && collection.Any(x => x.Status == SyncOutcomeStatuses.Accepted))
+                StartedAt = now
+            };
+            batch.RecordCount = outcomes.Count + unresolved.Count; batch.AcceptedCount = response.Accepted;
+            batch.AcceptedCount += unresolved.Count(x => x.Status == SyncOutcomeStatuses.Accepted);
+            batch.DuplicateCount = response.Duplicates + unresolved.Count(x => x.Status == SyncOutcomeStatuses.Duplicate);
+            batch.RejectedCount = response.Rejected + unresolved.Count(x => x.Status == SyncOutcomeStatuses.Rejected);
+            batch.Status = batch.RejectedCount == 0 && collection.All(x => x.Status != SyncOutcomeStatuses.Rejected) ? SyncBatchStatuses.Completed : SyncBatchStatuses.Partial;
+            batch.CompletedAt = clock.GetUtcNow(); batch.ResponseJson = JsonSerializer.Serialize(response);
+            if (previous is null) repository.AddBatch(batch);
+            if (mission is not null && collection.Any(x => x.Status == SyncOutcomeStatuses.Accepted &&
+                (savedResponse is null || savedResponse.CollectionResults[x.Index].Status == SyncOutcomeStatuses.Rejected)))
                 missions.AddLog(new MissionLog { MissionId = mission.Id, GatewayId = gatewayId, LogType = "SYNC", Message = $"Batch {request.BatchKey}: {response.Accepted} readings accepted.", CreatedAt = now });
             await repository.SaveAsync(ct);
             return response;
         }, ct);
+    }
+
+    private async Task<SyncRecordOutcome> ProcessUnresolved(int index, UnresolvedRecordRequest? request,
+        Mission? mission, int gatewayId, DateTimeOffset now, CancellationToken ct)
+    {
+        SyncRecordOutcome Reject(string error) => new(index, SafeText(request?.SourceRecordKey) ? request?.SourceRecordKey : null, SyncOutcomeStatuses.Rejected, error);
+        if (request is null || string.IsNullOrWhiteSpace(request.SensorNodeCode) || request.SensorNodeCode.Length > 100 ||
+            string.IsNullOrWhiteSpace(request.SourceRecordKey) || request.SourceRecordKey.Length > 150 ||
+            !SafeText(request.SensorNodeCode) || !SafeText(request.SourceRecordKey) || request.Payload is not { ValueKind: JsonValueKind.Object } p)
+            return Reject("Valid sensor, source key and original object payload required.");
+        if (p.GetRawText().Length > 4096 || HasUnsupportedJsonText(p) || !p.TryGetProperty("deviceCode", out var device) || device.ValueKind != JsonValueKind.String || device.GetString() != request.SensorNodeCode ||
+            !p.TryGetProperty("recordId", out var id) || id.ValueKind != JsonValueKind.String || id.GetString() != request.SourceRecordKey ||
+            !p.TryGetProperty("sequence", out var seq) || seq.ValueKind != JsonValueKind.Number || !seq.TryGetUInt32(out var sequence) || sequence == 0 || request.SourceRecordKey != $"{request.SensorNodeCode}-{sequence}")
+            return Reject("Original record identity is invalid.");
+        var node = await repository.FindNodeAsync(request.SensorNodeCode, ct);
+        if (node is null || !node.IsActive) return Reject("Sensor must exist and be active.");
+        if (mission is not null && (node.Zone.FarmId != mission.FarmId || !mission.Targets.Any(x => x.SensorNodeId == node.Id)))
+            return Reject("Sensor is not a target in this mission farm.");
+        var existing = await repository.FindArchivedAsync(node.Id, request.SourceRecordKey, ct);
+        if (existing is not null)
+            return existing.MissionId == mission?.Id && JsonElement.DeepEquals(JsonSerializer.Deserialize<JsonElement>(existing.PayloadJson), p)
+                ? new(index, request.SourceRecordKey, SyncOutcomeStatuses.Duplicate, null) : Reject("Source record key identifies different archived data.");
+        repository.AddArchived(new ArchivedSensorRecord { SensorNodeId = node.Id, GatewayId = gatewayId, MissionId = mission?.Id,
+            SourceRecordKey = request.SourceRecordKey, PayloadJson = p.GetRawText(), ReceivedAt = now });
+        return new(index, request.SourceRecordKey, SyncOutcomeStatuses.Accepted, null);
     }
 
     private async Task<SyncRecordOutcome> ProcessRecord(int index, SyncRecordRequest? request, IReadOnlyList<SensorChannel> channels,
@@ -131,5 +176,12 @@ public sealed class SyncService(ISyncRepository repository, IMissionRepository m
         return true;
     }
     private static DateTimeOffset Normalize(DateTimeOffset value) => new(value.UtcTicks - value.UtcTicks % 10, TimeSpan.Zero);
+    private static bool HasUnsupportedJsonText(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => !SafeText(value.GetString()),
+        JsonValueKind.Object => value.EnumerateObject().Any(x => !SafeText(x.Name) || HasUnsupportedJsonText(x.Value)),
+        JsonValueKind.Array => value.EnumerateArray().Any(HasUnsupportedJsonText),
+        _ => false
+    };
     private static bool SafeText(string? value) => value is null || !value.Contains('\0');
 }

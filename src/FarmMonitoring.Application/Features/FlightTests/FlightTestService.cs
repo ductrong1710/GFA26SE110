@@ -32,6 +32,26 @@ public sealed class FlightTestService(IFlightTestRepository repository, FarmAcce
         var test=await repository.NextAsync(gatewayId,clock.GetUtcNow(),ct);
         return test is null ? null : Response(test);
     }
+    public async Task<FlightTestResponse> CancelAsync(int gatewayId, int id, CancelFlightTestRequest request, CancellationToken ct)
+    {
+        await access.EnsureAdministratorAsync(ct);
+        if (!request.ConfirmAircraftGrounded || !request.ConfirmNeverStarted ||
+            string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 60 || request.Reason.Any(char.IsControl))
+            throw new ValidationException("Confirm the aircraft is grounded and the test was never started by firmware; provide a reason of 1 to 60 characters.");
+        return await repository.InTransactionAsync(async () => {
+            var test = await Require(gatewayId, id, ct);
+            if (test.Status == FlightTestStatus.CANCELLED) return Response(test);
+            if (test.Status is not (FlightTestStatus.QUEUED or FlightTestStatus.CLAIMED or FlightTestStatus.EXPIRED) ||
+                test.TakeoffAttempted == true || test.ObservedAltitudeCm > 0 || test.HeldMs > 0)
+                throw new ConflictException("Only a flight test that never started can be cancelled. Flight or recovery evidence must be resolved by the gateway.");
+            test.Status = FlightTestStatus.CANCELLED;
+            // Preserve telemetry as-is: this is an operator cancellation, not device flight evidence.
+            test.ErrorCode = $"ADMIN_CANCELLED:{user.UserId}:{request.Reason.Trim()}";
+            test.ReportedAt = clock.GetUtcNow();
+            await repository.SaveAsync(ct);
+            return Response(test);
+        }, ct);
+    }
     public async Task<FlightTestResponse> ClaimAsync(int gatewayId, int authenticatedGateway, int id, CancellationToken ct)
     {
         Authenticate(gatewayId,authenticatedGateway);
@@ -58,7 +78,11 @@ public sealed class FlightTestService(IFlightTestRepository repository, FarmAcce
             var test=await Require(gatewayId,id,ct);
             var interruptedBeforeTakeoff = request.Status=="FAILED" && request.TakeoffAttempted==false &&
                 test.Status is FlightTestStatus.QUEUED or FlightTestStatus.EXPIRED;
-            if (test.Status!=FlightTestStatus.CLAIMED && !interruptedBeforeTakeoff) {
+            // Recovery confirms landing; it cannot rewrite the original flight or failure evidence.
+            var recovered = test.Status == FlightTestStatus.RECOVERY_REQUIRED && request.Status == "FAILED" &&
+                request.Landed == true && request.UavConnected == true && request.TakeoffAttempted == test.TakeoffAttempted &&
+                request.ObservedAltitudeCm == test.ObservedAltitudeCm && request.HeldMs == test.HeldMs && request.ErrorCode == test.ErrorCode;
+            if (test.Status!=FlightTestStatus.CLAIMED && !interruptedBeforeTakeoff && !recovered) {
                 if (test.Status.ToString()==request.Status && test.TakeoffAttempted==request.TakeoffAttempted && test.GatewayConnected==request.GatewayConnected && test.UavConnected==request.UavConnected && test.Landed==request.Landed && test.ObservedAltitudeCm==request.ObservedAltitudeCm && test.HeldMs==request.HeldMs && test.ErrorCode==request.ErrorCode) return Response(test);
                 throw new ConflictException("Result conflicts with the recorded state.");
             }

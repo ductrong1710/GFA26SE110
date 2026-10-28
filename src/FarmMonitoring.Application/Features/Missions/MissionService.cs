@@ -90,6 +90,7 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
         mission.ScheduledEndAt = candidate.ScheduledEndAt;
         mission.Status = candidate.Status;
         await repository.ReplacePlanAsync(mission, targets, waypoints, ct);
+        MissionLaunchRules.Invalidate(mission);
     }
 
     public async Task<MissionResponse> ScheduleAsync(int id, ScheduleMissionRequest request, int actor, CancellationToken ct)
@@ -106,6 +107,7 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
             await lifecycle.ValidateResources(mission, true, ct);
             await lifecycle.CheckOverlap(mission, false, ct);
             mission.Status = MissionStatus.SCHEDULED;
+            MissionLaunchRules.Invalidate(mission);
             mission.UpdatedAt = clock.GetUtcNow();
             Log(mission, actor, "SCHEDULED", "Mission scheduled.");
             await repository.SaveAsync(ct);
@@ -168,5 +170,5 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
     private async Task<MissionResponse> MapAsync(Mission x, CancellationToken ct) => new(x.Id, x.Name, x.Status.ToString(), new(x.FarmId, x.Farm.Name),
         x.Uav is null ? null : new(x.Uav.Id, x.Uav.Name), x.Gateway is null ? null : new(x.Gateway.Id, x.Gateway.Name),
         x.ScheduledStartAt, x.ScheduledEndAt, x.StartedAt, x.CompletedAt, x.CreatedByUserId, x.OperatorNotes, x.FailureReason,
-        x.CreatedAt, x.UpdatedAt, await TargetsAsync(x, ct), Waypoints(x), Progress(x));
+        x.CreatedAt, x.UpdatedAt, await TargetsAsync(x, ct), Waypoints(x), Progress(x), x.PlanRevision);
 }

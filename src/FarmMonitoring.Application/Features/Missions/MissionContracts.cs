@@ -35,7 +35,7 @@ public sealed record MissionResponse(int Id, string Name, string Status, Mission
     MissionReference? Uav, MissionReference? Gateway, DateTimeOffset? ScheduledStartAt, DateTimeOffset? ScheduledEndAt,
     DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, int CreatedByUserId, string? OperatorNotes,
     string? FailureReason, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt,
-    IReadOnlyList<TargetResponse> Targets, IReadOnlyList<WaypointResponse> Waypoints, MissionProgress Progress);
+    IReadOnlyList<TargetResponse> Targets, IReadOnlyList<WaypointResponse> Waypoints, MissionProgress Progress, int PlanRevision = 0);
 public sealed record MissionResults(int MissionId, string Status, int TotalTargets, int SuccessfulTargets,
     int FailedTargets, int SkippedTargets, int PendingTargets, IReadOnlyList<TargetResponse> Targets);
 public sealed record MissionLogResponse(int Id, int MissionId, int? UserId, int? GatewayId, string LogType, string Message, DateTimeOffset CreatedAt);

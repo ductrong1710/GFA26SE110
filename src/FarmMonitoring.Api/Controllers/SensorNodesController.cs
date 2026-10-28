@@ -27,7 +27,7 @@ public sealed class SensorNodesController(SensorService sensors) : ControllerBas
         Ok(ApiResponse<SensorNodeResponse>.Ok(await sensors.GetNodeAsync(id, ct)));
 
     [HttpPost]
-    [Authorize(Policy = AccessPolicies.ManageDevices)]
+    [Authorize(Policy = AccessPolicies.CreateDevices)]
     [ProducesResponseType<ApiResponse<SensorNodeResponse>>(StatusCodes.Status201Created)]
     public async Task<ActionResult<ApiResponse<SensorNodeResponse>>> Create(SensorNodeRequest request, CancellationToken ct)
     {

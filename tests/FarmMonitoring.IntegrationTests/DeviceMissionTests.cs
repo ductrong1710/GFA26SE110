@@ -44,11 +44,98 @@ public sealed class DeviceMissionTests : IAsyncLifetime
     }
     public async Task DisposeAsync() { human?.Dispose(); device?.Dispose(); await factory.DisposeAsync(); }
     private string Root => $"/api/device/gateways/{gatewayId}/missions";
+    private async Task<(int Id, int Revision)> LaunchMission()
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Uavs.Where(x => x.Id == uavId).ExecuteUpdateAsync(x => x.SetProperty(u => u.Model, "DJI Tello"));
+        var plan = JsonSerializer.SerializeToNode(Plan())!.AsObject();
+        plan["waypoints"]![0]!["altitudeM"] = 1m;
+        var id = (await Data(await human.PostAsJsonAsync("/api/missions", plan))).GetProperty("id").GetInt32();
+        var start = DateTimeOffset.UtcNow.AddMinutes(2);
+        await Data(await human.PostAsJsonAsync($"/api/missions/{id}/schedule", new { scheduledStartAt = start, scheduledEndAt = start.AddMinutes(5) }));
+        var pulled = await Data(await device.GetAsync(Root + "/next"));
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/downloaded", new { }));
+        return (id, pulled.GetProperty("planRevision").GetInt32());
+    }
+
+    [Fact]
+    public async Task Remote_launch_requires_confirmation_current_boot_due_time_and_is_consumed_once()
+    {
+        var (id, revision) = await LaunchMission();
+        var session = new string('a', 32);
+        var ready = new { session, planRevision = revision };
+        var approve = new { session, planRevision = revision, confirmAircraftReady = true, confirmAreaClear = true };
+        Assert.Equal(HttpStatusCode.Conflict, (await device.PostAsJsonAsync($"{Root}/{id}/launch/consume", ready)).StatusCode);
+        Assert.Equal("AWAITING_CONFIRMATION", (await Data(await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", ready))).GetProperty("state").GetString());
+        await Data(await human.PostAsJsonAsync($"/api/missions/{id}/launch/approve", approve));
+        Assert.Equal(HttpStatusCode.Conflict, (await device.PostAsJsonAsync($"{Root}/{id}/launch/consume", ready)).StatusCode);
+        // A reboot invalidates even a recently granted approval.
+        var reboot = new { session = new string('b', 32), planRevision = revision };
+        Assert.Equal("AWAITING_CONFIRMATION", (await Data(await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", reboot))).GetProperty("state").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await human.PostAsJsonAsync($"/api/missions/{id}/launch/approve", approve)).StatusCode);
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", ready));
+        await Data(await human.PostAsJsonAsync($"/api/missions/{id}/launch/approve", approve));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Missions.Where(x => x.Id == id).ExecuteUpdateAsync(x => x.SetProperty(m => m.ScheduledStartAt, DateTimeOffset.UtcNow.AddSeconds(-2)));
+        }
+        var responses = await Task.WhenAll(device.PostAsJsonAsync($"{Root}/{id}/launch/consume", ready), device.PostAsJsonAsync($"{Root}/{id}/launch/consume", ready));
+        var states = new List<string?>();
+        foreach (var response in responses) states.Add((await Data(response)).GetProperty("state").GetString());
+        Assert.Single(states, x => x == "START_ACCEPTED");
+        Assert.Single(states, x => x == "CONSUMED");
+        Assert.Equal("CONSUMED", (await Data(await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", reboot))).GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Launch_rejects_stale_plan_and_expiry_cancels_without_starting()
+    {
+        var (id, revision) = await LaunchMission();
+        var session = new string('a', 32);
+        Assert.Equal(HttpStatusCode.Conflict, (await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", new { session, planRevision = revision - 1 })).StatusCode);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Missions.Where(x => x.Id == id).ExecuteUpdateAsync(x => x.SetProperty(m => m.ScheduledStartAt, DateTimeOffset.UtcNow.AddMinutes(-2)));
+        }
+        Assert.Equal("MISSED", (await Data(await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", new { session, planRevision = revision }))).GetProperty("state").GetString());
+        var mission = await Data(await human.GetAsync($"/api/missions/{id}"));
+        Assert.Equal("CANCELLED", mission.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, mission.GetProperty("startedAt").ValueKind);
+        using var anonymous = factory.CreateApiClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/missions/{id}/launch")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await human.PostAsJsonAsync($"{Root}/{id}/launch/ready", new { session, planRevision = revision })).StatusCode);
+    }
     private object Plan(int waypointSequence = 2) => new {
         name = "Autonomous mission", farmId, gatewayId, uavId, sensorNodeIds = new[] { sensorId },
         targetAssignments = new[] { new { sensorNodeId = sensorId, waypointSequenceNo = waypointSequence, sequenceNo = 1 } },
         waypoints = new[] { new { sequenceNo = 2, localX = 0.5m, localY = 0m, altitudeM = 0.35m, actionType = "COLLECT", plannedHoldSeconds = 10 } }
     };
+    [Fact]
+    public async Task Launch_approval_enforces_human_roles_farm_scope_and_both_confirmations()
+    {
+        var (id, revision) = await LaunchMission();
+        var session = new string('a', 32);
+        await Data(await device.PostAsJsonAsync($"{Root}/{id}/launch/ready", new { session, planRevision = revision }));
+        var request = new { session, planRevision = revision, confirmAircraftReady = true, confirmAreaClear = true };
+        foreach (var email in new[] { "owner@example.com", "engineer@example.com" })
+        {
+            using var client = factory.CreateApiClient();
+            var login = await Data(await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" }));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("accessToken").GetString());
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/missions/{id}/launch")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/missions/{id}/launch/approve", request)).StatusCode);
+            await factory.AssignFarmAsync(farmId, email);
+            await Data(await client.GetAsync($"/api/missions/{id}/launch"));
+            var response = await client.PostAsJsonAsync($"/api/missions/{id}/launch/approve", request);
+            if (email.StartsWith("owner")) response.EnsureSuccessStatusCode();
+            else Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await human.PostAsJsonAsync($"/api/missions/{id}/launch/approve",
+            new { session, planRevision = revision, confirmAircraftReady = true, confirmAreaClear = false })).StatusCode);
+    }
     private static async Task<JsonElement> Data(HttpResponseMessage response)
     {
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();

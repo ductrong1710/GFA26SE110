@@ -25,7 +25,7 @@ public sealed class UavsController(EquipmentService equipment) : ControllerBase
     public async Task<ActionResult<ApiResponse<UavResponse>>> Get(int id, CancellationToken ct) =>
         Ok(ApiResponse<UavResponse>.Ok(await equipment.GetUavAsync(id, ct)));
     [HttpPost]
-    [Authorize(Policy = AccessPolicies.ManageDevices)]
+    [Authorize(Policy = AccessPolicies.CreateDevices)]
     [ProducesResponseType<ApiResponse<UavResponse>>(StatusCodes.Status201Created)]
     public async Task<ActionResult<ApiResponse<UavResponse>>> Create(UavRequest request, CancellationToken ct)
     {

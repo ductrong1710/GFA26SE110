@@ -1,5 +1,10 @@
 # DATABASE.md
 
+Flight-test `status` also supports `CANCELLED` (existing varchar mapping; no schema
+migration). Administrative cancellation stores `ADMIN_CANCELLED:<userId>:<reason>`
+in the existing 100-character `error_code` and uses `reported_at` for its UTC time.
+The original requested_by_user_id and nullable device evidence remain unchanged.
+
 ## 1. Database Standard
 
 Database engine:
@@ -184,6 +189,7 @@ Supported human role values:
 FarmAdministrator
 FarmOwner
 FarmEngineer
+UavDeviceOperator
 ```
 
 Columns:
@@ -200,7 +206,7 @@ Migration `20261007041338_HumanUserRoles` removes memberships referencing the de
 
 An account with no supported role cannot log in, refresh or access `/api/auth/me` until an administrator assigns a valid role. Protected business policies read current database roles rather than trusting stale JWT roles.
 
-FarmAdministrator has global farm access without membership. FarmOwner and FarmEngineer require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+FarmAdministrator has global farm access without membership. FarmOwner, FarmEngineer and UavDeviceOperator require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
 
 Human users use JWT Bearer; gateway/device communication uses X-Api-Key + X-Gateway-Code independently. See API.md for the six-policy authorization matrix.
 
@@ -894,9 +900,9 @@ Never edit production schema manually without also creating the matching migrati
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
 - FarmAdministrator has global access, with no `user_farms` row required.
-- FarmOwner and FarmEngineer access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- FarmOwner, FarmEngineer and UavDeviceOperator access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
 - Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
-- Assignment requires an existing active FarmOwner/FarmEngineer user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Assignment requires an existing active FarmOwner/FarmEngineer/UavDeviceOperator user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
 - Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
 - Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
 - Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
@@ -953,3 +959,32 @@ dotnet ef database update --project src/FarmMonitoring.Infrastructure --startup-
 ```
 
 Stop a running Debug API before building/applying, or specify `--configuration Release` to avoid locked Debug binaries. Connection configuration follows AppDbContextFactory (appsettings/environment/Development user secrets). Migration generation and integration tests do not update the user's application database.
+
+## ScheduledMissionLaunch migration
+Adds missions.plan_revision (integer, existing rows default 0), launch_session
+(nullable varchar(32)), launch_ready_at, launch_approved_at, launch_consumed_at
+(nullable UTC timestamptz). Revision increments and launch fields clear on plan/schedule
+changes or returning to pending. Session changes clear approval. LAUNCH_APPROVED logs
+retain the author/time; LAUNCH_CONSUMED logs retain gateway/time. Consumption and RUNNING
+commit atomically under the existing reservation transaction. No mission/history is deleted.
+
+
+### UAV and Device Operator (2026-10-27)
+
+`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
+The AddUavDeviceOperator migration seeds this role without restoring historical
+operator memberships removed by HumanUserRoles. Administrators must explicitly
+assign the role and farm memberships. Sensor creation requires an assigned farm;
+UAV/gateway catalogs retain their existing global scope. Only the POST collection
+endpoints for sensor-nodes, uavs and gateways use CreateDevices (administrator,
+owner and operator). ReadFarmData also includes operator. Editing, status
+changes, gateway credentials, channel management and flight actions retain their
+existing policies. Existing administrator/owner permissions remain unchanged.
+
+
+### Archived unresolved sensor records
+Migration `ArchiveUnresolvedSensorRecords` adds `archived_sensor_records` with integer
+identity, restrictive FKs to node/gateway/optional mission, unique (sensor_node_id,
+source_record_key), original JSONB payload, and server received_at. It does not change
+existing readings or the sample administrator. Migration files were generated only;
+no database migration was applied during this remediation.

@@ -487,24 +487,26 @@ Main roles:
 FarmAdministrator
 FarmOwner
 FarmEngineer
+UavDeviceOperator
 ```
 
-| Policy | FarmAdministrator | FarmOwner | FarmEngineer |
-|---|---|---|---|
-| ManageUsers | Yes | No | No |
-| ManageFarms | Yes | Yes | No |
-| ReadFarmData | Yes | Yes | Yes |
-| ManageDevices | Yes | Yes | No |
-| ConfigureThresholds | Yes | No | Yes |
-| ManageMissions | Yes | Yes | No |
+| Policy | FarmAdministrator | FarmOwner | FarmEngineer | UavDeviceOperator |
+|---|---|---|---|---|
+| ManageUsers | Yes | No | No | No |
+| ManageFarms | Yes | Yes | No | No |
+| ReadFarmData | Yes | Yes | Yes | Yes |
+| CreateDevices | Yes | Yes | No | Yes |
+| ManageDevices | Yes | Yes | No | No |
+| ConfigureThresholds | Yes | No | Yes | No |
+| ManageMissions | Yes | Yes | No | No |
 
 Human users authenticate with JWT Bearer. Gateway/device endpoints use independent Device Authentication with both `X-Api-Key` and `X-Gateway-Code`; human JWTs never substitute for device credentials. Device credentials do not grant access to human endpoints.
 
-All three human roles may read farms/zones, sensor data/history, alerts, dashboard and reports. Only FarmAdministrator manages users. FarmAdministrator/FarmOwner manage farms/zones, device metadata and missions. FarmAdministrator/FarmEngineer configure thresholds. Alert handling also requires farm access; private notification APIs retain recipient ownership checks.
+All four human roles may read farms/zones, sensor data/history, alerts, dashboard and reports. Only FarmAdministrator manages users. FarmAdministrator/FarmOwner manage farms/zones, device metadata and missions. FarmAdministrator/FarmEngineer configure thresholds. Alert handling also requires farm access; private notification APIs retain recipient ownership checks.
 
-FarmAdministrator has global farm access without membership. FarmOwner and FarmEngineer require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+FarmAdministrator has global farm access without membership. FarmOwner, FarmEngineer and UavDeviceOperator require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
 
-UAV Operator may describe an external/use-case actor, but is NOT an authenticated backend user role and cannot receive JWTs as an operator. Historical mission fields such as `operatorNotes` describe operational notes, not authorization roles.
+UavDeviceOperator is an authenticated human role that can register sensor nodes, UAVs and gateways through CreateDevices. It does not grant device-edit, user-management, farm-management, threshold or mission-control permissions. Historical mission fields such as `operatorNotes` describe operational notes, not authorization roles.
 
 Do not treat a gateway as a normal human user.
 
@@ -755,9 +757,9 @@ Do NOT:
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
 - FarmAdministrator has global access, with no `user_farms` row required.
-- FarmOwner and FarmEngineer access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- FarmOwner, FarmEngineer and UavDeviceOperator access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
 - Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
-- Assignment requires an existing active FarmOwner/FarmEngineer user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Assignment requires an existing active FarmOwner/FarmEngineer/UavDeviceOperator user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
 - Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
 - Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
 - Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
@@ -772,3 +774,28 @@ Direct UAV/Gateway catalog APIs retain existing global role permissions. Farm-sc
 Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` is only for human users and is never applied to device identity or required for telemetry/sync ingestion. Human telemetry reads require mission-farm access.
 
 Response conventions: 401 without valid authentication; 403 for denied role/farm access; 404 for nonexistent resources; 409 for duplicate membership; 400 for invalid request data; 422 for ineligible membership targets.
+
+
+### UAV and Device Operator (2026-10-27)
+
+`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
+The AddUavDeviceOperator migration seeds this role without restoring historical
+operator memberships removed by HumanUserRoles. Administrators must explicitly
+assign the role and farm memberships. Sensor creation requires an assigned farm;
+UAV/gateway catalogs retain their existing global scope. Only the POST collection
+endpoints for sensor-nodes, uavs and gateways use CreateDevices. Editing, status
+changes, gateway credentials, channel management and flight actions retain their
+existing policies. Existing administrator/owner permissions remain unchanged.
+
+
+### UAV and Device Operator (2026-10-27)
+
+`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
+The AddUavDeviceOperator migration seeds this role without restoring historical
+operator memberships removed by HumanUserRoles. Administrators must explicitly
+assign the role and farm memberships. Sensor creation requires an assigned farm;
+UAV/gateway catalogs retain their existing global scope. Only the POST collection
+endpoints for sensor-nodes, uavs and gateways use CreateDevices (administrator,
+owner and operator). ReadFarmData also includes operator. Editing, status
+changes, gateway credentials, channel management and flight actions retain their
+existing policies. Existing administrator/owner permissions remain unchanged.

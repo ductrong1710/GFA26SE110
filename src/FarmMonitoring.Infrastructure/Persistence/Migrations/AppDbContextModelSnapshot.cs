@@ -155,6 +155,54 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("alert_histories", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.ArchivedSensorRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<int?>("MissionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mission_id");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<int>("SensorNodeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_node_id");
+
+                    b.Property<string>("SourceRecordKey")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("source_record_key");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
+
+                    b.HasIndex("MissionId");
+
+                    b.HasIndex("SensorNodeId", "SourceRecordKey")
+                        .IsUnique();
+
+                    b.ToTable("archived_sensor_records", (string)null);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.CollectionAttempt", b =>
                 {
                     b.Property<int>("Id")
@@ -540,6 +588,23 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("gateway_id");
 
+                    b.Property<DateTimeOffset?>("LaunchApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("launch_approved_at");
+
+                    b.Property<DateTimeOffset?>("LaunchConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("launch_consumed_at");
+
+                    b.Property<DateTimeOffset?>("LaunchReadyAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("launch_ready_at");
+
+                    b.Property<string>("LaunchSession")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("launch_session");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -549,6 +614,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Property<string>("OperatorNotes")
                         .HasColumnType("text")
                         .HasColumnName("operator_notes");
+
+                    b.Property<int>("PlanRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("plan_revision");
 
                     b.Property<DateTimeOffset?>("ScheduledEndAt")
                         .HasColumnType("timestamp with time zone")
@@ -922,6 +991,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         {
                             Id = 4,
                             Name = "FarmEngineer"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Name = "UavDeviceOperator"
                         });
                 });
 
@@ -1704,6 +1778,32 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Alert");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.ArchivedSensorRecord", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorNode", "SensorNode")
+                        .WithMany()
+                        .HasForeignKey("SensorNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Gateway");
+
+                    b.Navigation("Mission");
+
+                    b.Navigation("SensorNode");
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.CollectionAttempt", b =>

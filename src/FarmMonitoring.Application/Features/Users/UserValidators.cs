@@ -33,6 +33,8 @@ public sealed class CreateUserValidator : AbstractValidator<CreateUserRequest>
         RuleFor(x => new UpdateUserRequest(x.Email, x.FullName)).SetValidator(new UpdateUserValidator());
         RuleFor(x => x.Password).NotEmpty().MinimumLength(12).MaximumLength(1024).OverridePropertyName("password");
         RuleFor(x => new UserRolesRequest(x.Roles)).SetValidator(new UserRolesValidator());
+        RuleFor(x => x.Roles).Must(roles => roles is { Length: 1 })
+            .WithMessage("Exactly one role is required when creating a user.").OverridePropertyName("roles");
         RuleFor(x => x.Roles).Must(x => x is not null && !x.Contains(RoleNames.FarmAdministrator))
             .WithMessage("Creating an administrator through this API is not allowed.").OverridePropertyName("roles");
     }

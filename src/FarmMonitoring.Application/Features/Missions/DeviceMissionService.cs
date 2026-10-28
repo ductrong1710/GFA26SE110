@@ -19,7 +19,7 @@ public sealed class DeviceMissionService(IMissionRepository repository, MissionL
             mission.ScheduledStartAt, mission.ScheduledEndAt,
             mission.Waypoints.OrderBy(w => w.SequenceNo).Select(w => new WaypointResponse(w.Id, w.SequenceNo, w.Latitude, w.Longitude, w.LocalX, w.LocalY, w.AltitudeM, w.ActionType, w.PlannedHoldSeconds)).ToArray(),
             mission.Targets.OrderBy(t => t.SequenceNo).Select(t => new DeviceMissionTargetResponse(t.Id, t.SensorNodeId, t.SensorNode.DeviceCode,
-                t.WaypointId, mission.Waypoints.SingleOrDefault(w => w.Id == t.WaypointId)?.SequenceNo, t.SequenceNo, t.Status.ToString())).ToArray());
+                t.WaypointId, mission.Waypoints.SingleOrDefault(w => w.Id == t.WaypointId)?.SequenceNo, t.SequenceNo, t.Status.ToString())).ToArray(), mission.PlanRevision);
     }
     public async Task<DeviceMissionStateResponse> MarkDownloadedAsync(int gatewayId, int authenticatedGateway, int missionId, CancellationToken ct)
     {

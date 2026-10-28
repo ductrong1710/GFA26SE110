@@ -3,6 +3,9 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.SensorData;
 
+public sealed record ArchivedRecordResponse(int Id, int SensorNodeId, int GatewayId, int? MissionId,
+    string SourceRecordKey, System.Text.Json.JsonElement Payload, DateTimeOffset ReceivedAt);
+
 public sealed class ReadingQuery : PageQuery
 {
     public int? SensorNodeId { get; init; }

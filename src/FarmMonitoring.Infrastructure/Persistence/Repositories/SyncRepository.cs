@@ -30,5 +30,11 @@ public sealed class SyncRepository(AppDbContext db) : ISyncRepository
     public void AddReading(SensorReading reading) => db.SensorReadings.Add(reading);
     public void AddAttempt(CollectionAttempt attempt) => db.CollectionAttempts.Add(attempt);
     public void AddBatch(SyncBatch batch) => db.SyncBatches.Add(batch);
+    public Task<SensorNode?> FindNodeAsync(string code, CancellationToken ct) =>
+        db.SensorNodes.Include(x => x.Zone).SingleOrDefaultAsync(x => x.DeviceCode == code, ct);
+    public async Task<ArchivedSensorRecord?> FindArchivedAsync(int nodeId, string key, CancellationToken ct) =>
+        db.ArchivedSensorRecords.Local.SingleOrDefault(x => x.SensorNodeId == nodeId && x.SourceRecordKey == key)
+        ?? await db.ArchivedSensorRecords.SingleOrDefaultAsync(x => x.SensorNodeId == nodeId && x.SourceRecordKey == key, ct);
+    public void AddArchived(ArchivedSensorRecord record) => db.ArchivedSensorRecords.Add(record);
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }

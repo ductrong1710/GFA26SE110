@@ -16,6 +16,9 @@ namespace FarmMonitoring.Api.Controllers;
 [ProducesResponseType<ApiError>(StatusCodes.Status404NotFound)]
 public sealed class SensorDataController(SensorDataService data) : ControllerBase
 {
+    [HttpGet("api/sensor-nodes/{id:int}/unresolved-records")]
+    public async Task<ActionResult<ApiPageResponse<ArchivedRecordResponse>>> Unresolved(int id, [FromQuery] PageQuery query, CancellationToken ct) =>
+        Ok(ApiPageResponse<ArchivedRecordResponse>.From(await data.UnresolvedAsync(id, query, ct)));
     [HttpGet("api/sensor-readings")]
     public async Task<ActionResult<ApiPageResponse<ReadingResponse>>> List([FromQuery] ReadingQuery query, CancellationToken ct) =>
         Ok(ApiPageResponse<ReadingResponse>.From(await data.ListAsync(query, null, ct)));

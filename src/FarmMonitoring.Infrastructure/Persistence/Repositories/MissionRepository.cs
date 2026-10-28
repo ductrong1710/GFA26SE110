@@ -69,12 +69,35 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         if (gateway is not null) await db.Entry(gateway).ReloadAsync(ct);
         return gateway;
     }
-    public async Task<bool> HasOverlapAsync(Mission mission, bool starting, CancellationToken ct) =>
-        await FlightReservation.Active(db, DateTimeOffset.UtcNow).AnyAsync(x => x.UavId == mission.UavId || x.GatewayId == mission.GatewayId, ct) ||
-        await db.Missions.AnyAsync(x =>
+    public async Task<IReadOnlyList<string>> ReservationConflictsAsync(Mission mission, bool starting, FarmAccessScope? scope, CancellationToken ct)
+    {
+        var rows = db.Missions.AsNoTracking().Where(x =>
         x.Id != mission.Id && (x.Status == MissionStatus.SCHEDULED || x.Status == MissionStatus.RUNNING) &&
         ((mission.UavId != null && x.UavId == mission.UavId) || (mission.GatewayId != null && x.GatewayId == mission.GatewayId)) &&
-        ((starting && x.Status == MissionStatus.RUNNING) || (x.ScheduledStartAt < mission.ScheduledEndAt && x.ScheduledEndAt > mission.ScheduledStartAt)), ct);
+        ((starting && x.Status == MissionStatus.RUNNING) || (x.ScheduledStartAt < mission.ScheduledEndAt && x.ScheduledEndAt > mission.ScheduledStartAt)));
+        var visible = scope is null ? rows.Where(x => x.GatewayId == mission.GatewayId) : rows.ForFarms(db, scope, x => x.FarmId);
+        var details = await visible.OrderBy(x => x.Id).Take(10).Select(x => new {
+            x.Id, x.Name, x.Status, x.UavId, x.GatewayId, x.ScheduledStartAt, x.ScheduledEndAt }).ToArrayAsync(ct);
+        var messages = details.Select(x => $"Mission #{x.Id} '{x.Name}' [{x.Status}] holds " +
+            Resources(x.UavId, x.GatewayId, mission) + $" (UTC: {x.ScheduledStartAt:yyyy-MM-dd HH:mm} to {x.ScheduledEndAt:yyyy-MM-dd HH:mm})").ToList();
+        if (await rows.CountAsync(ct) > details.Length)
+            messages.Add("Additional reservations exist; some details may require administrator access.");
+        var tests = FlightReservation.Active(db, DateTimeOffset.UtcNow)
+            .Where(x => x.UavId == mission.UavId || x.GatewayId == mission.GatewayId);
+        // Flight-test management is administrator-only. Devices see only their own tests.
+        if (scope is { IsAdministrator: true } || scope is null)
+        {
+            var allowedTests = scope is null ? tests.Where(x => x.GatewayId == mission.GatewayId) : tests;
+            var testDetails = await allowedTests.OrderBy(x => x.Id).Take(10).ToArrayAsync(ct);
+            messages.AddRange(testDetails.Select(x => $"Flight Test #{x.Id} [{x.Status}] holds " + Resources(x.UavId, x.GatewayId, mission)));
+            if (await tests.CountAsync(ct) > testDetails.Length) messages.Add("Additional flight-test reservations require administrator review.");
+        }
+        else if (await tests.AnyAsync(ct)) messages.Add("An active Flight Test reserves this equipment; contact an administrator for details.");
+        return messages;
+    }
+    private static string Resources(int? uavId, int? gatewayId, Mission mission) => string.Join(" and ",
+        new[] { uavId.HasValue && uavId == mission.UavId ? $"UAV #{uavId}" : null,
+            gatewayId.HasValue && gatewayId == mission.GatewayId ? $"Gateway #{gatewayId}" : null }.Where(x => x is not null));
     public async Task ReplacePlanAsync(Mission mission, IReadOnlyList<MissionTarget> targets, IReadOnlyList<MissionWaypoint> waypoints, CancellationToken ct)
     {
         if (mission.Id != 0)

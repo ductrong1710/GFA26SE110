@@ -9,6 +9,12 @@ namespace FarmMonitoring.Application.Features.SensorData;
 public sealed class SensorDataService(FarmAccessService access, ISensorDataRepository repository, ISensorRepository sensors,
     IValidator<ReadingQuery> queries, IValidator<PageQuery> pages, TimeProvider clock)
 {
+    public async Task<PagedResult<ArchivedRecordResponse>> UnresolvedAsync(int nodeId, PageQuery query, CancellationToken ct)
+    {
+        await pages.ValidateAndThrowAsync(query, ct);
+        await access.EnsureAsync(FarmResource.SensorNode, nodeId, ct);
+        return await repository.UnresolvedAsync(nodeId, query, ct);
+    }
     public async Task<PagedResult<ReadingResponse>> ListAsync(ReadingQuery query, int? channelId, CancellationToken ct)
     {
         await queries.ValidateAndThrowAsync(query, ct);

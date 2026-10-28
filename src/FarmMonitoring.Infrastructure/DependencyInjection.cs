@@ -13,7 +13,7 @@ namespace FarmMonitoring.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool development = false)
     {
         services.AddOptions<DatabaseOptions>()
             .Configure(options => options.ConnectionString = configuration.GetConnectionString("DefaultConnection") ?? "")
@@ -21,7 +21,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.SectionName))
-            .Validate(x => x.IsValid(), "Jwt requires issuer, audience, a key of at least 32 UTF-8 bytes, access lifetime 1-60 minutes and refresh lifetime 1-90 days.")
+            .Validate(x => x.IsValid(development), "Jwt requires issuer, audience, an external key of at least 32 UTF-8 bytes (sample key allowed only in Development), access lifetime 1-60 minutes and refresh lifetime 1-90 days.")
             .ValidateOnStart();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IDeviceAuthenticator, DeviceAuthenticator>();

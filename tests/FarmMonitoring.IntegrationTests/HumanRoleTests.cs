@@ -27,6 +27,7 @@ public class HumanRoleTests(ApiFactory factory)
     [InlineData("FarmAdministrator", true, true, true, true, true)]
     [InlineData("FarmOwner", false, true, true, false, true)]
     [InlineData("FarmEngineer", false, false, false, true, false)]
+    [InlineData("UavDeviceOperator", false, false, true, false, false)]
     public async Task Human_auth_and_policy_matrix_preserve_device_boundary(string role, bool users, bool farms, bool devices, bool thresholds, bool missions)
     {
         var (admin, _) = await Login("admin@example.com");
@@ -47,7 +48,7 @@ public class HumanRoleTests(ApiFactory factory)
         var me = (await human.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("data");
         Assert.Equal(role, Assert.Single(me.GetProperty("roles").EnumerateArray()).GetString());
 
-        int farmId, channelId, gatewayId, missionId;
+        int farmId, channelId, gatewayId, missionId, zoneId;
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -63,7 +64,7 @@ public class HumanRoleTests(ApiFactory factory)
             db.SensorChannels.Add(channel); db.Missions.Add(mission);
             await db.SaveChangesAsync();
             if (role != "FarmAdministrator") await factory.AssignFarmAsync(farm.Id, email);
-            farmId = farm.Id; channelId = channel.Id; gatewayId = gateway.Id; missionId = mission.Id;
+            farmId = farm.Id; zoneId = channel.SensorNode.ZoneId; channelId = channel.Id; gatewayId = gateway.Id; missionId = mission.Id;
         }
         Assert.Equal(users ? HttpStatusCode.OK : HttpStatusCode.Forbidden, (await human.GetAsync("/api/users")).StatusCode);
         Assert.Equal(farms ? HttpStatusCode.Created : HttpStatusCode.Forbidden, (await human.PostAsJsonAsync("/api/farms", new { name = "Role-created farm" })).StatusCode);
@@ -73,6 +74,19 @@ public class HumanRoleTests(ApiFactory factory)
         foreach (var path in new[] { "/api/farms", "/api/sensor-readings", "/api/missions", "/api/alerts", "/api/notifications", "/api/dashboard/overview",
             "/api/reports/sensor-data", "/api/reports/devices", "/api/reports/missions", "/api/reports/alerts" })
             Assert.Equal(HttpStatusCode.OK, (await human.GetAsync(path)).StatusCode);
+
+        if (role == "UavDeviceOperator")
+        {
+            var sensor = new { zoneId, deviceCode = Guid.NewGuid().ToString("N"), name = "Operator sensor", status = "OFFLINE" };
+            Assert.Equal(HttpStatusCode.Created, (await human.PostAsJsonAsync("/api/sensor-nodes", sensor)).StatusCode);
+            Assert.Equal(HttpStatusCode.Created, (await human.PostAsJsonAsync("/api/gateways", new { code = Guid.NewGuid().ToString("N"), name = "Operator gateway", gatewayType = "ESP32", status = "OFFLINE" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await human.PutAsJsonAsync($"/api/gateways/{gatewayId}", new { code = "blocked", name = "Blocked", gatewayType = "ESP32", status = "OFFLINE" })).StatusCode);
+            // Exercise real membership endpoints and immediately re-check farm isolation.
+            var userId = login.GetProperty("user").GetProperty("id").GetInt32();
+            (await admin.DeleteAsync($"/api/farms/{farmId}/members/{userId}")).EnsureSuccessStatusCode();
+            Assert.Equal(HttpStatusCode.Forbidden, (await human.PostAsJsonAsync("/api/sensor-nodes", sensor)).StatusCode);
+            (await admin.PostAsJsonAsync($"/api/farms/{farmId}/members", new { userId })).EnsureSuccessStatusCode();
+        }
 
         var telemetry = new { missionId, gatewayId, recordedAt = DateTimeOffset.UtcNow, batteryPercent = 80 };
         var sync = new { batchKey = Guid.NewGuid().ToString("N"), records = Array.Empty<object>() };
@@ -88,7 +102,6 @@ public class HumanRoleTests(ApiFactory factory)
     }
 
     [Theory]
-    [InlineData("UavDeviceOperator")]
     [InlineData("UnknownRole")]
     public async Task Unsupported_roles_are_rejected_by_user_endpoints(string role)
     {

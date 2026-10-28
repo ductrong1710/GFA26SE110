@@ -14,6 +14,11 @@ public sealed class MissionConfiguration : IEntityTypeConfiguration<Mission>
             t.HasCheckConstraint("CK_missions_status", "status IN ('PENDING','SCHEDULED','RUNNING','COMPLETED','FAILED','CANCELLED')");
         });
         b.HasKey(x => x.Id);
+        b.Property(x => x.PlanRevision).HasColumnName("plan_revision");
+        b.Property(x => x.LaunchSession).HasColumnName("launch_session").HasMaxLength(32);
+        b.Property(x => x.LaunchReadyAt).HasColumnName("launch_ready_at");
+        b.Property(x => x.LaunchApprovedAt).HasColumnName("launch_approved_at");
+        b.Property(x => x.LaunchConsumedAt).HasColumnName("launch_consumed_at");
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         b.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();

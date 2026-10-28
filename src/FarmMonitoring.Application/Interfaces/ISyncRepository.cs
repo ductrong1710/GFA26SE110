@@ -11,5 +11,8 @@ public interface ISyncRepository
     void AddReading(SensorReading reading);
     void AddAttempt(CollectionAttempt attempt);
     void AddBatch(SyncBatch batch);
+    Task<SensorNode?> FindNodeAsync(string code, CancellationToken ct);
+    Task<ArchivedSensorRecord?> FindArchivedAsync(int nodeId, string key, CancellationToken ct);
+    void AddArchived(ArchivedSensorRecord record);
     Task SaveAsync(CancellationToken ct);
 }

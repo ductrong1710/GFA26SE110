@@ -56,8 +56,8 @@ public sealed class FarmAccessRepository(AppDbContext db) : IFarmAccessRepositor
         var user = await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id = {userId} FOR UPDATE").SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("User not found.");
         var roles = await db.UserRoles.Where(x => x.UserId == userId).Select(x => x.Role.Name).Order().ToArrayAsync(ct);
-        if (!user.IsActive || roles.Contains(RoleNames.FarmAdministrator) || !roles.Any(x => x is RoleNames.FarmOwner or RoleNames.FarmEngineer))
-            throw new BusinessRuleException("Membership requires an active FarmOwner or FarmEngineer without FarmAdministrator role.");
+        if (!user.IsActive || roles.Contains(RoleNames.FarmAdministrator) || !roles.Any(x => x is RoleNames.FarmOwner or RoleNames.FarmEngineer or RoleNames.UavDeviceOperator))
+            throw new BusinessRuleException("Membership requires an active FarmOwner, FarmEngineer or UavDeviceOperator without FarmAdministrator role.");
         db.UserFarms.Add(new UserFarm { UserId = userId, FarmId = farmId, CreatedAt = now });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })

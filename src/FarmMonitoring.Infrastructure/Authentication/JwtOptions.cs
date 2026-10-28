@@ -11,7 +11,8 @@ public sealed class JwtOptions
     public int AccessTokenExpirationMinutes { get; set; } = 15;
     public int RefreshTokenExpirationDays { get; set; } = 7;
 
-    public bool IsValid() => !string.IsNullOrWhiteSpace(Issuer) && !string.IsNullOrWhiteSpace(Audience)
+    public bool IsValid(bool development = false) => !string.IsNullOrWhiteSpace(Issuer) && !string.IsNullOrWhiteSpace(Audience)
+        && (development || SecretKey != "FarmMonitoring-Secret-Key-2026-SEP-UAV-123456")
         && !string.IsNullOrWhiteSpace(SecretKey) && Encoding.UTF8.GetByteCount(SecretKey) >= 32
         && AccessTokenExpirationMinutes is >= 1 and <= 60
         && RefreshTokenExpirationDays is >= 1 and <= 90;

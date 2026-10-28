@@ -15,7 +15,7 @@ public interface IMissionRepository
     Task<IReadOnlyList<SensorNode>> GetSensorsAsync(int[] ids, CancellationToken ct);
     Task<Uav?> LockUavAsync(int id, CancellationToken ct);
     Task<Gateway?> LockGatewayAsync(int id, CancellationToken ct);
-    Task<bool> HasOverlapAsync(Mission mission, bool starting, CancellationToken ct);
+    Task<IReadOnlyList<string>> ReservationConflictsAsync(Mission mission, bool starting, FarmAccessScope? scope, CancellationToken ct);
     Task ReplacePlanAsync(Mission mission, IReadOnlyList<MissionTarget> targets, IReadOnlyList<MissionWaypoint> waypoints, CancellationToken ct);
     void Add(Mission mission);
     void AddLog(MissionLog log);

@@ -1,4 +1,5 @@
 using FarmMonitoring.Application.Features.Farms;
+using FarmMonitoring.Application.Features.Equipment;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Reports;
 using FarmMonitoring.Application.Interfaces;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
-public sealed class ReportRepository(AppDbContext db) : IReportRepository
+public sealed class ReportRepository(AppDbContext db, TimeProvider clock) : IReportRepository
 {
     private IQueryable<Alert> AlertsInFarm(IQueryable<Alert> rows, int farmId) =>
         rows.Where(x => (x.SensorChannel != null ? (int?)x.SensorChannel.SensorNode.Zone.FarmId :
@@ -28,9 +29,12 @@ public sealed class ReportRepository(AppDbContext db) : IReportRepository
             g.Count(x => x.IsActive && x.Status.ToUpper() == "ONLINE"), g.Count(x => x.IsActive && x.Status.ToUpper() == "OFFLINE"),
             g.Count(x => x.IsActive && x.Status.ToUpper() != "ONLINE" && x.Status.ToUpper() != "OFFLINE"), g.Count(x => !x.IsActive)))
             .SingleOrDefaultAsync(ct) ?? new(0, 0, 0, 0, 0);
+        var now = clock.GetUtcNow();
+        var cutoff = now.AddSeconds(-GatewayPresence.TimeoutSeconds);
         var gateways = await gatewayRows.GroupBy(x => 1).Select(g => new DeviceCounts(g.Count(),
-            g.Count(x => x.IsActive && x.Status.ToUpper() == "ONLINE"), g.Count(x => x.IsActive && x.Status.ToUpper() == "OFFLINE"),
-            g.Count(x => x.IsActive && x.Status.ToUpper() != "ONLINE" && x.Status.ToUpper() != "OFFLINE"), g.Count(x => !x.IsActive)))
+            g.Count(x => x.IsActive && x.LastSeenAt >= cutoff && x.LastSeenAt <= now),
+            g.Count(x => x.IsActive && (x.LastSeenAt == null || x.LastSeenAt < cutoff || x.LastSeenAt > now)),
+            0, g.Count(x => !x.IsActive)))
             .SingleOrDefaultAsync(ct) ?? new(0, 0, 0, 0, 0);
         var missions = await missionRows.GroupBy(x => 1).Select(g => new MissionCounts(g.Count(x => x.Status == MissionStatus.SCHEDULED),
             g.Count(x => x.Status == MissionStatus.RUNNING), g.Count(x => x.Status == MissionStatus.FAILED))).SingleOrDefaultAsync(ct) ?? new(0, 0, 0);
@@ -95,7 +99,10 @@ public sealed class ReportRepository(AppDbContext db) : IReportRepository
         }
         var sensors = sensorRows.Select(x => new { DeviceType = "SENSOR_NODE", x.Id, Code = x.DeviceCode, x.Name, x.Status, x.IsActive, x.BatteryPercent, x.LastSeenAt });
         var uavs = uavRows.Select(x => new { DeviceType = "UAV", x.Id, x.Code, x.Name, x.Status, x.IsActive, x.BatteryPercent, x.LastSeenAt });
-        var gateways = gatewayRows.Select(x => new { DeviceType = "GATEWAY", x.Id, x.Code, x.Name, x.Status, x.IsActive, x.BatteryPercent, x.LastSeenAt });
+        var now = clock.GetUtcNow();
+        var cutoff = now.AddSeconds(-GatewayPresence.TimeoutSeconds);
+        var gateways = gatewayRows.Select(x => new { DeviceType = "GATEWAY", x.Id, x.Code, x.Name,
+            Status = x.IsActive && x.LastSeenAt >= cutoff && x.LastSeenAt <= now ? "ONLINE" : "OFFLINE", x.IsActive, x.BatteryPercent, x.LastSeenAt });
         var rows = sensors.Concat(uavs).Concat(gateways);
         if (query.DeviceType is not null) rows = rows.Where(x => x.DeviceType == query.DeviceType);
         if (query.IsActive.HasValue) rows = rows.Where(x => x.IsActive == query.IsActive);

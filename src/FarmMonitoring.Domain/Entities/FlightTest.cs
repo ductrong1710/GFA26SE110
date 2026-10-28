@@ -1,5 +1,5 @@
 namespace FarmMonitoring.Domain.Entities;
-public enum FlightTestStatus { QUEUED, CLAIMED, COMPLETED, FAILED, RECOVERY_REQUIRED, EXPIRED }
+public enum FlightTestStatus { QUEUED, CLAIMED, COMPLETED, FAILED, RECOVERY_REQUIRED, EXPIRED, CANCELLED }
 public sealed class FlightTest
 {
     public int Id { get; set; }

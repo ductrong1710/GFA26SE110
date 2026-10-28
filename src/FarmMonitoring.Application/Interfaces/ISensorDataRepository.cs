@@ -6,6 +6,7 @@ namespace FarmMonitoring.Application.Interfaces;
 
 public interface ISensorDataRepository
 {
+    Task<PagedResult<ArchivedRecordResponse>> UnresolvedAsync(int nodeId, PageQuery query, CancellationToken ct);
     Task<PagedResult<ReadingResponse>> ListAsync(ReadingQuery query, int? channelId, FarmAccessScope scope, CancellationToken ct);
     Task<IReadOnlyList<LatestChannelResponse>> LatestAsync(int nodeId, CancellationToken ct);
     Task<PagedResult<CollectionAttemptResponse>> AttemptsAsync(int missionId, PageQuery query, CancellationToken ct);

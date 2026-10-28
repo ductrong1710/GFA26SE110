@@ -45,6 +45,7 @@ public static class ApiServiceExtensions
         services.AddScoped<GatewayCredentialService>();
         services.AddScoped<ThresholdService>();
         services.AddScoped<MissionService>();
+        services.AddScoped<MissionLaunchService>();
         services.AddScoped<MissionLifecycle>();
         services.AddScoped<DeviceMissionService>();
         services.AddScoped<FarmMonitoring.Application.Features.FlightTests.FlightTestService>();
@@ -142,7 +143,9 @@ public static class ApiServiceExtensions
             options.AddPolicy(AccessPolicies.ManageFarms, policy => policy.RequireAuthenticatedUser()
                 .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
             options.AddPolicy(AccessPolicies.ReadFarmData, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.FarmEngineer)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.FarmEngineer, RoleNames.UavDeviceOperator)));
+            options.AddPolicy(AccessPolicies.CreateDevices, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.UavDeviceOperator)));
             options.AddPolicy(AccessPolicies.ManageDevices, policy => policy.RequireAuthenticatedUser()
                 .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
             options.AddPolicy(AccessPolicies.ConfigureThresholds, policy => policy.RequireAuthenticatedUser()

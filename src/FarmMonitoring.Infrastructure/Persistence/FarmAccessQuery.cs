@@ -9,7 +9,7 @@ internal static class FarmAccessQuery
 {
     public static IQueryable<int> AssignedFarmIds(AppDbContext db, int userId) => db.UserFarms.Where(x =>
         x.UserId == userId && x.User.IsActive && x.User.UserRoles.Any(r =>
-            r.Role.Name == RoleNames.FarmOwner || r.Role.Name == RoleNames.FarmEngineer)).Select(x => x.FarmId);
+            r.Role.Name == RoleNames.FarmOwner || r.Role.Name == RoleNames.FarmEngineer || r.Role.Name == RoleNames.UavDeviceOperator)).Select(x => x.FarmId);
 
     // Compose an expression tree so membership restriction is translated into SQL before pagination/aggregation.
     public static IQueryable<T> ForFarms<T>(this IQueryable<T> rows, AppDbContext db, FarmAccessScope scope, Expression<Func<T, int?>> farm)

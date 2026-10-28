@@ -162,9 +162,40 @@ public class MissionTests(ApiFactory factory)
         Assert.Single(outcomes, x => x.StatusCode == HttpStatusCode.OK);
         Assert.Single(outcomes, x => x.StatusCode == HttpStatusCode.Conflict);
         var successful = await Data(outcomes.Single(x => x.StatusCode == HttpStatusCode.OK));
+        var conflict = await outcomes.Single(x => x.StatusCode == HttpStatusCode.Conflict).Content.ReadFromJsonAsync<JsonElement>();
+        var message = conflict.GetProperty("message").GetString()!;
+        Assert.Contains($"Mission #{successful.GetProperty("id").GetInt32()}", message);
+        Assert.Contains("Morning collection", message);
+        Assert.Contains($"UAV #{setup.uav}", message);
+        Assert.Contains($"Gateway #{setup.gateway}", message);
+        Assert.Contains("SCHEDULED", message);
+        Assert.Contains("UTC:", message);
         (await op.PostAsJsonAsync($"/api/missions/{successful.GetProperty("id").GetInt32()}/cancel", new { note = "Release reservation" })).EnsureSuccessStatusCode();
         var other = ids.Single(x => x != successful.GetProperty("id").GetInt32());
         Assert.Equal(HttpStatusCode.OK, (await op.PostAsJsonAsync($"/api/missions/{other}/schedule", new { scheduledStartAt = start, scheduledEndAt = start.AddHours(1) })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Reservation_details_do_not_disclose_another_farm()
+    {
+        var first = await Setup();
+        var second = await Setup();
+        using var owner = await Login();
+        using var admin = await Login("admin@example.com");
+        var held = (await Data(await admin.PostAsJsonAsync("/api/missions", Plan(first)))).GetProperty("id").GetInt32();
+        var candidate = (await Data(await owner.PostAsJsonAsync("/api/missions", Plan(second with { uav = first.uav, gateway = first.gateway })))).GetProperty("id").GetInt32();
+        var start = DateTimeOffset.UtcNow.AddHours(3);
+        var schedule = new { scheduledStartAt = start, scheduledEndAt = start.AddHours(1) };
+        (await admin.PostAsJsonAsync($"/api/missions/{held}/schedule", schedule)).EnsureSuccessStatusCode();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.UserFarms.Where(x => x.FarmId == first.farm).ExecuteDeleteAsync();
+        var response = await owner.PostAsJsonAsync($"/api/missions/{candidate}/schedule", schedule);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var message = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString()!;
+        Assert.DoesNotContain($"Mission #{held}", message);
+        Assert.DoesNotContain("Morning collection", message);
+        Assert.Contains("administrator", message);
     }
 
     [Fact]

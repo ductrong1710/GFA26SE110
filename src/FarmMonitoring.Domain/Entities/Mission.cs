@@ -16,6 +16,11 @@ public static class MissionRules
 
 public sealed class Mission
 {
+    public int PlanRevision { get; set; }
+    public string? LaunchSession { get; set; }
+    public DateTimeOffset? LaunchReadyAt { get; set; }
+    public DateTimeOffset? LaunchApprovedAt { get; set; }
+    public DateTimeOffset? LaunchConsumedAt { get; set; }
     public int Id { get; set; }
     public int FarmId { get; set; }
     public Farm Farm { get; set; } = null!;

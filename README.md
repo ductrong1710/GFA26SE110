@@ -258,3 +258,12 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 ### Farm access deployment
 
 Apply `20261007094620_AddUserFarmAssignments` after the role-model migration. Existing users receive no automatic farm assignments; an administrator must assign eligible owners/engineers through the membership API. No additional environment variables are required. The earlier [human role-model report](docs/human-role-model-report.md) is historical; current farm-access documentation supersedes its global-permission limitation.
+
+
+### JWT key requirement after audit remediation
+Outside Development, supply `Jwt__SecretKey` (at least 32 UTF-8 bytes); startup rejects
+missing keys and the published sample key. Development keeps its explicit sample
+configuration for local use. Rotate deployed keys that used the sample value. The
+sample administrator migration/account is intentionally unchanged by user request.
+Deploy the ArchiveUnresolvedSensorRecords schema migration before the new gateway
+archival protocol. No migration is run automatically by application startup.

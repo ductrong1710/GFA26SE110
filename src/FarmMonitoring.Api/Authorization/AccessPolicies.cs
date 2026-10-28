@@ -9,6 +9,7 @@ public static class AccessPolicies
     public const string ManageUsers = nameof(ManageUsers);
     public const string ReadFarmData = nameof(ReadFarmData);
     public const string ManageFarms = nameof(ManageFarms);
+    public const string CreateDevices = nameof(CreateDevices);
     public const string ManageDevices = nameof(ManageDevices);
     public const string ConfigureThresholds = nameof(ConfigureThresholds);
     public const string ManageMissions = nameof(ManageMissions);

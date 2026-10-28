@@ -17,7 +17,18 @@ public sealed class EquipmentService(IEquipmentRepository repository, TimeProvid
     public async Task<PagedResult<GatewayResponse>> ListGatewaysAsync(PageQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);
-        return await repository.ListGatewaysAsync(query, ct);
+        var result = await repository.ListGatewaysAsync(query, ct);
+        var now = clock.GetUtcNow();
+        return result with { Items = result.Items.Select(x => x with {
+            Status = GatewayPresence.Status(x.IsActive, x.LastSeenAt, now) }).ToArray() };
+    }
+    public async Task<GatewayHeartbeatResponse> HeartbeatAsync(int gatewayId, int authenticatedGateway, CancellationToken ct)
+    {
+        if (gatewayId != authenticatedGateway) throw new AccessDeniedException("Gateway identity does not match the route.");
+        var now = clock.GetUtcNow();
+        if (!await repository.RecordHeartbeatAsync(gatewayId, now, ct))
+            throw new AccessDeniedException("Gateway is inactive or unavailable.");
+        return new(gatewayId, "ONLINE", now);
     }
     public async Task<UavResponse> GetUavAsync(int id, CancellationToken ct) => ToResponse(await RequireUavAsync(id, ct));
     public async Task<GatewayResponse> GetGatewayAsync(int id, CancellationToken ct) => ToResponse(await RequireGatewayAsync(id, ct));
@@ -103,8 +114,10 @@ public sealed class EquipmentService(IEquipmentRepository repository, TimeProvid
     {
         gateway.Code = request.Code.Trim(); gateway.Name = request.Name.Trim(); gateway.GatewayType = request.GatewayType.Trim();
         gateway.Status = request.Status.Trim(); gateway.UavId = request.UavId; gateway.BatteryPercent = request.BatteryPercent;
-        gateway.LastSeenAt = request.LastSeenAt?.ToUniversalTime(); gateway.FirmwareVersion = request.FirmwareVersion;
+        gateway.FirmwareVersion = request.FirmwareVersion;
     }
     private static UavResponse ToResponse(Uav x) => new(x.Id, x.Code, x.Name, x.Model, x.Status, x.BatteryPercent, x.LastSeenAt, x.IsActive, x.CreatedAt, x.UpdatedAt);
-    private static GatewayResponse ToResponse(Gateway x) => new(x.Id, x.Code, x.Name, x.GatewayType, x.Status, x.UavId, x.BatteryPercent, x.LastSeenAt, x.FirmwareVersion, x.IsActive, x.CreatedAt, x.UpdatedAt);
+    private GatewayResponse ToResponse(Gateway x) => new(x.Id, x.Code, x.Name, x.GatewayType,
+        GatewayPresence.Status(x.IsActive, x.LastSeenAt, clock.GetUtcNow()), x.UavId, x.BatteryPercent, x.LastSeenAt,
+        x.FirmwareVersion, x.IsActive, x.CreatedAt, x.UpdatedAt);
 }

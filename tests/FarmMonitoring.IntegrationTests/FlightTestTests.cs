@@ -94,6 +94,34 @@ public sealed class FlightTestTests : IAsyncLifetime
         Assert.Equal("QUEUED",(await Data(await admin.PostAsJsonAsync(Root,new {requestKey="next"}))).GetProperty("status").GetString());
     }
 
+    [Fact] public async Task Admin_cancels_manual_claim_with_confirmation_and_preserves_unknown_telemetry()
+    {
+        var id=(await Data(await admin.PostAsJsonAsync(Root,new {requestKey="manual-claim"}))).GetProperty("id").GetInt32();
+        await Data(await device.PostAsJsonAsync($"{Device}/{id}/claim",new {}));
+        var body = new { reason="Manually claimed in Swagger; never started", confirmAircraftGrounded=true, confirmNeverStarted=true };
+        using var owner=await Login("owner@example.com");
+        Assert.Equal(HttpStatusCode.Forbidden,(await owner.PostAsJsonAsync($"{Root}/{id}/cancel",body)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await device.PostAsJsonAsync($"{Root}/{id}/cancel",body)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,(await admin.PostAsJsonAsync($"{Root}/{id}/cancel",body with {confirmNeverStarted=false})).StatusCode);
+        var cancelled=await Data(await admin.PostAsJsonAsync($"{Root}/{id}/cancel",body));
+        Assert.Equal("CANCELLED",cancelled.GetProperty("status").GetString());
+        Assert.StartsWith("ADMIN_CANCELLED:",cancelled.GetProperty("errorCode").GetString());
+        Assert.Equal(JsonValueKind.Null,cancelled.GetProperty("landed").ValueKind);
+        Assert.Equal(JsonValueKind.Null,cancelled.GetProperty("takeoffAttempted").ValueKind);
+        Assert.Equal("CANCELLED",(await Data(await admin.PostAsJsonAsync($"{Root}/{id}/cancel",body))).GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,(await device.PostAsJsonAsync($"{Device}/{id}/claim",new {})).StatusCode);
+        Assert.Equal("QUEUED",(await Data(await admin.PostAsJsonAsync(Root,new {requestKey="released"}))).GetProperty("status").GetString());
+    }
+
+    [Fact] public async Task Admin_cannot_cancel_flight_recovery_as_a_manual_claim()
+    {
+        var id=(await Data(await admin.PostAsJsonAsync(Root,new {requestKey="recovery-cancel"}))).GetProperty("id").GetInt32();
+        await Data(await device.PostAsJsonAsync($"{Device}/{id}/claim",new {}));
+        await Data(await device.PostAsJsonAsync($"{Device}/{id}/result",new {status="RECOVERY_REQUIRED",takeoffAttempted=true,gatewayConnected=true,uavConnected=true,landed=false,observedAltitudeCm=70,heldMs=0,errorCode="LINK_LOST"}));
+        Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync($"{Root}/{id}/cancel",new {reason="Cannot bypass recovery",confirmAircraftGrounded=true,confirmNeverStarted=true})).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync(Root,new {requestKey="still-reserved"})).StatusCode);
+    }
+
     [Fact] public async Task Concurrent_gateways_sharing_uav_cannot_both_reserve_it()
     {
         int otherId;

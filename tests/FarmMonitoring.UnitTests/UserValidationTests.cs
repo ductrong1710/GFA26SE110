@@ -9,9 +9,9 @@ public class UserValidationTests
     [InlineData("FarmAdministrator", true)]
     [InlineData("FarmOwner", true)]
     [InlineData("FarmEngineer", true)]
-    [InlineData("UavDeviceOperator", false)]
+    [InlineData("UavDeviceOperator", true)]
     [InlineData("UnknownRole", false)]
-    public void Human_roles_follow_the_three_role_contract(string role, bool accepted)
+    public void Human_roles_follow_the_supported_role_contract(string role, bool accepted)
     {
         Assert.Equal(accepted && role != "FarmAdministrator", new CreateUserValidator().Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", [role])).IsValid);
         Assert.Equal(accepted, new UserRolesValidator().Validate(new UserRolesRequest([role])).IsValid);
@@ -32,6 +32,20 @@ public class UserValidationTests
         Assert.True(new CreateUserValidator().Validate(new CreateUserRequest(" X@example.com ", "User", "Test-password-123!", ["FarmOwner"])).IsValid);
         Assert.True(new UserRolesValidator().Validate(new UserRolesRequest([])).IsValid);
         Assert.True(new UserStatusValidator().Validate(new UserStatusRequest(false)).IsValid);
+    }
+
+    [Fact]
+    public void Creating_user_requires_exactly_one_role()
+    {
+        string[]?[] invalidRoles = [null, [], ["FarmOwner", "FarmEngineer"],
+            ["FarmOwner", "UavDeviceOperator"], ["FarmOwner", "FarmOwner"]];
+        foreach (var roles in invalidRoles)
+        {
+            var result = new CreateUserValidator().Validate(
+                new CreateUserRequest("single@example.com", "Single role", "Test-password-123!", roles!));
+            Assert.Contains(result.Errors, error => error.PropertyName == "roles" &&
+                error.ErrorMessage == "Exactly one role is required when creating a user.");
+        }
     }
 
     [Theory]

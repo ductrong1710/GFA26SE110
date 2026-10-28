@@ -25,7 +25,7 @@ public sealed class GatewaysController(EquipmentService equipment) : ControllerB
     public async Task<ActionResult<ApiResponse<GatewayResponse>>> Get(int id, CancellationToken ct) =>
         Ok(ApiResponse<GatewayResponse>.Ok(await equipment.GetGatewayAsync(id, ct)));
     [HttpPost]
-    [Authorize(Policy = AccessPolicies.ManageDevices)]
+    [Authorize(Policy = AccessPolicies.CreateDevices)]
     [ProducesResponseType<ApiResponse<GatewayResponse>>(StatusCodes.Status201Created)]
     public async Task<ActionResult<ApiResponse<GatewayResponse>>> Create(GatewayRequest request, CancellationToken ct)
     {

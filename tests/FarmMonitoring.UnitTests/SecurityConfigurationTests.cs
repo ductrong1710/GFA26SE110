@@ -11,6 +11,7 @@ public class SecurityConfigurationTests
 {
     [Theory]
     [InlineData("Jwt:SecretKey", "short")]
+    [InlineData("Jwt:SecretKey", "FarmMonitoring-Secret-Key-2026-SEP-UAV-123456")]
     [InlineData("Jwt:Issuer", "")]
     [InlineData("Jwt:Audience", "")]
     [InlineData("Jwt:AccessTokenExpirationMinutes", "0")]
