@@ -13,7 +13,7 @@ createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <App />
       </AuthProvider>
-      <ToastContainer position="top-right" autoClose={5000} newestOnTop closeOnClick pauseOnFocusLoss />
+      <ToastContainer position="top-right" autoClose={3000} newestOnTop closeOnClick={false} pauseOnFocusLoss />
     </BrowserRouter>
   </StrictMode>,
 )

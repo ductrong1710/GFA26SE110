@@ -6,7 +6,7 @@ import { useApiQuery } from '../services/api/useApiQuery'
 import { listAll } from '../services/api/resources'
 import { api } from '../services/api'
 import { nodeView, gatewayView, missionView, equipmentRequest, missionRequest } from '../services/api/adapters'
-import { emptyMissionPlan, planFromMission } from '../services/api/planning'
+import { emptyMissionPlan, planFromMission, validateMissionPlan } from '../services/api/planning'
 
 const empty = { sensorNodes: [], uavs: [], gateways: [], missions: [], missionTargets: [], missionWaypoints: [], missionLogs: [], collectionAttempts: [], telemetry: [], syncBatches: [], sensorChannels: [], sensorTypes: [], latestReadings: [], readings: [] }
 export default function ApiOperationsProvider({ children }) {
@@ -33,7 +33,7 @@ export default function ApiOperationsProvider({ children }) {
       Object.assign(state, { results, missionTargets: results.targets.map(t => ({ ...t, missionId: m.id })), missionWaypoints: waypoints.map(w => ({ ...w, missionId: m.id, altitudeMeters: w.altitudeM })), missionLogs: logs, collectionAttempts: attempts, telemetry, latestTelemetry, readings })
     }
     return state
-  }, category !== 'none' && Boolean(user))
+  }, category !== 'none' && Boolean(user), category === 'devices' || missionId ? 10000 : 0)
   const operations = query.data ?? empty
   const [missionWizard, setMissionWizard] = useState(() => ({ step: 1, plan: emptyMissionPlan() }))
   const changeOperations = async ({ kind, id, action, values }) => {
@@ -48,9 +48,11 @@ export default function ApiOperationsProvider({ children }) {
     const plan = mission ? planFromMission(await api.get(`/api/missions/${mission.id}`)) : emptyMissionPlan()
     setMissionWizard({ step: 1, plan })
   }
-  const savePlannedMission = async (_workspace, draft) => {
+  const savePlannedMission = async (workspace, draft) => {
     const plan = missionWizard.plan
-    const request = draft && !plan.points.length ? { ...missionRequest({ ...plan, sensorIds: [] }), sensorNodeIds: plan.sensorIds, targetAssignments: null } : missionRequest(plan)
+    const uav = operations.uavs.find(u => u.id === Number(plan.uavId))
+    if (!draft) { const errors = validateMissionPlan(plan, operations, workspace).flat(); if (errors.length) throw new Error(errors.join(' ')) }
+    const request = draft && !plan.points.length ? { ...missionRequest({ ...plan, sensorIds: [] }, uav), sensorNodeIds: plan.sensorIds, targetAssignments: null } : missionRequest(plan, uav)
     const result = plan.missionId ? await api.put(`/api/missions/${plan.missionId}`, request) : await api.post('/api/missions', request)
     setMissionWizard({ ...missionWizard, plan: { ...plan, missionId: result.id } })
     query.reload()

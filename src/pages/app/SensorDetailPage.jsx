@@ -1,4 +1,5 @@
 import ChannelHistory from '../../components/app/ChannelHistory'
+import UnresolvedReadings from '../../components/app/UnresolvedReadings'
 import SensorConfiguration from '../../components/app/SensorConfiguration'
 import ApiState from '../../components/app/ApiState'
 import { useState } from 'react'
@@ -39,6 +40,7 @@ export default function SensorDetailPage() {
       ]} emptyState={<EmptyState title="No channels registered" description="Channel configuration and readings will appear after device provisioning." />} />
     </SectionCard>
     <ChannelHistory channels={node.channels} />
+    <UnresolvedReadings key={node.id} nodeId={node.id} />
     <SensorConfiguration node={node} types={operations.sensorTypes} reload={reload} />
     <SectionCard title="Collection history" description="Collection attempts are recorded per mission.">
       <p>Open a mission to inspect sensor attempts, retries, and errors. <Link to="/app/missions">View missions</Link></p>

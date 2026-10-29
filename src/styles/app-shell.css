@@ -152,3 +152,12 @@
 @media (prefers-reduced-motion: reduce) {
   .app-sidebar, .app-nav-link { transition: none; }
 }
+
+.app-notification-trigger { position: relative; }
+.app-notification-dot { position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: #dc2626; border: 2px solid #fff; }
+.app-notification-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.app-notification-panel { max-height: min(70vh, 560px); overflow-y: auto; }
+.app-notification-panel li { padding: 12px 8px; border-bottom: 1px solid #e5e7eb; overflow-wrap: anywhere; }
+.app-notification-panel li.is-unread { background: #f0fdf4; border-left: 3px solid #15803d; }
+.app-notification-panel li p { margin: 6px 0; }
+.app-notification-panel li small { display: block; margin-bottom: 6px; }

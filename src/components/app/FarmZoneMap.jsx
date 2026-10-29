@@ -1,7 +1,9 @@
 import { useId } from 'react'
+import GeographicFarmMap from './GeographicFarmMap'
 
-export default function FarmZoneMap({ zones, selectedZoneId, onSelect, nodes }) {
+export default function FarmZoneMap({ farm, zones, selectedZoneId, onSelect, nodes }) {
   const patternId = useId()
+  if (farm?.boundary || zones.some(zone => zone.boundary)) return <GeographicFarmMap {...{ farm, zones, selectedZoneId, onSelect, nodes }} />
   const rows = Math.ceil(zones.length / 2)
   return <div className="farm-zone-map">
     <svg viewBox={`0 0 660 ${Math.max(250, rows * 160 + 40)}`} role="group" aria-label="Farm zones schematic">

@@ -77,7 +77,7 @@ export default function AppShell() {
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
         farms={farms} currentFarm={currentFarm} onFarmChange={setFarmId} />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
-        <ApiState {...real} />
+        <ApiState key={real.key} loading={real.loading} error={real.error} reload={real.reload} />
         <AppPageBoundary key={`${location.pathname}:${activeRole}`}>
           <Outlet context={{ currentFarm, selectFarm: setFarmId, farmWorkspace, changeFarmRecord }} />
         </AppPageBoundary>

@@ -1,5 +1,4 @@
 import axios, { AxiosError } from 'axios'
-import { authStorage } from './authStorage.js'
 import { showToast } from '../../utils/toast.js'
 
 export class ApiError extends Error {
@@ -62,7 +61,7 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
     config._sessionIdentity = session.identity()
     config._sessionRevision = session.revision()
     config._sessionBefore = before
-    const token = authStorage.getToken() || before?.accessToken
+    const token = before?.accessToken
     if (config._auth !== false && token) config.headers.set('Authorization', `Bearer ${token}`)
     if (config._bearer) config.headers.set('Authorization', `Bearer ${config._bearer}`)
     return config
@@ -103,7 +102,6 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
     }
     if (status === 401 && config?._auth !== false && !closing &&
         session.identity() === config._sessionIdentity && session.revision() === config._sessionRevision) {
-      authStorage.clearAuth()
       session.set(null)
     }
 
@@ -186,6 +184,7 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
       if (signingOut) return signingOut
       closing = true
       const before = session.get()
+      const identity = session.identity()
       signingOut = (async () => {
         try {
           let tokens = refreshing?.identity === session.identity() ? await refreshing.promise : before
@@ -198,7 +197,7 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
             await revoke(tokens)
           }
         } catch { /* Signing out always clears the local session, including offline. */ }
-        finally { authStorage.clearAuth(); session.set(null); closing = false; showToast('success', 'Đã đăng xuất.') }
+        finally { if (session.identity() === identity) session.set(null); closing = false; showToast('success', 'Đã đăng xuất.') }
       })().finally(() => { signingOut = null })
       return signingOut
     },

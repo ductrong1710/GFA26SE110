@@ -27,7 +27,7 @@ export default function FarmsPage() {
   const save = async (values) => {
     if (!canManage) throw new Error('This role has read-only access.')
     const next = await changeFarmRecord({ kind: dialog.kind, id: dialog.record?.id, values })
-    if (!dialog.remove && !dialog.record) {
+    if (!dialog.record) {
       if (dialog.kind === 'farm') { selectFarm(next.farms.at(-1).id); setSelectedZoneId(null) }
       else { const added = next.zones.at(-1); selectFarm(added.farmId); setSelectedZoneId(added.id) }
     }
@@ -50,7 +50,7 @@ export default function FarmsPage() {
       <div className="farm-detail-column">
         {farm ? <>
           <SectionCard title={farm.name} description={farm.description} actions={canManage && <button className="app-ui-button" onClick={() => openDialog('farm', farm)}>Edit Farm</button>}>
-            <FarmZoneMap zones={farmZones} selectedZoneId={zone?.id} onSelect={setSelectedZoneId} nodes={sensorNodes} />
+            <FarmZoneMap farm={farm} zones={farmZones} selectedZoneId={zone?.id} onSelect={setSelectedZoneId} nodes={sensorNodes} />
           </SectionCard>
           <FarmAccess farm={farm} onChanged={() => changeFarmRecord({ kind: 'reload' })} />
           <SectionCard title="Selected zone details" description={zone ? 'Coverage and boundary information' : 'Choose or add a growing area'} actions={canManage && zone && <button className="app-ui-button" onClick={() => openDialog('zone', zone)}>Edit Zone</button>}>

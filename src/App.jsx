@@ -7,14 +7,11 @@ import RouteScroll from './components/RouteScroll'
 import PublicLayout from './layouts/PublicLayout'
 import AppShell from './layouts/AppShell'
 import DashboardPage from './pages/app/DashboardPage'
-import FarmsPage from './pages/app/FarmsPage'
 import UsersPage from './pages/app/UsersPage'
 import AlertsPage from './pages/app/AlertsPage'
 import { ManagementProvider } from './context/ManagementProvider'
 import { OperationsProvider } from './context/OperationsProvider'
-import SensorsPage from './pages/app/SensorsPage'
 import SensorDetailPage from './pages/app/SensorDetailPage'
-import DevicesPage from './pages/app/DevicesPage'
 import MissionsPage from './pages/app/MissionsPage'
 import CreateMissionPage from './pages/app/CreateMissionPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -22,6 +19,9 @@ import { appRoutes } from './config/appRoutes'
 import './App.css'
 
 const MissionDetailPage = lazy(() => import('./pages/app/MissionDetailPage'))
+const FarmsPage = lazy(() => import('./pages/app/FarmsPage'))
+const SensorsPage = lazy(() => import('./pages/app/SensorsPage'))
+const DevicesPage = lazy(() => import('./pages/app/DevicesPage'))
 const SensorDataPage = lazy(() => import('./pages/app/SensorDataPage'))
 const ReportsPage = lazy(() => import('./pages/app/ReportsPage'))
 const SyncPage = lazy(() => import('./pages/app/SyncPage'))

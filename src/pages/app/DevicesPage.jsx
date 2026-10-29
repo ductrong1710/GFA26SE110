@@ -17,6 +17,7 @@ export default function DevicesPage() {
   const { farmWorkspace, currentFarm } = useOutletContext()
   const { can, user, activeRole } = useAuth()
   const manage = can(PERMISSIONS.DEVICES_MANAGE)
+  const create = manage || can(PERMISSIONS.DEVICES_CREATE)
   const [tab, setTab] = useState('uav')
   const [farmId, setFarmId] = useState('')
   const [dialog, setDialog] = useState(null)
@@ -39,7 +40,8 @@ export default function DevicesPage() {
   const rows = (tab === 'uav' ? operations.uavs : operations.gateways).filter((record) => !farmId || record.farmId === Number(farmId))
   return <div className="app-ui operations-page">
     <ApiState loading={loading} error={error} reload={reload} />
-    <PageHeader eyebrow="EQUIPMENT INVENTORY" title="UAVs & Gateways" description="Maintain equipment identity, capabilities, and gateway assignments." actions={manage ? <button className="app-ui-button app-ui-button--primary" onClick={() => open(tab)}>+ Register {tab === 'uav' ? 'UAV' : 'Gateway'}</button> : <StatusBadge status="INFO" label="Read-only access" />} />
+    <p className="operations-note">Gateway status reflects backend contact within 90 seconds. This page refreshes every 10 seconds while visible.</p>
+    <PageHeader eyebrow="EQUIPMENT INVENTORY" title="UAVs & Gateways" description="Maintain equipment identity, capabilities, and gateway assignments." actions={create ? <button className="app-ui-button app-ui-button--primary" onClick={() => open(tab)}>+ Register {tab === 'uav' ? 'UAV' : 'Gateway'}</button> : <StatusBadge status="INFO" label="Read-only access" />} />
     <p className="operations-note">Authorized equipment inventory · Status, battery, and contact times are observed values, not flight commands. Synchronization is performed by devices.</p>
     {notice && <p className="management-success" role="status">{notice}</p>}
     <div role="tablist" aria-label="Device categories" className="operations-tabs" onKeyDown={(event) => {
@@ -52,7 +54,7 @@ export default function DevicesPage() {
     <div role="tabpanel" id={`devices-${tab}-panel`} aria-labelledby={`devices-${tab}-tab`}>
       <DataTable caption={tab === 'uav' ? 'UAV inventory' : 'Mobile gateway inventory'} className="operations-inventory-table" rows={rows} columns={tab === 'uav' ? uavColumns : gatewayColumns} footer={`${rows.length} ${tab === 'uav' ? 'UAVs' : 'gateways'} · Times in Vietnam (UTC+7)`} />
     </div>
-    {manage && dialog && <EquipmentDialog {...dialog} workspace={farmWorkspace} operations={operations} currentFarm={currentFarm} onClose={() => setDialog(null)} onSave={async (values) => { await changeOperations({ kind: dialog.kind, id: dialog.record?.id, action: ['assign', 'toggle'].includes(dialog.mode) ? dialog.mode : 'save', values }, farmWorkspace); setNotice('Equipment saved successfully.'); setDialog(null) }} />}
+    {dialog && (manage || (create && !dialog.record)) && <EquipmentDialog {...dialog} workspace={farmWorkspace} operations={operations} currentFarm={currentFarm} onClose={() => setDialog(null)} onSave={async (values) => { await changeOperations({ kind: dialog.kind, id: dialog.record?.id, action: ['assign', 'toggle'].includes(dialog.mode) ? dialog.mode : 'save', values }, farmWorkspace); setNotice('Equipment saved successfully.'); setDialog(null) }} />}
     {manage && credential?.owner === credentialOwner && <GatewayCredentialDialog gateway={credential.gateway} onClose={() => setCredential(null)} />}
   </div>
 }

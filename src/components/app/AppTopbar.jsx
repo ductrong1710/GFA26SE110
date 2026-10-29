@@ -1,4 +1,5 @@
 import NotificationsPanel from './NotificationsPanel'
+import { useNotifications } from '../../services/api/useNotifications'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getNavigationForRole } from '../../config/navigation'
@@ -7,6 +8,7 @@ import AppIcon from './AppIcon'
 
 export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms, currentFarm, onFarmChange }) {
   const { user, logout, activeRole, activeRoleLabel, canAny } = useAuth()
+  const notifications = useNotifications(user.id, activeRole)
   const navigate = useNavigate()
   const location = useLocation()
   const [query, setQuery] = useState('')
@@ -84,10 +86,10 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
         <span className="app-status-dot" />{!online ? 'Offline' : 'Backend account'}
       </div>
       <div className="app-popover-anchor">
-        <button ref={notificationRef} type="button" className="app-icon-button" aria-label="Notifications" aria-expanded={popover === 'notifications'}
-          aria-controls="app-notifications" onClick={() => setPopover(popover === 'notifications' ? null : 'notifications')}><AppIcon name="alert" /></button>
+        <button ref={notificationRef} type="button" className="app-icon-button app-notification-trigger" aria-label={notifications.hasUnread ? "Notifications, unread notifications" : "Notifications"} aria-expanded={popover === 'notifications'}
+          aria-controls="app-notifications" onClick={() => setPopover(popover === 'notifications' ? null : 'notifications')}><AppIcon name="alert" />{notifications.hasUnread && <span className="app-notification-dot" aria-hidden="true" />}</button>
         {popover === 'notifications' && <section id="app-notifications" className="app-popover app-notification-panel" aria-label="Notifications">
-          <h2>Notifications</h2><NotificationsPanel />
+          <NotificationsPanel notifications={notifications} />
         </section>}
       </div>
       <div className="app-popover-anchor app-account-anchor">

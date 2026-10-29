@@ -4,6 +4,9 @@ React application built with Vite. The authenticated workspace uses the ASP.NET
 backend as its source of truth; it does not sign in with demo accounts or load
 mock records into production pages.
 
+CI runs lint, tests and the production build on pushes and pull requests to
+`FrontEnd`. See [CI details](docs/CI.md).
+
 ## Run locally
 
 Copy `.env.example` to `.env.local`, set `VITE_API_BASE_URL` to the backend API
@@ -34,6 +37,10 @@ Farm and zone records, users, sensor nodes and channels, thresholds, devices,
 missions, readings, alerts, notifications, dashboards, and reports are loaded
 from backend endpoints. Pages do not substitute fixture data when a request
 fails; they show loading, empty, or error states.
+
+Farm and zone boundaries can be edited on the map; the API integration falls
+back to center coordinates for legacy records without boundaries. See
+[geographic boundary details](docs/geographic-boundaries.md).
 
 Some prototype features do not have a supported human-facing backend API and
 are disabled: global settings, browser-managed device synchronization/retry,
