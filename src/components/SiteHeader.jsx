@@ -20,7 +20,6 @@ export default function SiteHeader({ innerPage = false, heroPage = false }) {
       <nav className={'main-nav ' + (open ? 'nav-open' : '')}>{links.map((link) => <Link key={link.href} to={linkHref(link.href)} onClick={() => setOpen(false)}>{link.label}</Link>)}</nav>
       <div className="header-actions">
         <Link className="header-login" to="/dang-nhap">Đăng nhập</Link>
-        <Link className="header-register" to="/dang-ky">Đăng ký</Link>
       </div>
     </header>
   )

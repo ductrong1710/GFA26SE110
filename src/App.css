@@ -241,6 +241,21 @@
 #root .site-header--inner .header-register:hover { background: #123e2c; }
 #root .header-actions .header-login, #root .header-actions .header-register { color: #fff; border-color: #176346; background: #176346; }
 #root .header-actions .header-login:hover, #root .header-actions .header-register:hover { color: #fff; border-color: #123e2c; background: #123e2c; }
+#root .site-header:not(.site-header--inner) .header-actions .header-login {
+  min-height: 48px;
+  padding-inline: 28px;
+  border-color: #fff;
+  color: #17241b;
+  background: #fff;
+  font-size: 15px;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+#root .site-header:not(.site-header--inner) .header-actions .header-login:hover {
+  border-color: #edf1ec;
+  color: #17241b;
+  background: #edf1ec;
+}
 #root .header-actions .header-cart { width: 42px; height: 42px; position: relative; border: 1px solid #176346; border-radius: 50%; display: grid; place-items: center; color: #176346; background: #fff; transition: color .2s ease, background .2s ease, border-color .2s ease; }
 #root .site-header--inner .header-cart { color: #176346; }
 .header-cart span { min-width: 17px; height: 17px; padding: 0 4px; position: absolute; top: -4px; right: -5px; border-radius: 20px; display: grid; place-items: center; color: #fff; background: #176346; font-size: 10px; font-weight: 700; line-height: 1; }
@@ -630,6 +645,36 @@
 .account-screen--login .account-visual { animation: account-slide-in-from-left .62s cubic-bezier(.22,.72,.18,1) both; }
 .account-screen--register .account-form-panel { animation: account-form-in-from-left .62s cubic-bezier(.22,.72,.18,1) both; }
 .account-screen--login .account-form-panel { animation: account-form-in-from-right .62s cubic-bezier(.22,.72,.18,1) both; }
+.forgot-password-content .eyebrow { color: #548066; font-size: 10px; letter-spacing: .11em; }
+.forgot-password-content .account-intro { margin-bottom: 22px; }
+.forgot-password-content form { gap: 14px; }
+.forgot-resend { color: #176346; font-size: 12px; font-weight: 600; text-decoration: none; }
+.forgot-resend { justify-self: center; padding: 5px; border: 0; background: transparent; font: inherit; cursor: pointer; }
+.forgot-resend:hover { color: #123e2c; text-decoration: underline; }
+@media (max-width: 680px) { .forgot-password-content .account-intro { margin-bottom: 14px; }.forgot-password-content form { gap: 10px; } }
+.account-screen--forgot { min-height: 100svh; height: auto; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; }
+.account-screen--forgot .account-card { width: min(600px, 100%); height: auto; min-height: min(620px, calc(100svh - 40px)); display: block; }
+.account-screen--forgot .account-form-panel { min-height: min(620px, calc(100svh - 40px)); padding: 90px 28px 36px; }
+.account-screen--forgot .account-form-content { width: min(430px, 100%); }
+.account-screen--forgot .account-form-panel { padding: 40px; }
+.account-screen--forgot .account-form-content { width: 100%; max-width: 420px; margin: 0; text-align: left; }
+.account-screen--forgot .account-brand-group { position: static; width: 100%; margin: 0 0 38px; align-items: flex-start; gap: 14px; }
+.account-screen--forgot .account-brand { color: #18231b; font-size: 20px; }
+.account-screen--forgot .account-form-content h1 { margin: 0 0 10px; font-size: clamp(30px, 4vw, 38px); letter-spacing: -.04em; line-height: 1.15; }
+.account-screen--forgot .account-intro { margin: 0 0 20px; }
+.account-screen--forgot .account-form-content form { width: 100%; gap: 16px; }
+.account-screen--forgot .account-form-content form label { width: 100%; }
+.account-screen--forgot .account-form-content form input,
+.account-screen--forgot .account-form-content .account-submit { box-sizing: border-box; width: 100%; min-height: 50px; }
+.account-screen--forgot .account-form-content .account-submit { margin: 0; }
+.account-screen--forgot .account-message { margin: 0 0 16px; }
+@media (max-width: 680px) {
+  .account-screen--forgot { min-height: 100svh; padding: 10px; }
+  .account-screen--forgot .account-card { width: 100%; min-height: calc(100svh - 20px); height: auto; border-radius: 16px; }
+  .account-screen--forgot .account-form-panel { min-height: calc(100svh - 20px); padding: 68px 22px 24px; }
+  .account-screen--forgot .account-form-panel { min-height: calc(100svh - 20px); padding: 40px 24px; }
+  .account-screen--forgot .account-brand-group { margin-bottom: 30px; }
+}
 @keyframes account-slide-in-from-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes account-slide-in-from-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes account-form-in-from-left { from { transform: translateX(-18%); opacity: .72; } to { transform: translateX(0); opacity: 1; } }
@@ -905,3 +950,103 @@
 .engineer-step-form .password-field > input { min-height: 34px !important; padding: 3px 34px 5px 0 !important; border: 0 !important; border-bottom: 1px solid #d2d9d3 !important; border-radius: 0 !important; outline: 0; color: #253229; background: transparent; font: inherit; font-size: 12px !important; }
 .engineer-step-form .password-field > input:focus { border-bottom-color: #176346 !important; box-shadow: 0 1px 0 #176346 !important; }
 @media (max-width: 680px) { .engineer-step-form .password-field > input { min-height: 30px !important; } }
+
+/* Forgot-password page uses one stacked, centered card instead of the split login layout. */
+.account-screen.account-screen--forgot {
+  width: 100%;
+  min-height: 100dvh;
+  height: auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  background: #f5f7f4;
+}
+.account-screen--forgot .account-card {
+  width: min(420px, 100%);
+  height: auto;
+  min-height: 0;
+  margin: auto;
+  padding: 40px;
+  display: block;
+  border: 1px solid #e4eae3;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 55px rgba(19,55,34,.1);
+}
+.account-screen--forgot .account-form-panel {
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.account-screen--forgot .account-form-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.account-screen--forgot .account-brand-group {
+  position: static;
+  width: 100%;
+  margin: 0 0 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.account-screen--forgot .account-brand { position: static; color: #18231b; font-size: 20px; }
+.account-screen--forgot .forgot-login-link { width: fit-content; color: #176346; font-size: 13px; font-weight: 600; text-decoration: none; }
+.account-screen--forgot .forgot-login-link:hover { color: #123e2c; text-decoration: underline; }
+.account-screen--forgot .forgot-login-link:focus-visible { outline: 3px solid rgba(23,99,70,.28); outline-offset: 3px; }
+.account-screen--forgot .account-form-content h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -.04em; line-height: 1.18; }
+.account-screen--forgot .account-intro { margin: 0 0 20px; }
+.account-screen--forgot .account-form-content form { width: 100%; gap: 16px; }
+.account-screen--forgot .account-form-content form label { width: 100%; }
+.account-screen--forgot .account-form-content form input,
+.account-screen--forgot .account-form-content .password-field,
+.account-screen--forgot .account-form-content .account-submit { box-sizing: border-box; width: 100%; }
+.account-screen--forgot .account-form-content form input { min-height: 48px; }
+.account-screen--forgot .account-form-content .account-submit { min-height: 48px; margin: 0; }
+.account-screen--forgot .account-message { margin: 0; }
+@media (max-width: 680px) {
+  .account-screen.account-screen--forgot { min-height: 100dvh; padding: 16px; }
+  .account-screen--forgot .account-card {
+    width: 100%;
+    min-height: calc(100dvh - 32px);
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(19,55,34,.06);
+  }
+  .account-screen--forgot .account-form-panel { min-height: calc(100dvh - 80px); }
+  .account-screen--forgot .account-brand-group { margin-bottom: 20px; gap: 8px; }
+  .account-screen--forgot .account-form-content h1 { margin-bottom: 8px; font-size: 22px; }
+  .account-screen--forgot .account-intro { margin-bottom: 16px; font-size: 13px; line-height: 1.5; }
+  .account-screen--forgot .account-form-content form { gap: 12px; }
+  .account-screen--forgot .account-form-content form label { gap: 6px; }
+  .account-screen--forgot .account-form-content form input,
+  .account-screen--forgot .account-form-content .account-submit { min-height: 48px; }
+}
+@media (min-width: 681px) {
+  .account-screen--forgot .account-card {
+    width: min(560px, 100%);
+    padding: 56px;
+  }
+  .account-screen--forgot .account-brand-group { margin-bottom: 36px; gap: 12px; }
+  .account-screen--forgot .account-brand { font-size: 21px; }
+  .account-screen--forgot .forgot-login-link { font-size: 16px; }
+  .account-screen--forgot .account-form-content h1 {
+    margin-bottom: 14px;
+    font-size: 30px;
+    font-weight: 700;
+  }
+  .account-screen--forgot .account-intro { margin-bottom: 26px; font-size: 15px; }
+  .account-screen--forgot .account-form-content form { gap: 20px; }
+  .account-screen--forgot .account-form-content form label { gap: 9px; font-size: 16px; }
+  .account-screen--forgot .account-form-content form input { min-height: 52px; font-size: 16px; }
+  .account-screen--forgot .account-form-content .account-submit { min-height: 52px; font-size: 16px; }
+}

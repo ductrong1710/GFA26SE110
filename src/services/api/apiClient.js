@@ -164,6 +164,12 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
       showToast('success', 'Đăng nhập thành công.')
       return result.user
     },
+    requestPasswordReset(email) {
+      return send('/api/auth/forgot-password', { method: 'POST', body: { email }, auth: false, toast: false })
+    },
+    resetPassword(token, newPassword) {
+      return send('/api/auth/reset-password', { method: 'POST', body: { token, newPassword }, auth: false, toast: false })
+    },
     async restore() {
       if (!session.get()) return null
       const identity = session.identity()
@@ -180,7 +186,7 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
       restoring = operation
       return operation.promise
     },
-    logout() {
+    logout({ showSuccess = true } = {}) {
       if (signingOut) return signingOut
       closing = true
       const before = session.get()
@@ -197,7 +203,11 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
             await revoke(tokens)
           }
         } catch { /* Signing out always clears the local session, including offline. */ }
-        finally { if (session.identity() === identity) session.set(null); closing = false; showToast('success', 'Đã đăng xuất.') }
+        finally {
+          if (session.identity() === identity) session.set(null)
+          closing = false
+          if (showSuccess) showToast('success', 'Đã đăng xuất.')
+        }
       })().finally(() => { signingOut = null })
       return signingOut
     },
