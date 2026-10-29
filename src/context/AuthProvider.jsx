@@ -29,8 +29,8 @@ export function AuthProvider({ children }) {
     return nextUser
   }
 
-  const logout = async () => {
-    await api.logout()
+  const logout = async (options) => {
+    await api.logout(options)
     setUser(null)
   }
 

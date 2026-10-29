@@ -1,0 +1,37 @@
+.profile-page { max-width: 920px; margin: 0 auto; display: grid; gap: 20px; }
+.profile-heading h1 { margin: 0; color: var(--ui-text); font-size: clamp(26px, 3vw, 32px); line-height: 1.2; letter-spacing: -.6px; }
+.profile-heading > p:last-child { margin: 8px 0 0; }
+.profile-card { min-width: 0; padding: 24px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-card); background: var(--ui-card); box-shadow: var(--ui-shadow-sm); }
+.profile-overview { display: flex; align-items: center; gap: 20px; padding: 28px; background: linear-gradient(120deg, #fff 50%, #f0f7f2); }
+.profile-avatar { width: 76px; height: 76px; flex: 0 0 76px; display: grid; place-items: center; border: 1px solid #d5e6da; border-radius: 50%; color: #176346; background: #eaf5ee; font-size: 24px; font-weight: 700; }
+.profile-identity { min-width: 0; }
+.profile-identity .app-ui-eyebrow { margin-bottom: 5px; }
+.profile-identity h2 { margin: 0; overflow-wrap: anywhere; color: var(--ui-text); font-size: 22px; }
+.profile-identity > p:not(.app-ui-eyebrow) { margin: 4px 0 10px; overflow-wrap: anywhere; color: var(--ui-muted); }
+.profile-role-active { display: inline-flex; align-items: center; gap: 7px; color: var(--ui-primary); font-size: 12px; font-weight: 600; }
+.profile-section-heading { display: flex; align-items: center; gap: 12px; }
+.profile-section-icon { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; border-radius: 10px; color: var(--ui-primary); background: var(--ui-success-bg); }
+.profile-section-heading h2 { margin: 0; color: var(--ui-text); font-size: 16px; }
+.profile-section-heading p { margin: 3px 0 0; color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.profile-details { margin: 20px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--ui-border); border-radius: 10px; background: var(--ui-border); }
+.profile-details > div { min-width: 0; padding: 14px 16px; background: white; }
+.profile-details dt { color: var(--ui-muted); font-size: 11px; }
+.profile-details dd { margin: 5px 0 0; overflow-wrap: anywhere; color: var(--ui-text); font-size: 13px; font-weight: 600; }
+.profile-role-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.profile-role-list span { padding: 3px 8px; border-radius: 999px; color: var(--ui-primary); background: var(--ui-success-bg); font-size: 11px; }
+.profile-password-form { max-width: 540px; margin-top: 20px; display: grid; gap: 14px; }
+.profile-password-form label { display: grid; gap: 6px; color: var(--ui-text); font-size: 12px; font-weight: 600; }
+.profile-password-form input { width: 100%; min-width: 0; min-height: 42px; padding: 9px 11px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-sm); color: var(--ui-text); background: white; font: inherit; font-weight: 400; }
+.profile-password-form input:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.profile-password-form > button { justify-self: start; }
+.profile-form-error { margin: 0; color: var(--ui-danger); font-size: 12px; }
+@media (max-width: 600px) {
+  .profile-page { gap: 14px; }
+  .profile-card { padding: 18px; }
+  .profile-overview { align-items: flex-start; gap: 14px; padding: 20px 18px; }
+  .profile-avatar { width: 58px; height: 58px; flex-basis: 58px; font-size: 19px; }
+  .profile-identity h2 { font-size: 18px; }
+  .profile-details { grid-template-columns: minmax(0, 1fr); }
+  .profile-details > div { padding: 12px 14px; }
+  .profile-password-form > button { width: 100%; }
+}

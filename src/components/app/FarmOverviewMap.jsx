@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import GeographicFarmMap from './GeographicFarmMap'
+import { useUiText } from '../../utils/useUiText'
 
 // Schematic geography only. Domain identity/status and the route come from the farm view model.
 const plots = [
@@ -9,8 +10,37 @@ const plots = [
 ]
 
 export default function FarmOverviewMap({ farm, zones, nodes, mission }) {
+  const t = useUiText({
+    'Farm geographic map': 'Bản đồ địa lý trang trại',
+    'Recorded geographic locations. Records without boundaries appear as center points when available.': 'Các vị trí địa lý đã ghi nhận. Những hồ sơ không có ranh giới sẽ hiển thị dưới dạng điểm trung tâm nếu có.',
+    'Select zone': 'Chọn khu vực',
+    'Location': 'Vị trí',
+    'Farm overview map': 'Bản đồ tổng quan trang trại',
+    'Schematic of': 'Sơ đồ',
+    'Planned target route shown for': 'Hiển thị lộ trình mục tiêu dự kiến cho',
+    'current UAV position is unavailable.': 'không có thông tin vị trí UAV hiện tại.',
+    'No mission is running.': 'Không có nhiệm vụ nào đang hoạt động.',
+    'Farm schematic · not to scale': 'Sơ đồ trang trại · không theo tỷ lệ',
+    'Online sensor': 'Cảm biến trực tuyến',
+    'Offline sensor': 'Cảm biến ngoại tuyến',
+    'Disabled sensor': 'Cảm biến đã tắt',
+    'Active route': 'Lộ trình đang hoạt động',
+    'UAV · last collected location': 'UAV · vị trí thu thập gần nhất',
+    'N': 'B',
+    'Location requires HTTPS or localhost. You can still enter coordinates manually.': 'Tính năng vị trí cần HTTPS hoặc localhost. Bạn vẫn có thể nhập tọa độ thủ công.',
+    'This browser does not support location. You can still enter coordinates manually.': 'Trình duyệt này không hỗ trợ xác định vị trí. Bạn vẫn có thể nhập tọa độ thủ công.',
+    'Location permission was denied. Allow location in browser settings or enter coordinates manually.': 'Quyền truy cập vị trí đã bị từ chối. Hãy cho phép truy cập vị trí trong cài đặt trình duyệt hoặc nhập tọa độ thủ công.',
+    'Location request timed out after two attempts. Check your Internet connection and device location settings, then retry or enter coordinates manually.': 'Yêu cầu xác định vị trí đã hết thời gian sau hai lần thử. Hãy kiểm tra kết nối Internet và cài đặt vị trí trên thiết bị, sau đó thử lại hoặc nhập tọa độ thủ công.',
+    'Current location is unavailable. Check your Internet connection and device location settings, then retry or enter coordinates manually.': 'Không thể xác định vị trí hiện tại. Hãy kiểm tra kết nối Internet và cài đặt vị trí trên thiết bị, sau đó thử lại hoặc nhập tọa độ thủ công.',
+    'Locating…': 'Đang xác định vị trí…',
+    'Current location': 'Vị trí hiện tại',
+    'Current coordinates': 'Tọa độ hiện tại',
+    'Your location:': 'Vị trí của bạn:',
+    'Accuracy: approximately': 'Độ chính xác: khoảng',
+    'm.': 'm.',
+  })
   const id = useId()
-  if (farm?.boundary || zones.some(zone => zone.boundary)) return <GeographicFarmMap {...{ farm, zones, nodes, mission }} />
+  if (farm?.boundary || zones.some(zone => zone.boundary)) return <GeographicFarmMap {...{ farm, zones, nodes, mission }} text={t} />
   const layout = zones.length <= 3 ? plots : zones.map((_, index) => {
     const rowHeight = 280 / Math.ceil(zones.length / 2)
     const x = 30 + index % 2 * 300
@@ -32,8 +62,8 @@ export default function FarmOverviewMap({ farm, zones, nodes, mission }) {
 
   return <div className="owner-map">
     <svg viewBox="0 0 632 360" role="img" aria-labelledby={`${id}-title ${id}-description`}>
-      <title id={`${id}-title`}>Farm overview map</title>
-      <desc id={`${id}-description`}>Schematic of {zones.map(({ name }) => name).join(', ')}. {nodes.filter(({ status, isActive }) => status === 'ONLINE' && isActive).length} online, {nodes.filter(({ status, isActive }) => status === 'OFFLINE' && isActive).length} offline, and {nodes.filter(({ isActive }) => !isActive).length} disabled sensors.{mission ? ` Planned target route shown for ${mission.name}; current UAV position is unavailable.` : ' No mission is running.'}</desc>
+      <title id={`${id}-title`}>{t('Farm overview map')}</title>
+      <desc id={`${id}-description`}>{t('Schematic of')} {zones.map(({ name }) => name).join(', ')}. {nodes.filter(({ status, isActive }) => status === 'ONLINE' && isActive).length} online, {nodes.filter(({ status, isActive }) => status === 'OFFLINE' && isActive).length} offline, and {nodes.filter(({ isActive }) => !isActive).length} disabled sensors.{mission ? ` ${t('Planned target route shown for')} ${mission.name}; ${t('current UAV position is unavailable.')}` : ` ${t('No mission is running.')}`}</desc>
       <defs>
         <pattern id={`${id}-rows`} width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-12)"><path d="M0 0V18" stroke="#b9cfa7" strokeWidth="5" opacity=".45" /></pattern>
         <pattern id={`${id}-grid`} width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#d8e2d6" strokeWidth=".7" /></pattern>
@@ -65,10 +95,9 @@ export default function FarmOverviewMap({ farm, zones, nodes, mission }) {
         <path d="M-7-7L7 7M7-7L-7 7" stroke="white" strokeWidth="2" />
         {[-1, 1].flatMap((x) => [-1, 1].map((y) => <circle key={`${x}-${y}`} cx={x * 6} cy={y * 6} r="3" stroke="white" fill="#176346" strokeWidth="1.5" />))}
       </g>}
-      <g transform="translate(607 22)"><path d="M0 23V4m-4 7 4-7 4 7" stroke="#60796b" fill="none" /><text y="0" textAnchor="middle" className="owner-map-crop">N</text></g>
-      <text x="40" y="340" className="owner-map-crop">Farm schematic · not to scale</text>
+      <g transform="translate(607 22)"><path d="M0 23V4m-4 7 4-7 4 7" stroke="#60796b" fill="none" /><text y="0" textAnchor="middle" className="owner-map-crop">{t('N')}</text></g>
+      <text x="40" y="340" className="owner-map-crop">{t('Farm schematic · not to scale')}</text>
     </svg>
-    <div className="owner-map-legend"><span><i />Online sensor</span><span><i className="is-offline" />Offline sensor</span>{nodes.some(({ isActive }) => !isActive) && <span><i className="is-disabled" />Disabled sensor</span>}{mission && <><span><i className="is-route" />Active route</span><span><i className="is-uav" />UAV · last collected location</span></>}</div>
+    <div className="owner-map-legend"><span><i />{t('Online sensor')}</span><span><i className="is-offline" />{t('Offline sensor')}</span>{nodes.some(({ isActive }) => !isActive) && <span><i className="is-disabled" />{t('Disabled sensor')}</span>}{mission && <><span><i className="is-route" />{t('Active route')}</span><span><i className="is-uav" />{t('UAV · last collected location')}</span></>}</div>
   </div>
 }
-

@@ -7,23 +7,23 @@ import { appRoutes } from '../src/config/appRoutes.js'
 import { mockAccounts } from '../src/data/mock/accounts.js'
 
 const expectedModules = {
-  FARM_OWNER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'missions', 'alerts', 'reports'],
-  ADMINISTRATOR: ['dashboard', 'farms', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users'],
-  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports'],
-  AGRICULTURAL_ENGINEER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'alerts', 'reports'],
+  FARM_OWNER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'missions', 'alerts', 'reports', 'profile'],
+  ADMINISTRATOR: ['dashboard', 'farms', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users', 'profile'],
+  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'profile'],
+  AGRICULTURAL_ENGINEER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'alerts', 'reports', 'profile'],
 }
 
 for (const [role, modules] of Object.entries(expectedModules)) {
   test(`${role}: exact modules in sidebar and direct routes`, () => {
     assert.deepEqual(getNavigationForRole(role).map(({ path }) => path.slice('/app/'.length)), modules)
     for (const route of appRoutes) {
-      const expected = route.path === 'missions/create' ? role === ROLES.UAV_DEVICE_OPERATOR
+      const expected = route.path === 'profile' ? true : route.path === 'missions/create' ? role === ROLES.UAV_DEVICE_OPERATOR
         : route.path === 'sensor-data/compare-zones' ? role === ROLES.AGRICULTURAL_ENGINEER
           : modules.includes(route.path.split('/')[0]) || (
             (role === ROLES.ADMINISTRATOR && route.path === 'settings') ||
             (role === ROLES.UAV_DEVICE_OPERATOR && route.path === 'sync')
           )
-      assert.equal(hasAnyPermission(role, route.permissions), expected, `${role}: ${route.path}`)
+      assert.equal(route.permissions.length === 0 || hasAnyPermission(role, route.permissions), expected, `${role}: ${route.path}`)
     }
   })
 }
@@ -88,14 +88,15 @@ test('unknown actors and Sensor Collection Engine have no dashboard or permissio
   assert.equal(hasPermission(ROLES.ADMINISTRATOR, 'unknown.permission'), false)
 })
 
-test('every menu entry matches its protected route and no route has empty permissions', () => {
+test('every menu entry matches its protected route and only the profile route has no role requirement', () => {
   for (const item of navigation) {
     const route = appRoutes.find(({ path }) => `/app/${path}` === item.path)
     assert.ok(route, item.path)
     assert.deepEqual(route.permissions, item.permissions)
   }
   for (const { permissions, path } of appRoutes) {
-    assert.ok(permissions.length > 0, path)
+    if (path === 'profile') assert.deepEqual(permissions, [])
+    else assert.ok(permissions.length > 0, path)
     for (const permission of permissions) assert.ok(Object.values(P).includes(permission), path)
   }
 })

@@ -1,18 +1,31 @@
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea, Legend } from 'recharts'
 import { EmptyState } from './ui'
 import { formatMetric } from '../../services/api/analytics'
+import { useUiText } from '../../utils/useUiText'
 
 const colors = ['#176346', '#367ba6', '#b37b24', '#8665a6', '#a85460']
 const timeLabel = (at) => new Date(at).toLocaleString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 function ChartTooltip({ active, payload, label, type }) {
+  const t = useUiText({
+    'Vietnam': 'Việt Nam',
+    'Hourly means of available sensor channels': 'Giá trị trung bình theo giờ của các kênh cảm biến hiện có',
+    'contributing': 'kênh tham gia',
+    'Coverage may vary by hour.': 'Mức độ dữ liệu có thể thay đổi theo từng giờ.',
+  })
   if (!active || !payload?.length) return null
-  return <div className="analytics-tooltip"><strong>{timeLabel(label)} · Vietnam</strong>{payload.filter(({ value }) => value !== null && value !== undefined).map((item) => <p key={item.dataKey}><span style={{ color: item.color }}>{item.name}</span><b>{formatMetric(item.value, type)} {type?.unit}</b></p>)}<small>Hourly means of available sensor channels{payload[0]?.payload?.channels !== undefined ? ` · ${payload[0].payload.channels} contributing` : ''}. Coverage may vary by hour.</small></div>
+  return <div className="analytics-tooltip"><strong>{timeLabel(label)} · {t('Vietnam')}</strong>{payload.filter(({ value }) => value !== null && value !== undefined).map((item) => <p key={item.dataKey}><span style={{ color: item.color }}>{item.name}</span><b>{formatMetric(item.value, type)} {type?.unit}</b></p>)}<small>{t('Hourly means of available sensor channels')}{payload[0]?.payload?.channels !== undefined ? ` · ${payload[0].payload.channels} ${t('contributing')}` : ''}. {t('Coverage may vary by hour.')}</small></div>
 }
 
 export default function EnvironmentalChart({ series, type, threshold, zones, label }) {
+  const t = useUiText({
+    'No readings in this selection': 'Không có số liệu trong lựa chọn này',
+    'This zone may not have this sensor type, or no synchronized readings fall within the date range.': 'Khu vực này có thể không có loại cảm biến này hoặc không có số liệu đồng bộ trong khoảng thời gian đã chọn.',
+    'Average': 'Trung bình',
+    'historical trend': 'xu hướng theo thời gian',
+  })
   const lines = zones?.map((zone, index) => ({ key: `zone${zone.id}`, label: zone.name, color: colors[index % colors.length] })) ?? [{ key: 'value', label: type?.name ?? 'Average', color: colors[0] }]
-  if (!series.some((row) => lines.some(({ key }) => row[key] !== null && row[key] !== undefined))) return <EmptyState title="No readings in this selection" description="This zone may not have this sensor type, or no synchronized readings fall within the date range." />
-  return <div className="analytics-chart" aria-label={label ?? `${type?.name} historical trend`}>
+  if (!series.some((row) => lines.some(({ key }) => row[key] !== null && row[key] !== undefined))) return <EmptyState title={t('No readings in this selection')} description={t('This zone may not have this sensor type, or no synchronized readings fall within the date range.')} />
+  return <div className="analytics-chart" aria-label={label ?? `${type?.name} ${t('historical trend')}`}>
     <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 400, height: 280 }}>
       <LineChart data={series} accessibilityLayer margin={{ top: 16, right: 16, left: 0, bottom: 8 }}>
         <CartesianGrid stroke="#e4ebe6" strokeDasharray="3 4" vertical={false} />
@@ -26,4 +39,3 @@ export default function EnvironmentalChart({ series, type, threshold, zones, lab
     </ResponsiveContainer>
   </div>
 }
-

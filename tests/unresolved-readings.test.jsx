@@ -2,7 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, test, vi } from 'vitest'
 import UnresolvedReadings from '../src/components/app/UnresolvedReadings'
 import { api } from '../src/services/api/index'
-vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, activeRole: 'FARM_OWNER' }) }))
+vi.mock('../src/context/AuthContext', async importOriginal => ({
+  ...await importOriginal(),
+  useAuth: () => ({ user: { id: 1 }, activeRole: 'FARM_OWNER' }),
+}))
 vi.mock('../src/services/api/index', () => ({ api: { get: vi.fn() } }))
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 

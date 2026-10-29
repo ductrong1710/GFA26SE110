@@ -1,9 +1,11 @@
 import '../../../styles/app-ui.css'
+import { useUiText } from '../../../utils/useUiText'
 
 export default function PageHeader({ title, description, eyebrow, breadcrumbs, actions, className = '', ...props }) {
+  const t = useUiText()
   return <header {...props} className={`app-ui app-ui-page-header ${className}`}>
     <div className="app-ui-page-heading">
-      {breadcrumbs && <nav className="app-ui-breadcrumbs" aria-label="Breadcrumb">{breadcrumbs}</nav>}
+      {breadcrumbs && <nav className="app-ui-breadcrumbs" aria-label={t('Breadcrumb')}>{breadcrumbs}</nav>}
       {eyebrow && <p className="app-ui-eyebrow">{eyebrow}</p>}
       <h1>{title}</h1>
       {description && <p className="app-ui-description">{description}</p>}

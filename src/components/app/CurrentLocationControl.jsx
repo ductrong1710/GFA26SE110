@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 
-export default function CurrentLocationControl({ mapRef }) {
+export default function CurrentLocationControl({ mapRef, text = value => value }) {
   const [pending, setPending] = useState(false)
   const [location, setLocation] = useState(null)
   const [error, setError] = useState('')
@@ -15,11 +15,11 @@ export default function CurrentLocationControl({ mapRef }) {
   const locate = () => {
     setError('')
     if (window.isSecureContext === false) {
-      setError('Location requires HTTPS or localhost. You can still enter coordinates manually.')
+      setError(text('Location requires HTTPS or localhost. You can still enter coordinates manually.'))
       return
     }
     if (!navigator.geolocation) {
-      setError('This browser does not support location. You can still enter coordinates manually.')
+      setError(text('This browser does not support location. You can still enter coordinates manually.'))
       return
     }
     const map = mapRef.current
@@ -38,10 +38,10 @@ export default function CurrentLocationControl({ mapRef }) {
         }
         attempt += 1
         setPending(false)
-        setError(failure.code === 1
+        setError(text(failure.code === 1
           ? 'Location permission was denied. Allow location in browser settings or enter coordinates manually.'
           : failure.code === 3 ? 'Location request timed out after two attempts. Check your Internet connection and device location settings, then retry or enter coordinates manually.'
-            : 'Current location is unavailable. Check your Internet connection and device location settings, then retry or enter coordinates manually.')
+            : 'Current location is unavailable. Check your Internet connection and device location settings, then retry or enter coordinates manually.'))
       }
       try {
         navigator.geolocation.getCurrentPosition(({ coords }) => {
@@ -71,10 +71,10 @@ export default function CurrentLocationControl({ mapRef }) {
   }
   return <div className="current-location-control">
     <button type="button" className="app-ui-button" onClick={locate} disabled={pending}>
-      {pending ? 'Locating…' : 'Current location'}
+      {pending ? text('Locating…') : text('Current location')}
     </button>
-    {location && <p role="status" aria-label="Current coordinates">
-      Your location: {location.latitude.toFixed(7)}, {location.longitude.toFixed(7)} · Accuracy: approximately {Math.round(location.accuracy)} m.
+    {location && <p role="status" aria-label={text('Current coordinates')}>
+      {text('Your location:')} {location.latitude.toFixed(7)}, {location.longitude.toFixed(7)} · {text('Accuracy: approximately')} {Math.round(location.accuracy)} {text('m.')}
     </p>}
     {error && <p role="alert" className="farm-form-error">{error}</p>}
   </div>

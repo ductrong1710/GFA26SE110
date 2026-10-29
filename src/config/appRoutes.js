@@ -15,5 +15,6 @@ export const appRoutes = [
   { path: 'alerts', title: 'Cảnh báo', permissions: [P.ALERTS_VIEW, P.ALERTS_VIEW_RELATED] },
   { path: 'reports', title: 'Báo cáo', permissions: [P.REPORTS_VIEW] },
   { path: 'users', title: 'Người dùng', permissions: [P.USERS_MANAGE] },
+  { path: 'profile', title: 'Hồ sơ cá nhân', permissions: [] },
   { path: 'settings', title: 'Cài đặt', permissions: [P.SETTINGS_MANAGE] },
 ]

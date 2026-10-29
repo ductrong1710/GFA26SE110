@@ -7,6 +7,7 @@ import { normalizeUser, toBackendRoles } from '../services/api/roles'
 import { ROLES, USER_ASSIGNABLE_ROLES } from '../config/roles'
 import { useAuth } from './AuthContext'
 import { PERMISSIONS } from '../config/permissions'
+import { showToast } from '../utils/toast'
 
 export default function ApiManagementProvider({ children }) {
   const { pathname } = useLocation()
@@ -18,13 +19,23 @@ export default function ApiManagementProvider({ children }) {
       if (!id && (!Array.isArray(values.roles) || values.roles.length !== 1)) {
         throw new Error('Select exactly one role when creating a user.')
       }
-      if ((!id || mode === 'roles') && values.roles.some(role => !USER_ASSIGNABLE_ROLES.includes(role))) {
+      if ((!id || mode === 'edit') && values.roles.some(role => !USER_ASSIGNABLE_ROLES.includes(role))) {
         throw new Error(`Only ${USER_ASSIGNABLE_ROLES.map(role => role === ROLES.FARM_OWNER ? 'Farm Owner' : role === ROLES.UAV_DEVICE_OPERATOR ? 'UAV and Device Operator' : 'Agricultural Engineer').join(' and ')} roles can be assigned from this page.`)
       }
       if (!id) await api.post('/api/users', { email: values.email, fullName: values.fullName, password: values.password, roles: toBackendRoles(values.roles) })
-      else if (mode === 'roles') await api.put(`/api/users/${id}/roles`, { roles: toBackendRoles(values.roles) })
       else if (mode === 'status') await api.patch(`/api/users/${id}/status`, { isActive: values.status === 'ACTIVE' })
-      else await api.put(`/api/users/${id}`, { email: values.email, fullName: values.fullName })
+      else {
+        await api.request(`/api/users/${id}`, {
+          method: 'PUT',
+          body: {
+            email: values.email,
+            fullName: values.fullName,
+            ...(mode === 'edit' && values.rolesChanged ? { roles: toBackendRoles(values.roles) } : {}),
+          },
+          toast: false,
+        })
+        if (mode === 'edit') showToast('success', 'Cập nhật người dùng thành công.')
+      }
       users.reload()
     } else if (kind === 'alert') {
       const suffix = { ACKNOWLEDGED: 'acknowledge', CLOSED: 'close', NOTE: 'notes' }[action]

@@ -6,9 +6,11 @@ import '../../styles/boundary-map.css'
 import CurrentLocationControl from './CurrentLocationControl'
 import { validateLatitude, validateLongitude } from '../../utils/geo'
 
-export default function GeographicFarmMap({ farm, zones = [], nodes = [], mission, selectedZoneId, onSelect }) {
+export default function GeographicFarmMap({ farm, zones = [], nodes = [], mission, selectedZoneId, onSelect, text = value => value }) {
   const container = useRef(null)
   const mapRef = useRef(null)
+  const textRef = useRef(text)
+  useEffect(() => { textRef.current = text }, [text])
   useEffect(() => {
     const map = L.map(container.current).setView([10.7777, 106.8053], 15)
     mapRef.current = map
@@ -17,7 +19,7 @@ export default function GeographicFarmMap({ farm, zones = [], nodes = [], missio
     const label = text => { const element = document.createElement('span'); element.textContent = text; return element }
     const marker = (record, color) => {
       if (validateLatitude(record.latitude) && validateLongitude(record.longitude))
-        return L.circleMarker([Number(record.latitude), Number(record.longitude)], { radius: 6, color, fillOpacity: 0.8 }).addTo(group).bindTooltip(label(record.name || record.deviceCode || 'Location'))
+        return L.circleMarker([Number(record.latitude), Number(record.longitude)], { radius: 6, color, fillOpacity: 0.8 }).addTo(group).bindTooltip(label(record.name || record.deviceCode || textRef.current('Location')))
     }
     if (farm?.boundary) L.geoJSON(farm.boundary, { style: { color: '#50645c', fillOpacity: 0.04 } }).addTo(group)
     else if (farm) marker(farm, '#50645c')
@@ -44,10 +46,10 @@ export default function GeographicFarmMap({ farm, zones = [], nodes = [], missio
     return () => { observer.disconnect(); map.remove(); mapRef.current = null }
   }, [farm, zones, nodes, mission, selectedZoneId, onSelect])
   return <div>
-    <CurrentLocationControl mapRef={mapRef} />
-    <div className="boundary-map" ref={container} aria-label="Farm geographic map" />
-    <p>Recorded geographic locations. Records without boundaries appear as center points when available.</p>
-    {onSelect && <div className="boundary-actions" aria-label="Select zone">{zones.map(zone =>
+    <CurrentLocationControl mapRef={mapRef} text={text} />
+    <div className="boundary-map" ref={container} aria-label={text('Farm geographic map')} />
+    <p>{text('Recorded geographic locations. Records without boundaries appear as center points when available.')}</p>
+    {onSelect && <div className="boundary-actions" aria-label={text('Select zone')}>{zones.map(zone =>
       <button type="button" className="app-ui-button" key={zone.id} aria-pressed={zone.id === selectedZoneId} onClick={() => onSelect(zone.id)}>{zone.name}</button>)}</div>}
   </div>
 }

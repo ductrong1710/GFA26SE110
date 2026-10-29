@@ -1,20 +1,22 @@
 import EmptyState from './EmptyState'
+import { useUiText } from '../../../utils/useUiText'
 import '../../../styles/app-ui.css'
 
-function cellValue(value) {
+function cellValue(value, t) {
   if (value === null || value === undefined) return '—'
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? t('Yes') : t('No')
   return typeof value === 'string' || typeof value === 'number' ? value : '—'
 }
 
 // Controlled table: the caller owns sorting, filtering, pagination, and permissions.
 export default function DataTable({ columns = [], rows = [], rowKey = 'id', caption = 'Data table', loading = false,
   error, errorAction, emptyState, sort, onSortChange, onRowClick, footer, className = '', ...props }) {
+  const t = useUiText()
   const getRowKey = typeof rowKey === 'function' ? rowKey : (row) => row[rowKey]
   return <div {...props} className={`app-ui app-ui-data-table ${className}`}>
-    <div className="app-ui-table-scroll" role="region" aria-label={`${caption} scroll area`} tabIndex={0}>
+    <div className="app-ui-table-scroll" role="region" aria-label={`${t(caption)} ${t('scroll area')}`} tabIndex={0}>
       <table aria-busy={loading}>
-        <caption className="app-ui-sr-only">{caption}</caption>
+        <caption className="app-ui-sr-only">{t(caption)}</caption>
         <thead><tr>{columns.map((column) => {
           const sortable = column.sortable && typeof onSortChange === 'function'
           const direction = sort?.key === column.key ? sort.direction : null
@@ -26,11 +28,11 @@ export default function DataTable({ columns = [], rows = [], rowKey = 'id', capt
           </th>
         })}</tr></thead>
         <tbody>{loading || error || !rows.length ? <tr><td colSpan={Math.max(1, columns.length)}>
-          {loading ? <p className="app-ui-loading" role="status">Loading data…</p>
+          {loading ? <p className="app-ui-loading" role="status">{t('Loading data…')}</p>
             : error ? <div role="alert"><EmptyState title="Unable to load data" description={error} actions={errorAction} /></div>
               : emptyState ?? <EmptyState title="No records found" description="Try adjusting your filters or check back later." />}
         </td></tr> : rows.map((row) => <tr key={getRowKey(row)} data-clickable={Boolean(onRowClick)} onClick={onRowClick ? (event) => { if (!event.target.closest('button, a, input, select, textarea')) onRowClick(row) } : undefined}>{columns.map((column) => <td key={column.key} data-align={column.align ?? 'start'}>
-          {column.render ? column.render(row[column.key], row) : cellValue(row[column.key])}
+          {column.render ? column.render(row[column.key], row) : cellValue(row[column.key], t)}
         </td>)}</tr>)}</tbody>
       </table>
     </div>

@@ -6,6 +6,7 @@ import AppPageBoundary from '../components/app/AppPageBoundary'
 import { useFarmWorkspace } from '../services/api/useFarmWorkspace'
 import ApiState from '../components/app/ApiState'
 import { useAuth } from '../context/AuthContext'
+import { ROLES } from '../config/roles'
 import '../styles/app-shell.css'
 import '../styles/app-tokens.css'
 
@@ -71,9 +72,9 @@ export default function AppShell() {
 
   return <div className="app-shell">
     <AppSidebar sidebarRef={sidebarRef} mobile={mobile} open={showDrawer} onClose={closeDrawer} />
-    {showDrawer && <button type="button" className="app-sidebar-backdrop" tabIndex={-1} aria-label="Close navigation overlay" onClick={closeDrawer} />}
+    {showDrawer && <button type="button" className="app-sidebar-backdrop" tabIndex={-1} aria-label={activeRole === ROLES.FARM_OWNER ? 'Đóng lớp phủ điều hướng' : 'Close navigation overlay'} onClick={closeDrawer} />}
     <div className="app-workspace" inert={showDrawer}>
-      <a className="app-skip-link" href="#app-main">Skip to content</a>
+      <a className="app-skip-link" href="#app-main">{activeRole === ROLES.FARM_OWNER ? 'Bỏ qua để đến nội dung' : 'Skip to content'}</a>
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
         farms={farms} currentFarm={currentFarm} onFarmChange={setFarmId} />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
