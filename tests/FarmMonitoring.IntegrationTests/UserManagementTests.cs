@@ -43,7 +43,13 @@ public class UserManagementTests(ApiFactory factory)
         var list = await admin.GetFromJsonAsync<JsonElement>($"/api/users?search={email}&page=1&pageSize=1");
         Assert.Single(list.GetProperty("data").EnumerateArray());
         Assert.Equal(1, list.GetProperty("pagination").GetProperty("totalItems").GetInt32());
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}", new { email, fullName = "Updated Owner" })).StatusCode);
+        var profile = await admin.PutAsJsonAsync($"/api/users/{id}",
+            new { email, fullName = "Updated Owner", roles = new[] { "FarmEngineer" } });
+        Assert.Equal(HttpStatusCode.OK, profile.StatusCode);
+        var updatedProfile = await profile.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("FarmEngineer", Assert.Single(updatedProfile.GetProperty("data").GetProperty("roles").EnumerateArray()).GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/users/{id}",
+            new { email, fullName = "Updated Owner", roles = new[] { "FarmAdministrator" } })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator", "FarmOwner" } })).StatusCode);
         using var promoted = await Login(email);
         Assert.Equal(HttpStatusCode.OK, (await promoted.GetAsync("/api/users")).StatusCode);

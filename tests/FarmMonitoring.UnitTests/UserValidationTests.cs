@@ -35,6 +35,24 @@ public class UserValidationTests
     }
 
     [Fact]
+    public void User_profile_update_accepts_one_supported_non_admin_role_or_omits_roles()
+    {
+        var validator = new UpdateUserValidator();
+        Assert.True(validator.Validate(new UpdateUserRequest("user@example.com", "User")).IsValid);
+        Assert.True(validator.Validate(new UpdateUserRequest("user@example.com", "User", ["FarmEngineer"])).IsValid);
+        Assert.False(validator.Validate(new UpdateUserRequest("user@example.com", "User", ["FarmAdministrator"])).IsValid);
+        Assert.False(validator.Validate(new UpdateUserRequest("user@example.com", "User", ["FarmOwner", "FarmEngineer"])).IsValid);
+        Assert.False(validator.Validate(new UpdateUserRequest("user@example.com", "User", ["UnknownRole"])).IsValid);
+    }
+
+    [Theory]
+    [InlineData("12345", false)]
+    [InlineData("123456", true)]
+    public void Creating_user_requires_a_password_of_at_least_six_characters(string password, bool expected) =>
+        Assert.Equal(expected, new CreateUserValidator().Validate(
+            new CreateUserRequest("user@example.com", "User", password, ["FarmOwner"])).IsValid);
+
+    [Fact]
     public void Creating_user_requires_exactly_one_role()
     {
         string[]?[] invalidRoles = [null, [], ["FarmOwner", "FarmEngineer"],
@@ -56,4 +74,3 @@ public class UserValidationTests
     public void Pagination_rejects_unbounded_or_overflowing_queries(int page, int size) =>
         Assert.False(new PageQueryValidator().Validate(new PageQuery() { Page = page, PageSize = size }).IsValid);
 }
-

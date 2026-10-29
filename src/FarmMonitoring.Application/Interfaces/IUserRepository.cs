@@ -10,6 +10,7 @@ public interface IUserRepository
     Task<User?> FindAsync(int id, CancellationToken ct);
     Task<IReadOnlyList<Role>> GetRolesAsync(string[] names, CancellationToken ct);
     void Add(User user);
+    Task SaveWithRolesAsync(User user, IReadOnlyList<Role>? roles, CancellationToken ct);
     Task<User?> ReplaceRolesAsync(int userId, IReadOnlyList<Role> roles, DateTimeOffset updatedAt, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
 }
