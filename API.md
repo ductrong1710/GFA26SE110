@@ -218,6 +218,15 @@ PATCH  /api/users/{id}/status
 PUT    /api/users/{id}/roles
 ```
 
+`PUT /api/users/{id}` is administrator-only and accepts `email`, `fullName`,
+and optional `roles`. When supplied, `roles` must contain exactly one
+supported non-administrator role; profile and role changes are saved together.
+Omitting `roles` leaves current roles unchanged. The separate role endpoint
+remains administrator-only for its existing role-management behavior.
+
+Admin-created user passwords must be 6-1024 characters. Password reset and
+change endpoints retain their separate 12-character minimum.
+
 ---
 
 ## 6. Farm Management

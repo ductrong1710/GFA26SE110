@@ -36,7 +36,10 @@ public sealed class UserService(IUserRepository repository, IPasswordService pas
         var user = await RequireAsync(id, ct);
         user.Email = NormalizeEmail(request.Email);
         user.FullName = request.FullName.Trim();
-        return await SaveAsync(user, ct);
+        user.UpdatedAt = clock.GetUtcNow();
+        var roles = request.Roles is null ? null : await repository.GetRolesAsync(request.Roles, ct);
+        await repository.SaveWithRolesAsync(user, roles, ct);
+        return ToResponse(user);
     }
 
     public async Task<ManagedUserResponse> SetStatusAsync(int id, UserStatusRequest request, CancellationToken ct)

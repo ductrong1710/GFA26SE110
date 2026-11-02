@@ -36,6 +36,21 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
 
     public void Add(User user) => db.Users.Add(user);
 
+    public async Task SaveWithRolesAsync(User user, IReadOnlyList<Role>? roles, CancellationToken ct)
+    {
+        if (roles is not null)
+        {
+            var removed = user.UserRoles.Where(existing => roles.All(role => role.Id != existing.RoleId)).ToArray();
+            db.UserRoles.RemoveRange(removed);
+            foreach (var existing in removed)
+                user.UserRoles.Remove(existing);
+            foreach (var role in roles.Where(role => user.UserRoles.All(existing => existing.RoleId != role.Id)))
+                user.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, Role = role });
+        }
+
+        await SaveAsync(ct);
+    }
+
     public async Task<User?> ReplaceRolesAsync(int userId, IReadOnlyList<Role> roles, DateTimeOffset updatedAt, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
