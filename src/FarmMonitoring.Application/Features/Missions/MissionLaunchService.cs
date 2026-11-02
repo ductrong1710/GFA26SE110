@@ -35,6 +35,7 @@ public sealed class MissionLaunchService(IMissionRepository repository, FarmAcce
             if (MissionLaunchRules.State(m, now) is not ("AWAITING_CONFIRMATION" or "WAITING_FOR_TIME" or "READY_TO_START"))
                 throw new ConflictException("Gateway must report a fresh, downloaded plan before confirmation.");
             m.LaunchApprovedAt = now;
+            await lifecycle.ValidateRental(m, ct);
             lifecycle.Log(m, actor, null, "LAUNCH_APPROVED", "Aircraft readiness and clear flight area confirmed for the current gateway session.");
             await repository.SaveAsync(ct);
             return View(m);
@@ -79,6 +80,7 @@ public sealed class MissionLaunchService(IMissionRepository repository, FarmAcce
                 m.LaunchSession = request.Session;
             }
             m.LaunchReadyAt = now;
+            await lifecycle.ValidateRental(m, ct);
             await repository.SaveAsync(ct);
             return View(m);
         }, ct);

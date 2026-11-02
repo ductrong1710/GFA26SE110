@@ -13,6 +13,46 @@ namespace FarmMonitoring.IntegrationTests;
 [Collection("PostgreSQL Auth")]
 public class RoleMigrationTests
 {
+    [Fact]
+    public async Task Operational_role_upgrade_preserves_history_without_granting_technician_privileges()
+    {
+        const string previous = "20261028022354_ArchiveUnresolvedSensorRecords";
+        await using var factory = new ApiFactory { InitialMigration = previous };
+        await factory.InitializeAsync();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var owner = await db.Users.SingleAsync(x => x.Email == "owner@example.com");
+        var hash = owner.PasswordHash;
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM user_roles WHERE user_id = {owner.Id}");
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO user_roles (user_id, role_id) VALUES ({owner.Id}, 5)");
+        var farm = new Farm { Name = "Historical membership", CreatedAt = DateTimeOffset.UtcNow };
+        db.Farms.Add(farm);
+        await db.SaveChangesAsync();
+        await factory.AssignFarmAsync(farm.Id, owner.Email);
+
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync();
+        Assert.True(await db.UserRoles.AnyAsync(x => x.UserId == owner.Id && x.RoleId == 5));
+        Assert.True(await db.UserFarms.AnyAsync(x => x.UserId == owner.Id && x.FarmId == farm.Id));
+        Assert.False(await db.UserRoles.AnyAsync(x => x.UserId == owner.Id && x.Role.Name == "Technician"));
+        Assert.Equal(hash, await db.Users.Where(x => x.Id == owner.Id).Select(x => x.PasswordHash).SingleAsync());
+        using var client = factory.CreateApiClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login",
+            new { email = owner.Email, password = "Test-password-123!" })).StatusCode);
+
+        // An explicit assignment survives rollback/re-upgrade without deleting history.
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO user_roles (user_id, role_id) VALUES ({owner.Id}, 6)");
+        await migrator.MigrateAsync(previous);
+        await migrator.MigrateAsync();
+        Assert.Equal(new[] { 5, 6 }, await db.UserRoles.Where(x => x.UserId == owner.Id).OrderBy(x => x.RoleId).Select(x => x.RoleId).ToArrayAsync());
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email = owner.Email, password = "Test-password-123!" });
+        login.EnsureSuccessStatusCode();
+        var payload = (await login.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("data");
+        Assert.Equal("Technician", Assert.Single(payload.GetProperty("user").GetProperty("roles").EnumerateArray()).GetString());
+        client.DefaultRequestHeaders.Authorization = new("Bearer", payload.GetProperty("accessToken").GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/farms/{farm.Id}")).StatusCode);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -80,6 +80,18 @@ public sealed class MissionsController(MissionService missions, MissionLaunchSer
     [HttpGet("{id:int}/logs")]
     public async Task<ActionResult<ApiPageResponse<MissionLogResponse>>> Logs(int id, [FromQuery] PageQuery query, CancellationToken ct) =>
         Ok(ApiPageResponse<MissionLogResponse>.From(await missions.LogsAsync(id, query, ct)));
+    [HttpPost("{id:int}/notes")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    [Authorize(Policy = AccessPolicies.ManageMissions)]
+    public async Task<IActionResult> AddNote(int id, MissionNoteRequest request, CancellationToken ct)
+    {
+        await missions.AddNoteAsync(id, request, Actor, ct);
+        return NoContent();
+    }
+    [HttpGet("{id:int}/notes/{noteId:int}/images")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<ApiResponse<EvidenceImageData[]>>> NoteImages(int id, int noteId, CancellationToken ct) =>
+        Ok(ApiResponse<EvidenceImageData[]>.Ok(await missions.NoteImagesAsync(id, noteId, ct)));
     private async Task<ActionResult<ApiResponse<MissionResponse>>> Transition(int id, MissionStatus status, MissionActionRequest request, CancellationToken ct) =>
         Ok(ApiResponse<MissionResponse>.Ok(await missions.ChangeStatusAsync(id, status, request, Actor, ct)));
 }

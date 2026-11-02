@@ -68,7 +68,7 @@ public sealed class AlertRepository(AppDbContext db) : IAlertRepository
         return await db.Users.AsNoTracking().Where(x => x.IsActive &&
             (x.UserRoles.Any(r => r.Role.Name == RoleNames.FarmAdministrator) ||
                 (farmId.HasValue && x.UserFarms.Any(f => f.FarmId == farmId) &&
-                    x.UserRoles.Any(r => r.Role.Name == RoleNames.FarmOwner || r.Role.Name == RoleNames.FarmEngineer))))
+                    x.UserRoles.Any(r => r.Role.Name == RoleNames.FarmOwner))))
             .Select(x => x.Id).ToArrayAsync(ct);
     }
     public void Add(Alert alert) => db.Alerts.Add(alert);

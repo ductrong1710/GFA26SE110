@@ -26,10 +26,13 @@ public sealed class AlertsController(AlertService alerts) : ControllerBase
     public async Task<ActionResult<ApiResponse<AlertResponse>>> Get(int id, CancellationToken ct) =>
         Ok(ApiResponse<AlertResponse>.Ok(await alerts.GetAsync(id, ct)));
     [HttpPost("{id:int}/acknowledge")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
     public Task<ActionResult<ApiResponse<AlertResponse>>> Acknowledge(int id, AlertNoteRequest request, CancellationToken ct) => Handle(id, AlertAction.ACKNOWLEDGED, request, ct);
     [HttpPost("{id:int}/notes")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
     public Task<ActionResult<ApiResponse<AlertResponse>>> Note(int id, AlertNoteRequest request, CancellationToken ct) => Handle(id, AlertAction.NOTE_ADDED, request, ct);
     [HttpPost("{id:int}/close")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
     public Task<ActionResult<ApiResponse<AlertResponse>>> Close(int id, AlertNoteRequest request, CancellationToken ct) => Handle(id, AlertAction.CLOSED, request, ct);
     private async Task<ActionResult<ApiResponse<AlertResponse>>> Handle(int id, AlertAction action, AlertNoteRequest request, CancellationToken ct) =>
         Ok(ApiResponse<AlertResponse>.Ok(await alerts.HandleAsync(id, action, request, int.Parse(User.FindFirst("sub")!.Value, CultureInfo.InvariantCulture), ct)));

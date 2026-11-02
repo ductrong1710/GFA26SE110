@@ -33,6 +33,7 @@ public sealed class DeviceMissionService(IMissionRepository repository, MissionL
                 throw new ConflictException("Only scheduled missions or previously downloaded running missions can acknowledge a download.");
             if (!downloaded)
             {
+                await lifecycle.ValidateRental(mission, ct);
                 lifecycle.Log(mission, null, gatewayId, "DOWNLOADED", "Gateway verified and persisted the mission download.");
                 await repository.SaveAsync(ct);
             }

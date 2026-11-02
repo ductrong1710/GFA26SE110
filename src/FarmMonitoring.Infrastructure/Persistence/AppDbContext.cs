@@ -5,6 +5,23 @@ namespace FarmMonitoring.Infrastructure.Persistence;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    public DbSet<CropConditionReport> CropConditionReports => Set<CropConditionReport>();
+    public DbSet<CropConsultationUpdate> CropConsultationUpdates => Set<CropConsultationUpdate>();
+    public DbSet<MaintenanceSchedule> MaintenanceSchedules => Set<MaintenanceSchedule>();
+    public DbSet<MaintenanceOccurrence> MaintenanceOccurrences => Set<MaintenanceOccurrence>();
+    public DbSet<DeviceIncident> DeviceIncidents => Set<DeviceIncident>();
+    public DbSet<ServiceJob> ServiceJobs => Set<ServiceJob>();
+    public DbSet<ServiceReport> ServiceReports => Set<ServiceReport>();
+    public DbSet<ServiceDeviceReplacement> ServiceDeviceReplacements => Set<ServiceDeviceReplacement>();
+    public DbSet<Consultation> Consultations => Set<Consultation>();
+    public DbSet<FarmSurvey> FarmSurveys => Set<FarmSurvey>();
+    public DbSet<DeviceProposal> DeviceProposals => Set<DeviceProposal>();
+    public DbSet<InstallationRequest> InstallationRequests => Set<InstallationRequest>();
+    public DbSet<RentalContract> RentalContracts => Set<RentalContract>();
+    public DbSet<RentalDeviceAssignment> RentalDeviceAssignments => Set<RentalDeviceAssignment>();
+    public DbSet<InstallationJob> InstallationJobs => Set<InstallationJob>();
+    public DbSet<InstallationReport> InstallationReports => Set<InstallationReport>();
+    public DbSet<InstallationDeviceAllocation> InstallationDeviceAllocations => Set<InstallationDeviceAllocation>();
     public DbSet<ArchivedSensorRecord> ArchivedSensorRecords => Set<ArchivedSensorRecord>();
     public DbSet<FlightTest> FlightTests => Set<FlightTest>();
     public DbSet<UserFarm> UserFarms => Set<UserFarm>();

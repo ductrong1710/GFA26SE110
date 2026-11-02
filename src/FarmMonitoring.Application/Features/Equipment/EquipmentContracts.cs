@@ -5,7 +5,8 @@ public sealed record GatewayRequest(string Code, string Name, string GatewayType
     decimal? BatteryPercent, DateTimeOffset? LastSeenAt, string? FirmwareVersion);
 public sealed record EquipmentStatusRequest(string Status, bool? IsActive);
 public sealed record AssignUavRequest(int? UavId);
+public sealed record EquipmentRental(int FarmId, DateTimeOffset StartAt, DateTimeOffset EndAt, string Status);
 public sealed record UavResponse(int Id, string Code, string Name, string? Model, string Status, decimal? BatteryPercent,
-    DateTimeOffset? LastSeenAt, bool IsActive, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+    DateTimeOffset? LastSeenAt, bool IsActive, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt, EquipmentRental? Rental = null);
 public sealed record GatewayResponse(int Id, string Code, string Name, string GatewayType, string Status, int? UavId,
-    decimal? BatteryPercent, DateTimeOffset? LastSeenAt, string? FirmwareVersion, bool IsActive, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+    decimal? BatteryPercent, DateTimeOffset? LastSeenAt, string? FirmwareVersion, bool IsActive, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt, EquipmentRental? Rental = null);

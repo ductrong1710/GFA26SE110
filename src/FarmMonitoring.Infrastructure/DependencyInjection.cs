@@ -1,4 +1,5 @@
 using FarmMonitoring.Application.Interfaces;
+using FarmMonitoring.Application.Features.Rentals;
 using FarmMonitoring.Application.Features.Alerts;
 using FarmMonitoring.Infrastructure.BackgroundJobs;
 using FarmMonitoring.Infrastructure.Authentication;
@@ -33,6 +34,29 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordResetQueue>(provider => provider.GetRequiredService<PasswordResetQueue>());
         services.AddHostedService<PasswordResetWorker>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IConsultationRepository, ConsultationRepository>();
+        services.AddScoped<IProposalRepository, ProposalRepository>();
+        services.AddScoped<IInstallationRepository, InstallationRepository>();
+        services.AddScoped<IInstallationJobRepository, InstallationJobRepository>();
+        services.AddScoped<IInstallationReportRepository, InstallationReportRepository>();
+        services.AddScoped<IInstallationDeviceRepository, InstallationDeviceRepository>();
+        services.AddScoped<IRentalRepository, RentalRepository>();
+        services.AddScoped<IDeviceIncidentRepository, DeviceIncidentRepository>();
+        services.AddScoped<ICropSupportRepository, CropSupportRepository>();
+        services.AddScoped<IServiceJobRepository, ServiceJobRepository>();
+        services.AddScoped<IMaintenanceScheduleRepository, MaintenanceScheduleRepository>();
+        services.AddOptions<MaintenanceSchedulerSettings>().Bind(configuration.GetSection("MaintenanceScheduler"))
+            .Validate(x => x.IntervalSeconds is >= 1 and <= 86400, "Maintenance scheduler interval must be between 1 and 86400 seconds.").ValidateOnStart();
+        services.AddSingleton(provider => provider.GetRequiredService<IOptions<MaintenanceSchedulerSettings>>().Value);
+        services.AddHostedService<MaintenanceSchedulerWorker>();
+        services.AddScoped<IServiceReportRepository, ServiceReportRepository>();
+        services.AddScoped<IServiceReplacementRepository, ServiceReplacementRepository>();
+        services.AddOptions<RentalExpirationSettings>().Bind(configuration.GetSection("RentalExpiration"))
+            .Validate(x => x.IntervalSeconds is >= 1 and <= 86400 && x.WarningDays is >= 0 and <= 365 && x.BatchSize is >= 1 and <= 1000,
+                "Rental expiration interval, warning days or batch size is invalid.").ValidateOnStart();
+        services.AddSingleton(provider => provider.GetRequiredService<IOptions<RentalExpirationSettings>>().Value);
+        services.AddScoped<RentalExpirationService>();
+        services.AddHostedService<RentalExpirationWorker>();
         services.AddScoped<IFarmAccessRepository, FarmAccessRepository>();
         services.AddScoped<IFarmRepository, FarmRepository>();
         services.AddScoped<ISensorRepository, SensorRepository>();

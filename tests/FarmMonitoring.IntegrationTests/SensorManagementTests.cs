@@ -25,10 +25,10 @@ public class SensorManagementTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Owner_registers_nodes_and_channels_and_admin_has_read_access()
+    public async Task Administrator_registers_nodes_and_channels()
     {
         using var admin = await Login("admin@example.com");
-        using var op = await Login("owner@example.com");
+        using var op = await Login("admin@example.com");
         var farm = await CreatedId(await admin.PostAsJsonAsync("/api/farms", new { name = "Sensor farm" }));
         await factory.AssignFarmAsync(farm, "owner@example.com");
         var zone = await CreatedId(await admin.PostAsJsonAsync($"/api/farms/{farm}/zones", new { name = "Sensor zone" }));
@@ -62,7 +62,7 @@ public class SensorManagementTests(ApiFactory factory)
     [Fact]
     public async Task Sensor_validation_foreign_keys_and_authorization_are_enforced()
     {
-        using var op = await Login("owner@example.com");
+        using var op = await Login("admin@example.com");
         Assert.Equal(HttpStatusCode.BadRequest, (await op.PostAsJsonAsync("/api/sensor-types", new { code = "", name = "" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await op.PostAsJsonAsync("/api/sensor-nodes", new { zoneId = 1, deviceCode = "X", name = "X", status = "ONLINE", batteryPercent = 101 })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await op.PostAsJsonAsync("/api/sensor-nodes", new { zoneId = int.MaxValue, deviceCode = "X", name = "X", status = "OFFLINE" })).StatusCode);

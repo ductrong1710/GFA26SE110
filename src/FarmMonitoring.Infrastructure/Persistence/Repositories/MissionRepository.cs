@@ -9,6 +9,18 @@ namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
 public sealed class MissionRepository(AppDbContext db) : IMissionRepository
 {
+    public async Task EnsureRentalAsync(Mission mission, DateTimeOffset now, CancellationToken ct)
+    {
+        if (mission.UavId is null && mission.GatewayId is null) return;
+        var end = mission.ScheduledEndAt > now ? mission.ScheduledEndAt.Value : now;
+        var devices = db.RentalDeviceAssignments.Where(x => x.ReturnedAt == null && x.Contract.FarmId == mission.FarmId &&
+            x.Contract.Status == RentalStatus.ACTIVE && x.Contract.StartAt <= now && x.Contract.EndAt > now && x.Contract.EndAt >= end &&
+            db.UserFarms.Any(f => f.FarmId == mission.FarmId && f.UserId == x.Contract.OwnerId && f.User.IsActive &&
+                f.User.UserRoles.Any(r => r.Role.Name == FarmMonitoring.Domain.Constants.RoleNames.FarmOwner)));
+        if (mission.UavId is int uav && !await devices.AnyAsync(x => x.UavId == uav, ct) ||
+            mission.GatewayId is int gateway && !await devices.AnyAsync(x => x.GatewayId == gateway, ct))
+            throw new BusinessRuleException("Selected UAV and gateway require an active rental assigned to this farm covering the mission period.");
+    }
     public async Task<T> InTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -133,7 +145,14 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         if (!string.IsNullOrWhiteSpace(query.Search)) logs = logs.Where(x => x.Message.Contains(query.Search.Trim()));
         var count = await logs.CountAsync(ct);
         var items = await logs.OrderByDescending(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
-            .Select(x => new MissionLogResponse(x.Id, x.MissionId, x.UserId, x.GatewayId, x.LogType, x.Message, x.CreatedAt)).ToArrayAsync(ct);
+            .Select(x => new MissionLogResponse(x.Id, x.MissionId, x.UserId, x.GatewayId, x.LogType, x.Message, x.CreatedAt, x.Images.Count)).ToArrayAsync(ct);
         return new(items, count, query.Page, query.PageSize);
+    }
+    public async Task<EvidenceImageData[]> NoteImagesAsync(int missionId, int noteId, CancellationToken ct)
+    {
+        var note = await db.MissionLogs.AsNoTracking().Include(x => x.Images)
+            .SingleOrDefaultAsync(x => x.Id == noteId && x.MissionId == missionId && x.LogType == "OPERATIONAL_NOTE", ct)
+            ?? throw new NotFoundException("Mission note not found.");
+        return EvidenceImages.Encode(note.Images);
     }
 }

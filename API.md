@@ -393,7 +393,7 @@ Returns:
 Role:
 
 ```text
-FarmAdministrator or FarmOwner (ManageMissions)
+FarmOwner (ManageMissions)
 ```
 
 Example request:
@@ -820,23 +820,23 @@ valid JSON but business rule failed
 
 ## 20. Authorization Matrix
 
-| Policy | FarmAdministrator | FarmOwner | FarmEngineer | UavDeviceOperator |
+| Policy | FarmAdministrator | FarmOwner | FarmEngineer | Technician |
 |---|---|---|---|---|
 | ManageUsers | Yes | No | No | No |
-| ManageFarms | Yes | Yes | No | No |
-| ReadFarmData | Yes | Yes | Yes | Yes |
-| CreateDevices | Yes | Yes | No | Yes |
-| ManageDevices | Yes | Yes | No | No |
-| ConfigureThresholds | Yes | No | Yes | No |
-| ManageMissions | Yes | Yes | No | No |
+| ManageFarms | Yes | No | No | No |
+| ReadFarmData | Yes | Yes | No | No |
+| CreateDevices | Yes | No | No | No |
+| ManageDevices | Yes | No | No | No |
+| ConfigureThresholds | Yes | No | No | No |
+| ManageMissions | No | Yes | No | No |
 
 Human users authenticate with JWT Bearer. Gateway/device endpoints use independent Device Authentication with both `X-Api-Key` and `X-Gateway-Code`; human JWTs never substitute for device credentials. Device credentials do not grant access to human endpoints.
 
-All four human roles may read farms/zones, sensor data/history, alerts, dashboard and reports. Only FarmAdministrator manages users. FarmAdministrator/FarmOwner manage farms/zones, device metadata and missions. FarmAdministrator/FarmEngineer configure thresholds. Alert handling also requires farm access; private notification APIs retain recipient ownership checks.
+Administrator and assigned FarmOwner may read general farm data. Administrator manages farms, devices, thresholds and alert resolution; FarmOwner operates routine missions. All four supported roles may access their own notifications. Engineer/Technician contextual workflow modules are pending implementation.
 
-FarmAdministrator has global farm access without membership. FarmOwner, FarmEngineer and UavDeviceOperator require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+FarmAdministrator has global farm access without membership. FarmOwner requires a current `user_farms` assignment to access a farm. Engineer and Technician require contextual workflow authorization; farm membership alone grants neither role general farm access. Roles still come exclusively from `user_roles`/`roles`.
 
-UavDeviceOperator is an authenticated human role that can register sensor nodes, UAVs and gateways through CreateDevices. It does not grant device-edit, user-management, farm-management, threshold or mission-control permissions. Historical mission fields such as `operatorNotes` describe operational notes, not authorization roles.
+UavDeviceOperator is retired from supported authentication and assignment. Historical mission fields such as `operatorNotes` remain operational notes, not authorization roles.
 
 ---
 
@@ -873,19 +873,19 @@ Current examples:
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
 - FarmAdministrator has global access, with no `user_farms` row required.
-- FarmOwner, FarmEngineer and UavDeviceOperator access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- FarmOwner accesses assigned farms only. Engineer and Technician cannot use general farm endpoints. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
 - Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
-- Assignment requires an existing active FarmOwner/FarmEngineer/UavDeviceOperator user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
-- Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
+- Assignment requires an existing active FarmOwner user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Only administrators create farms; owner membership is assigned explicitly afterward. Existing farms/users receive no automatic assignments during migration.
 - Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
 - Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
 - Alerts resolve their farm through SensorChannel -> SensorNode -> Zone -> Farm, otherwise SensorNode -> Zone -> Farm, otherwise Mission -> Farm. Alerts without such an association are administrator-only. Gateway/UAV identity alone does not establish a farm.
 - New alert notifications target administrators and eligible members of the resolved farm. Notification APIs retain user-specific ownership checks, including historical notifications after membership removal; they never expose another user's notification.
 - Historical mission target IDs, outcome/status and sequence remain part of mission history. If a target sensor has since moved outside the viewer's accessible farms, its current `sensorName` is null rather than exposing live metadata from another farm.
 
-UAV/Gateway entities are not directly farm-owned in the current schema. Direct per-farm device authorization requires a future explicit device-to-farm assignment model.
+UAV/Gateway catalog access and mission eligibility now use explicit RentalDeviceAssignment records linked to farms and rental periods; the physical equipment entities remain separate from farm ownership.
 
-Direct UAV/Gateway catalog APIs retain existing global role permissions. Farm-scoped device reports/dashboard counts include only equipment referenced by missions in accessible farms (or the requested authorized farm); this is a mission association, not device ownership. An administrator's unfiltered aggregate remains global. Sensor-type definitions are a global catalog.
+Direct UAV/Gateway catalog APIs scope FarmOwner reads to unreturned rental assignments with current linked owner/farm access; Admin retains global catalog access. Farm-scoped device reports/dashboard gateway counts use unreturned rental assignments in accessible farms (or the requested authorized farm), requiring the linked Owner for non-admin reads. Historical missions do not grant current equipment access; new assignments appear before any mission. An administrator's unfiltered aggregate remains global. Sensor-type definitions are a global catalog.
 
 Gateway/device authentication remains X-Api-Key + X-Gateway-Code. `user_farms` is only for human users and is never applied to device identity or required for telemetry/sync ingestion. Human telemetry reads require mission-farm access.
 
@@ -893,7 +893,7 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 
 ### Farm filters on aggregates
 
-`GET /api/dashboard/overview` and `GET /api/reports/devices` also accept optional `farmId`. Existing sensor/mission/alert reports retain their farm/date/pagination filters. Explicit unauthorized farmId returns 403; absent farmId aggregates only assigned farms for Owner/Engineer. Device reports associate equipment via missions, not a new equipment ownership column.
+`GET /api/dashboard/overview` and `GET /api/reports/devices` also accept optional `farmId`. Existing sensor/mission/alert reports retain their farm/date/pagination filters. Explicit unauthorized farmId returns 403; absent farmId aggregates only assigned farms for Owner. Device reports associate UAV/gateway equipment via current rental assignments. Engineer/Technician general report access is denied.
 
 ## Device mission execution
 
@@ -1009,7 +1009,7 @@ endpoints. This backend task does not change firmware or validate physical fligh
 
 ## Gateway credential management
 
-All four routes require JWT Bearer and the existing **ManageDevices** policy (FarmAdministrator or FarmOwner). Responses use the usual `{ data: ... }` envelope and `Cache-Control: no-store`. DeviceKey credentials cannot call these human routes.
+All four routes require JWT Bearer and the existing **ManageDevices** policy (FarmAdministrator). Responses use the usual `{ data: ... }` envelope and `Cache-Control: no-store`. DeviceKey credentials cannot call these human routes.
 
 | Method | Route | Result |
 |---|---|---|
@@ -1105,33 +1105,12 @@ Mission detail and device next include planRevision. Replanning/rescheduling inv
 readiness and approval. Local explicit device start remains supported separately.
 
 
-### UAV and Device Operator (2026-10-27)
-
-`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
-The AddUavDeviceOperator migration seeds this role without restoring historical
-operator memberships removed by HumanUserRoles. Administrators must explicitly
-assign the role and farm memberships. Sensor creation requires an assigned farm;
-UAV/gateway catalogs retain their existing global scope. Only the POST collection
-endpoints for sensor-nodes, uavs and gateways use CreateDevices. Editing, status
-changes, gateway credentials, channel management and flight actions retain their
-existing policies. Existing administrator/owner permissions remain unchanged.
 
 
-### UAV and Device Operator (2026-10-27)
-
-`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
-The AddUavDeviceOperator migration seeds this role without restoring historical
-operator memberships removed by HumanUserRoles. Administrators must explicitly
-assign the role and farm memberships. Sensor creation requires an assigned farm;
-UAV/gateway catalogs retain their existing global scope. Only the POST collection
-endpoints for sensor-nodes, uavs and gateways use CreateDevices (administrator,
-owner and operator). ReadFarmData also includes operator. Editing, status
-changes, gateway credentials, channel management and flight actions retain their
-existing policies. Existing administrator/owner permissions remain unchanged.
 
 
-User creation (`POST /api/users`) requires exactly one supported role in `roles`.
-Missing/null, empty, duplicate or multiple roles are rejected with HTTP 400.
+User creation (`POST /api/users`) requires one or more distinct supported non-administrator roles in `roles`.
+Missing/null, empty, duplicate or unsupported roles are rejected with HTTP 400.
 The existing prohibition on creating FarmAdministrator accounts remains.
 
 
@@ -1155,3 +1134,123 @@ Flight-test result recovery: RECOVERY_REQUIRED may resolve to FAILED only with
 landed=true and uavConnected=true, keeping the original takeoffAttempted,
 observedAltitudeCm, heldMs and errorCode. Completion cannot be fabricated during
 recovery. Identical result retries remain idempotent.
+
+### Updated SRS role migration (2026-10-28)
+
+Migration `20261028065024_UpdatedOperationalRoles` adds Technician without converting legacy operator accounts. Legacy role rows and memberships remain inert audit data. Only explicit administrator assignment grants Technician. Downgrade preserves assigned Technician rows; re-upgrade is idempotent. No application database migration has been run by this task.
+
+Engineer/Technician job context and rental-based device scoping remain pending subsequent phases; the current generic farm API intentionally denies these roles. Device credentials and sample administrator provisioning are unchanged.
+
+### Consultation intake and follow-up (Phase 2, partial)
+`POST /api/consultations` is anonymous and returns only `{ id, status }` in the data envelope. Contact name/phone, farm location, service need and content are required; email and farm area (hectares) are optional. Submission persists NEW plus history and queues WEB/EMAIL notifications for active Agricultural Engineers atomically.
+
+Agricultural Engineers use `GET /api/consultations?inbox=true` for unassigned summaries or the default list for their own work, with standard paging/search. Summaries omit contact fields. `POST /api/consultations/{id}/claim` atomically assigns the current engineer and transitions NEW to IN_PROGRESS; a competing/repeated claim returns 409. Detail GET and `POST /api/consultations/{id}/follow-ups` require the assigned current engineer. Follow-up body contains required `notes`, `contactResult`, `nextAction`; events append rather than replacing earlier notes. No unrestricted status PATCH exists.
+
+Literal statuses, claim-based routing, field length limits and optional area in hectares are implementation assumptions where SRS does not specify them. Survey, proposal, deposit, cancellation/completion and installation submission are not implemented yet. A submitted consultation grants no farm/account/rental privileges.
+
+### Farm survey revisions (Phase 2, partial)
+The assigned Agricultural Engineer records a survey with POST `/api/consultations/{id}/surveys`. Body: `expectedRevision` (0 initially), `farmName`, `farmLocation`, optional `farmArea` in hectares, `monitoringNeeds`, optional `notes`, and 1–100 relational `zones`. Each zone has `name`, optional `crop`, optional `cropAgeDays`, optional `symptoms`, and required `installationLocation`. Optional unknown values stay null; zero crop age is distinct from unknown.
+
+GET on the collection returns paged revision summaries, newest first. GET `/{surveyId}` returns a specific immutable revision. Every save appends a revision and consultation history event in one transaction. A stale expectedRevision returns 409 without overwriting history. Writes require an IN_PROGRESS consultation and its assigned active Engineer; owner identity is not inferred from a public email or phone. Admin/owner contextual survey reads, survey image uploads and linkage to an administered farm are still pending. Existing farm/zone inventory is not created or modified by recording a survey.
+
+Implementation assumptions: survey revisions are snapshots per consultation, area uses hectares, crop age uses days, zone names are unique within a revision. These units and limits are not prescribed literally by the SRS. SRS optional survey images remain an open requirement, not represented by arbitrary external URLs.
+
+### Consultation customer/farm binding and survey sharing
+Administrator may read consultation summaries/details through the existing GET endpoints, but cannot claim work, record surveys or add engineer follow-up solely by holding the administrator role. PUT `/api/consultations/{id}/customer-farm` accepts `{ ownerId, farmId }`, requires an active FarmOwner with current membership in that farm, and appends CUSTOMER_BOUND history. Binding is only permitted during IN_PROGRESS. Repeating the same binding is idempotent; changing an existing binding returns 409 to prevent sharing earlier customer records with a different account. This one-time binding is an implementation assumption until a separately authorized correction flow is specified.
+
+GET `/api/farms/{farmId}/survey-consultations` returns paginated linked consultation summaries; owners see only their own linked records and must retain current farm membership. GET consultation survey list/detail permits Admin, assigned Engineer, or explicitly linked Owner with current membership. Owner access does not include internal consultation contact/follow-up details and never permits survey edits. Public email/phone values grant no account or farm access. Admin performs binding in the consultation detail UI; Admin/Owner access shared surveys from the farm page.
+
+Migration `20261028122649_ConsultationCustomerFarm` adds nullable owner/farm references with RESTRICT foreign keys and owner/farm index. Existing requests remain unbound. No application database migration was executed. Survey images and downstream proposal/deposit/installation workflows remain pending.
+
+### Device proposals and installation submission (Phase 2 checkpoint)
+GET `/api/consultations/{id}/proposals` (paged newest first) and `/{proposalId}` allow Administrator, assigned Engineer, or linked Owner retaining current farm membership. POST collection requires assigned Engineer and body `{ expectedRevision, surveyId, rentalMonths, requestedInstallationAt, notes, lines: [{ surveyZoneId, deviceType, quantity, installationLocation }] }`. Each save appends an immutable revision; survey and all referenced zones must belong to this consultation. A stale expectedRevision returns 409.
+
+POST `/{proposalId}/confirm-plan` records customer agreement by the assigned Engineer. POST `/{proposalId}/confirm-deposit` records external deposit confirmation by that Engineer or Administrator. Both require `{ note }` evidence/reference; no payment gateway is involved. Transitions are DRAFT -> PLAN_CONFIRMED -> DEPOSIT_CONFIRMED -> SUBMITTED; confirmation/submission requires the newest proposal and newest survey. Earlier versions and confirmation history remain intact. A revision does not inherit confirmations.
+
+POST `/{proposalId}/submit-installation` requires assigned Engineer, confirmed plan/deposit, a linked currently authorized Owner/farm, an active farm and future requested installation time. Creates a separate SUBMITTED installation request and administrator WEB/EMAIL notifications atomically. Duplicate submission returns 409. Admin review/assignment and downstream rental activation are still pending Phase 3/4, not implied by submission.
+
+Assumptions where the SRS gives no literal limits: rental duration 1–120 months, 1–100 relational proposal lines, quantity 1–10000, confirmation note required up to 2000 characters. Device type is a descriptive proposal value; inventory assignment occurs in the later installation/rental workflow. No application database migration has been run.
+
+### Installation request review
+GET `/api/installation-requests` returns paginated scoped summaries: all for Administrator, assigned consultation requests for Engineer, linked requests for Owner with current farm membership. GET `/{id}` includes submitted proposal devices, rental duration, requested appointment, plan/deposit confirmation evidence and review decision. Technician has no request access merely through the technician role.
+POST `/{id}/approve` or `/{id}/return` requires Administrator and `{ note }` (nonblank, max 2000). Only SUBMITTED may transition to APPROVED or RETURNED. Approval rechecks confirmed proposal evidence, future requested appointment, active farm and current owner membership. Approval authorizes scheduling only; it creates neither a job nor a rental. Return and approval both retain reviewer/time/note, append consultation history, and notify the submitting engineer through WEB/EMAIL.
+A returned request remains immutable history. The assigned engineer creates a new proposal revision, records plan/deposit confirmations for that revision, and submits a separate request. Existing pending/approved requests block duplicate submissions. Repeated or conflicting review returns 409. All review writes serialize on the consultation/request; authorization is rechecked from current database roles.
+Implementation assumption: review notes are required for approval as well as return. SRS explicitly requires a return reason and does not prescribe literal enum names or note length. Technician assignment/report/owner confirmation/final approval remain Phase 3 follow-up work.
+
+### Installation job assignment and work queue
+POST `/api/installation-requests/{id}/jobs` requires current Administrator, an APPROVED request, active Technician and future appointment; body `{ technicianId, scheduledAt, note }`. There is at most one job per request. GET `/api/installation-jobs/technicians` is an administrator-only paginated list of active technician IDs/names. GET `/api/installation-jobs` returns scoped paginated jobs; GET `/{id}` includes the submitted survey location, proposed device lines and append-only job history. Admin sees all; Engineer requires assigned consultation; Owner requires linked identity/current farm membership; Technician requires current assignment. Job access never grants general farm access or exposes deposit/contact records.
+POST `/api/installation-jobs/{id}/assignment` requires Admin and `{ expectedRevision, technicianId, scheduledAt, note }`; changes assignment/appointment on ASSIGNED or IN_PROGRESS work, resets ASSIGNED, advances revision and preserves previous events. POST `/{id}/start` requires current assigned Technician and `{ expectedRevision }`, changes ASSIGNED to IN_PROGRESS and advances revision. Stale revisions and invalid transitions return 409; nonassigned technicians return 403. Assignment checks current role/status under ordered user locks and serializes job mutations. Notifications inform the assigned technician, displaced technician and linked owner when appointment/assignment changes.
+Implementation assumptions: appointment is a single UTC instant (no duration or invented calendar conflict policy); reassignment/rescheduling resets work to ASSIGNED and requires technician start again. Starting before the appointment is allowed because SRS specifies no start-time window. Notes required, max 2000. Reports, checks, evidence images, owner confirmation and final Admin approval remain pending; IN_PROGRESS is not completion or rental activation.
+
+### Installation report versions and handover decisions (backend checkpoint)
+GET `/api/installation-jobs/{jobId}/reports` and `/reports/{id}` use the same current job read scope. POST `/reports` requires current assigned Technician, IN_PROGRESS/REWORK and expected job revision. Body: `{ expectedRevision, notes, issues?, devices: [{ proposalLineId, sensorNodeId?, uavId?, gatewayId?, installationLocation, accessoriesChecked, connectivityPassed, operationPassed, testResults }] }`. Each device row references exactly one registered active asset, each physical device appears once, and every proposed line quantity must be covered. Sensor nodes must belong to the job farm. Outcomes are required booleans (omitted is invalid); failed checks require issue details. Persisted reports/checks are immutable revisions; report submission changes job to REPORT_SUBMITTED and notifies Owner/Admin.
+POST `/confirm-handover`, `/approve`, `/return` take `{ expectedRevision, reportId, note }` and require the latest report and current job revision. Linked current FarmOwner confirms REPORT_SUBMITTED -> OWNER_CONFIRMED. Admin approves OWNER_CONFIRMED -> APPROVED only if all checks pass, or returns REPORT_SUBMITTED/OWNER_CONFIRMED -> REWORK with reason. Decisions and confirmations retain actor/time/note on the precise report; subsequent report versions do not inherit confirmation. All changes append job history and queue notifications transactionally. Approval does not activate rental.
+Assumptions: all three checks apply to every reported device; up to 1000 checks per report; issues are descriptive, failed checks are the mechanical approval gate. Device types are the proposal's free-text descriptions, not a new catalogue taxonomy. UAV/gateway exclusivity and actual farm assignment are still required in the rental phase. Secure images, a technician asset-selection/report-entry UI, broader concurrency/negative regression cases and live browser E2E remain incomplete; this checkpoint is not full UC11–13 completion.
+
+### Administrator device allocation and technician report entry
+PUT `/api/installation-jobs/{id}/devices` requires current Admin and `{ expectedRevision, note, devices: [{ proposalLineId, sensorNodeId?, uavId?, gatewayId? }] }`. Exactly one typed active registered device per entry, no duplicate physical devices, exact proposal quantities, sensor farm scope. Only ASSIGNED/IN_PROGRESS/REWORK accept changes. Prior active allocation records receive released_at, new rows retain device code/name snapshots and allocating actor/time; job revision/history advance atomically. Filtered unique indexes prevent overlapping active allocations across jobs, including concurrent requests; conflicts return 409 and roll back replacement.
+GET the same route uses current job read scope and exposes only current allocated device names/codes/typed IDs. Technician report submission must exactly match this allocation, closing the earlier broad UAV/gateway input eligibility. Frontend admin selects from existing registered catalogs (sensors filtered to farm), technician form loads only job allocation and requires explicit accessory/connectivity/operation results, locations, evidence and notes. Failed checks require issues. Successful submission returns to persisted job/report state; errors keep draft values. No arbitrary device-ID entry in the technician form.
+Reservations are retained after installation approval for the upcoming rental lifecycle; rental activation/return/replacement must integrate these records before Phase 4 is complete. Existing pre-allocation reports remain historical but new submissions require explicit allocation. No automatic inferred device assignment or production database migration occurs.
+
+Proposal capacity correction: device quantities now have a per-line maximum of 1000 and a total proposal maximum of 1000, matching allocation/report limits. This replaces the earlier 10000-per-line assumption and prevents an accepted proposal becoming impossible to report. Tests cover single-line overflow and aggregate overflow; SRS does not prescribe these numerical limits.
+
+### Survey and installation image evidence
+Survey creation and installation-report submission accept optional `images: [{contentType, dataBase64}]`. Supported MIME types are `image/png` and `image/jpeg`; at most five images, each at most 2 MiB decoded. Invalid encoding, mismatched signatures and excess limits return 400. These two write endpoints allow at most 20 MiB JSON bodies including base64 overhead and existing fields. Omitted/null images mean no images in the new revision.
+Scoped detail responses include `images` with the same fields; list responses do not include image content. Detail access uses current survey/job permissions, with no public image URL or standalone upload. Responses disable caching. Images are saved atomically with the immutable survey/report revision; new versions do not automatically inherit evidence unless explicitly supplied.
+
+### Rental contracts (updated SRS)
+GET `/api/rental-contracts` is paginated and scoped to current Admin, linked Owner with farm membership, or the consultation's Engineer. GET `/{id}` includes assigned devices, actual installation locations, return timestamps and dated audit history; Technician has no general contract access.
+Admin POST `/api/installation-jobs/{jobId}/rental-contract` accepts `{startAt,endAt,note}` after final installation approval, creating one DRAFT per job. POST `/api/rental-contracts/{id}/activate` accepts `{expectedRevision,note}` and requires the agreed period to have begun and not expired. POST `/{id}/extend` accepts `{expectedRevision,endAt,note}` for a later externally confirmed end. POST `/{id}/end` requires `{expectedRevision,note,devicesReturned:true}`; records retrieval and releases reservations. All dates are UTC. Owner handover/installation approval never activates a rental automatically.
+Stale revision, wrong state and duplicate creation return 409; invalid dates/missing evidence/return confirmation return 400; inactive or unassigned farm/devices return 422. Current linked owner and active devices are checked on creation/activation/renewal. Expiration does not release devices. Ended contracts retain all history and cannot be renewed.
+
+### Mission rental eligibility
+Existing mission plan/schedule/start and launch-readiness/approval APIs now return 422 when selected UAV/gateway lacks a current assigned rental covering the mission period. Changing farm membership does not create a device assignment. Cancellation and terminal result/sync APIs remain available under existing access rules after rental expiration. Rental end returns 409 while related flight operations remain active or need recovery.
+
+### Equipment catalog rental scope
+GET `/api/uavs` and `/api/gateways` filter Owner rows before count/pagination to unreturned rental assignments linked to that owner with current farm membership. Detail endpoints reject existing but unassigned equipment with403. Admin retains full catalog access. Both list/detail add nullable `rental: {farmId,startAt,endAt,status}`; ACTIVE past end is reported EXPIRED immediately. DRAFT/EXPIRED unreturned equipment remains visible for tracking but is not eligible for missions. Returned devices remain in contract history and leave the Owner's live catalog. Device heartbeat and internal equipment lookup retain their separate authentication paths.
+
+### Mission operational notes
+`POST /api/missions/{id}/notes` accepts `{ "note": "Field observation" }` (nonblank, maximum2000 characters) and returns204. Current FarmOwner mission-management permission and farm membership are required. Appends an `OPERATIONAL_NOTE` mission log with authenticated user/time; does not replace planning notes, change status/plan revision, create collection outcomes or send flight commands. Notes may be appended to terminal missions for follow-up observations. Existing scoped/paginated mission logs expose the history. No new table or migration.
+
+### Mission note image evidence
+Mission note POST optionally accepts `images: [{ contentType, dataBase64 }]`, using the existing limit of five PNG/JPEG images, two MiB each and a20MiB request ceiling. Images and note are committed atomically. Mission log list adds `imageCount`, not image bytes. `GET /api/missions/{id}/notes/{noteId}/images` returns the evidence array under current mission read authorization, checks the note belongs to this mission, and disables response caching. Unknown/mismatched note returns404; loss of farm access returns403. Existing result counts and lifecycle are unchanged.
+
+### Device incident intake
+GET /api/device-incidents lists scoped incidents with standard pagination; GET /{id} returns evidence and reporter. POST accepts rentalDeviceAssignmentId, required description (max4000), optional missionId and optional bounded images; returns201 OPEN. Only current FarmOwner linked to the assignment contract and farm may submit; expired unreturned devices remain reportable. Returned/ENDED assignments reject new reports. Admin reads all, Owner reads linked current-farm incidents including historical returned-device reports; Technician/Engineer general access denied. Optional mission must belong to the farm and reference the affected UAV/gateway/target sensor. Evidence, report and active-admin WEB/EMAIL notifications commit atomically. Reads disable caching. No arbitrary incident status endpoint; service job processing uses the assignment and report actions below.
+
+### Service job assignment and start
+`POST /api/device-incidents/{id}/jobs` creates one service job per incident for an Administrator: type MAINTENANCE/REPAIR, active technicianId, future scheduledAt, required note<=2000, expectedRevision0. `GET /api/service-jobs` and `GET /{id}` are scoped to Admin, currently assigned Technician, or linked current FarmOwner. Detail supplies incident description/image evidence and installation location, not unrestricted farm/rental records. Engineer access denied. `POST /{id}/assignment` requires Admin and current expectedRevision, retains service type and assignment history, resets to ASSIGNED; `POST /{id}/start` requires assigned active Technician/current revision and transitions ASSIGNED->IN_PROGRESS. Assignment/reschedule notifies technician and eligible linked owner. There is no arbitrary status PATCH; reports and acceptance use the dedicated actions below.
+
+### Independent service jobs
+Service-job list/detail `incidentId` is nullable. Jobs link directly to their original rental device assignment; farm/owner authorization and installation location come from that assignment. A job without an incident returns description `Preventive maintenance` and empty incident images. Start, reassignment, replacement, reports and acceptance work with or without an incident. Approval resolves an incident only when one is linked. The incident creation endpoint still requires an incident; independent schedule creation and due processing remain pending.
+
+### Service result reports and review
+GET `/api/service-jobs/{jobId}/reports` returns paginated version summaries; GET `/reports/{id}` returns the immutable work evidence and recorded review, under the same current service-job scope. Detail responses disable caching. POST `/reports` accepts `{expectedRevision,cause,work,components,testResults,notes,connectivityPassed,operationPassed,images?}`. Cause/work/components/notes are required and bounded to4000; use an explicit "None" for unused components. Test results are required up to2000. Both pass/fail checks must be explicitly supplied; false remains valid evidence. Images reuse the existing five PNG/JPEG images of at most2MiB each; request limit20MiB. Invalid image content rolls back the whole submission.
+Only the current assigned active Technician can submit IN_PROGRESS or REWORK jobs. Submission creates a new immutable report revision and sets REPORT_SUBMITTED; it does not change physical device/rental state. POST `/confirm-operation` accepts `{expectedRevision,reportId,note}` from the linked current FarmOwner with current farm access and sets OWNER_CONFIRMED. Admin POST `/approve` with the same request requires that latest report's confirmation and passing connectivity/operation checks, then sets CLOSED. Admin POST `/return` from REPORT_SUBMITTED/OWNER_CONFIRMED sets REWORK. Decisions require a note up to2000, current job revision and latest report ID. Stale versions/transitions return409; failed-check closure returns422; unauthorized actors return403. Rework keeps the original report, images, confirmation and decision; a corrected submission requires a fresh Owner confirmation. Admin may reassign a REWORK job, resetting ASSIGNED and preserving old reports. Independent maintenance schedules remain pending; replacement actions follow below.
+
+Service approval also updates the linked device incident status from OPEN to RESOLVED atomically. Incident list/detail expose the final status; historical evidence remains readable under current scope. Returning service work leaves the incident OPEN. No incident status-write endpoint is added.
+
+### Physical service-device replacement
+GET `/api/service-jobs/{id}/replacement-options` is paginated/searchable and limited to Admin or the currently assigned Technician. It returns `{sensorNodeId,uavId,gatewayId,code,name}` for active, same-kind equipment without live rental/allocation reservations; sensors must belong to the job's farm. Options are advisory; mutations recheck availability and flight safety.
+POST `/api/service-jobs/{id}/replacements` requires assigned Technician, IN_PROGRESS/REWORK, and `{expectedRevision,sensorNodeId?,uavId?,gatewayId?,oldDeviceRetrieved:true,note}`. Exactly one positive typed ID, same physical type and note<=2000 are required. Returns updated ServiceJobDetail with `currentDeviceCode` and `replacements:[{id,oldAssignmentId,newAssignmentId,oldDeviceCode,newDeviceCode,technicianId,createdAt,note}]`. Incident device identity remains original. ServiceReportResponse gains nullable `replacement`, fixed to the latest recorded exchange when that report was submitted.
+Stale/state/returned/reserved/active-flight conflicts return409, wrong kind/ineligible farm returns422, missing retrieval/invalid request400, denied role/scope403. Exchange creates successor allocation/assignment under the same contract/location, records old retrieval, and sets retrieved physical equipment inactive. It does not close service work or replace Owner/Admin acceptance. Successive exchanges preserve all history; previous report snapshots never follow a later device. Expired, unreturned rentals permit repair; ended rentals do not.
+
+### Maintenance schedule administration
+Admin-only `GET /api/maintenance-schedules` supports page/pageSize and policy search; `GET /{id}` returns the schedule and creator/updater metadata. `POST` creates (expectedRevision0); `PUT /{id}` edits using current expectedRevision. Body: exactly one of `rentalDeviceAssignmentId` or `deviceType` (SENSOR/GATEWAY/UAV), required policy<=2000, intervalDays1..3650, future nextDueAt, active technicianId, enabled and expectedRevision. Eligibility follows recorded replacement successors while retaining the original schedule assignment. A current successor that has been returned, an ended contract, or missing active farm/current linked Owner is ineligible. `POST /{id}/disable` takes expectedRevision, works without rescheduling an overdue date and retains all history. No hard-delete endpoint. Stale revisions return409; invalid request400; ineligible technician/assignment422; missing schedule/assignment404. Current roles are checked on every operation, including when using an older JWT. Due processing is provided by the maintenance scheduler described below; frontend management remains pending.
+
+### Maintenance due processing
+`MaintenanceScheduler:Enabled` defaults true; `IntervalSeconds` defaults60 and accepts1..86400. The hosted worker scans due enabled schedules in ID pages of50 and processes each in its own scope/transaction; a failed schedule does not stop later IDs. It creates ordinary MAINTENANCE service jobs, occurrence/policy snapshots and WEB/EMAIL notifications for the responsible Technician and linked Owner. A specific assignment follows recorded replacement successors; a type schedule selects current unreturned assignments under non-ended contracts with active farm/current linked Owner. Expired unreturned equipment remains serviceable. No eligible assignment or inactive Technician leaves the schedule overdue for Admin correction. Disable remains available without changing the date. Processing advances nextDueAt to the first future anchored interval and increments revision; UI updates must reload after worker changes. No public trigger endpoint is exposed.
+
+### Maintenance occurrence history
+Admin-only `GET /api/maintenance-schedules/{id}/occurrences` returns standard paginated history ordered by dueAt/id descending. Each row includes occurrence id, jobId, rentalDeviceAssignmentId, recorded assignment deviceCode, dueAt, createdAt, policy snapshot and current job status. Editing the schedule does not rewrite its previous occurrence policies or original assignment identities. Missing schedule404, invalid pagination400, non-Admin403. The maintenance UI displays this history with links to `/app/service-jobs?jobId={id}`; linked job reads still use the service-job authorization rules.
+
+### Crop condition intake
+`POST /api/crop-condition-reports` accepts farmId, optional zoneId, crop (required, max200), description (required, max4000), optional sensorChannelIds (at most50 distinct positive IDs), and optional bounded PNG/JPEG images. Current active FarmOwner must have membership of the active farm; zone and channels must belong to that farm and, when selected, that zone. Returns201 with NEW status, revision1, evidence and initial SUBMITTED history. Report/evidence/history and active Engineer WEB/EMAIL notifications commit atomically. Invalid input400, denied access403, invalid zone/channel/farm eligibility422.
+`GET /api/crop-condition-reports` returns standard pagination without image bytes. `GET /{id}` includes evidence, sensor reference IDs and ordered consultation updates. Admin can monitor all; Owner requires both reporter identity and current farm membership; Engineer can read unclaimed NEW reports or reports assigned to that Engineer. Technician has no access. Existing inaccessible report403, missing report404; reads disable caching. These endpoints do not grant access to general farm/sensor APIs. Processing actions and contextual sensor readings remain pending.
+
+### Crop support processing API
+POST `/api/crop-condition-reports/{id}/claim` has no body; only a current active Engineer may claim an unclaimed NEW report, changing it to IN_REVIEW. Concurrent claims have one winner; others409. POST `/{id}/request-information`, `/{id}/reply`, `/{id}/recommend`, `/{id}/resolve` accept `{expectedRevision, content, recommendSiteSurvey?, images?}`; content required<=4000 and the same bounded evidence limits apply. Only the assigned current Engineer requests information, recommends or resolves; only the reporter with current Owner role and farm membership replies. Admin monitoring grants no processing rights.
+Request-information: IN_REVIEW -> AWAITING_INFORMATION; reply: AWAITING_INFORMATION -> IN_REVIEW; recommend: IN_REVIEW stays IN_REVIEW; resolve: IN_REVIEW -> RESOLVED. RecommendSiteSurvey is allowed only on recommend. Invalid state/stale revision409; denied actor403; malformed content/images400; misplaced site-survey flag422. Each successful action increments revision and appends attributed UTC history with evidence. Eligible counterpart receives WEB/EMAIL notifications atomically. Resolved cases are read-only. Status vocabulary and explicit claim are implementation choices where the SRS does not prescribe tokens. No generated diagnosis or automatic survey/job creation.
+
+### Crop report sensor context
+GET `/api/crop-condition-reports/{id}/sensor-readings` accepts standard pagination and returns measurement id, sensorChannelId, channelCode, unit, value, measuredAt, isValid and qualityStatus, newest measuredAt/id first. It applies the same current report visibility as detail and restricts data to report-linked channels still in the report farm and optional zone. Moved channels produce no readings; general farm/sensor API permissions are unchanged. No write endpoint, mission/gateway identities, raw source keys or generated diagnosis are exposed by this contextual endpoint. Invalid pagination400; inaccessible report403; missing404. This is live context, not a snapshot of the readings at submission time.

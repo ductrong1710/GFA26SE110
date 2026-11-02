@@ -16,7 +16,7 @@ public sealed class DeviceMissionTests : IAsyncLifetime
 {
     private readonly ApiFactory factory = new();
     private int gatewayId, otherGatewayId, farmId, sensorId, uavId;
-    private HttpClient human = null!, device = null!;
+    private HttpClient human = null!, administrator = null!, device = null!;
     public async Task InitializeAsync()
     {
         await factory.InitializeAsync();
@@ -36,8 +36,13 @@ public sealed class DeviceMissionTests : IAsyncLifetime
         await factory.SeedDeviceCredentialAsync(gatewayId);
         await factory.SeedDeviceCredentialAsync(otherGatewayId);
         human = factory.CreateApiClient();
-        var login = await Data(await human.PostAsJsonAsync("/api/auth/login", new { email = "admin@example.com", password = "Test-password-123!" }));
+        var login = await Data(await human.PostAsJsonAsync("/api/auth/login", new { email = "owner@example.com", password = "Test-password-123!" }));
         human.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("accessToken").GetString());
+        await factory.AssignFarmAsync(farmId, "owner@example.com");
+        await factory.SeedRentalAsync(farmId, uavId, gatewayId);
+        administrator = factory.CreateApiClient();
+        var adminLogin = await Data(await administrator.PostAsJsonAsync("/api/auth/login", new { email = "admin@example.com", password = "Test-password-123!" }));
+        administrator.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminLogin.GetProperty("accessToken").GetString());
         device = factory.CreateApiClient();
         device.DefaultRequestHeaders.Add("X-Gateway-Code", "integration-gateway");
         device.DefaultRequestHeaders.Add("X-Api-Key", factory.DeviceKey);
@@ -122,17 +127,25 @@ public sealed class DeviceMissionTests : IAsyncLifetime
         var request = new { session, planRevision = revision, confirmAircraftReady = true, confirmAreaClear = true };
         foreach (var email in new[] { "owner@example.com", "engineer@example.com" })
         {
+            if (email.StartsWith("owner"))
+            {
+                await using var scope = factory.Services.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await db.UserFarms.Where(x => x.FarmId == farmId && x.User.Email == email).ExecuteDeleteAsync();
+            }
             using var client = factory.CreateApiClient();
             var login = await Data(await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" }));
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("accessToken").GetString());
             Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/missions/{id}/launch")).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/missions/{id}/launch/approve", request)).StatusCode);
             await factory.AssignFarmAsync(farmId, email);
-            await Data(await client.GetAsync($"/api/missions/{id}/launch"));
+            Assert.Equal(email.StartsWith("owner") ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
+                (await client.GetAsync($"/api/missions/{id}/launch")).StatusCode);
             var response = await client.PostAsJsonAsync($"/api/missions/{id}/launch/approve", request);
             if (email.StartsWith("owner")) response.EnsureSuccessStatusCode();
             else Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
+        Assert.Equal(HttpStatusCode.Forbidden, (await administrator.PostAsJsonAsync($"/api/missions/{id}/launch/approve", request)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await human.PostAsJsonAsync($"/api/missions/{id}/launch/approve",
             new { session, planRevision = revision, confirmAircraftReady = true, confirmAreaClear = false })).StatusCode);
     }
@@ -156,7 +169,7 @@ public sealed class DeviceMissionTests : IAsyncLifetime
     public async Task Flight_test_reservation_and_mission_schedule_exclude_each_other()
     {
         var missionId=(await Data(await human.PostAsJsonAsync("/api/missions",Plan()))).GetProperty("id").GetInt32();
-        var testId=(await Data(await human.PostAsJsonAsync($"/api/gateways/{gatewayId}/flight-tests",new {requestKey="mission-exclusion"}))).GetProperty("id").GetInt32();
+        var testId=(await Data(await administrator.PostAsJsonAsync($"/api/gateways/{gatewayId}/flight-tests",new {requestKey="mission-exclusion"}))).GetProperty("id").GetInt32();
         var start=DateTimeOffset.UtcNow.AddHours(1);
         var schedule=new {scheduledStartAt=start,scheduledEndAt=start.AddHours(1)};
         Assert.Equal(HttpStatusCode.Conflict,(await human.PostAsJsonAsync($"/api/missions/{missionId}/schedule",schedule)).StatusCode);
@@ -165,7 +178,7 @@ public sealed class DeviceMissionTests : IAsyncLifetime
             await db.FlightTests.Where(x=>x.Id==testId).ExecuteUpdateAsync(x=>x.SetProperty(t=>t.ExpiresAt,DateTimeOffset.UtcNow.AddSeconds(-1)));
         }
         await Data(await human.PostAsJsonAsync($"/api/missions/{missionId}/schedule",schedule));
-        Assert.Equal(HttpStatusCode.Conflict,(await human.PostAsJsonAsync($"/api/gateways/{gatewayId}/flight-tests",new {requestKey="mission-busy"})).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await administrator.PostAsJsonAsync($"/api/gateways/{gatewayId}/flight-tests",new {requestKey="mission-busy"})).StatusCode);
     }
 
     [Fact]

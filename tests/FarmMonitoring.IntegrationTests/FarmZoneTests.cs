@@ -89,14 +89,14 @@ public class FarmZoneTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Engineer_can_read_but_cannot_write_farms_or_zones()
+    public async Task Engineer_without_consultation_context_cannot_read_or_write_farms_or_zones()
     {
         using var admin = await Login();
         var id = await CreateFarm(admin, "Read only");
         await factory.AssignFarmAsync(id, "engineer@example.com");
         using var op = await Login("engineer@example.com");
         foreach (var path in new[] { "/api/farms", $"/api/farms/{id}", $"/api/farms/{id}/zones" })
-            Assert.Equal(HttpStatusCode.OK, (await op.GetAsync(path)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await op.GetAsync(path)).StatusCode);
         foreach (var (method, path) in new[] { ("POST", "/api/farms"), ("PUT", $"/api/farms/{id}"), ("PATCH", $"/api/farms/{id}/status"), ("POST", $"/api/farms/{id}/zones"), ("PUT", "/api/zones/1") })
             Assert.Equal(HttpStatusCode.Forbidden, (await op.SendAsync(new HttpRequestMessage(new HttpMethod(method), path) { Content = JsonContent.Create(new { }) })).StatusCode);
         using var anonymous = factory.CreateApiClient();

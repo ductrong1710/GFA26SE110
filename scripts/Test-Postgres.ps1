@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory = $true)][string]$PostgresBin,
     [string]$Dotnet = 'dotnet',
     [string]$Configuration = 'Debug',
-    [switch]$NoRestore
+    [switch]$NoRestore,
+    [string]$Filter,
+    [switch]$BrowserTests
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,7 +51,12 @@ try {
     }
     & $Dotnet build --no-restore --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw 'dotnet build failed.' }
-    & $Dotnet test --no-build --configuration $Configuration --logger 'console;verbosity=normal' --logger trx *> (Join-Path $backendRoot '.local/test-latest.log')
+    if ($BrowserTests) {
+        & (Join-Path $backendRoot '../frontend/scripts/Test-Browser.ps1') -Configuration $Configuration
+        return
+    }
+    $filterArguments = if ($Filter) { @('--filter', $Filter) } else { @() }
+    & $Dotnet test --no-build --configuration $Configuration --logger 'console;verbosity=normal' --logger trx @filterArguments *> (Join-Path $backendRoot '.local/test-latest.log')
     $testResult = $LASTEXITCODE
     Get-Content (Join-Path $backendRoot '.local/test-latest.log') -Tail 90
     if ($testResult -ne 0) { throw 'dotnet test failed. See .local/test-latest.log and TestResults.' }

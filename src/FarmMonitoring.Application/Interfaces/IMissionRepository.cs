@@ -15,10 +15,12 @@ public interface IMissionRepository
     Task<IReadOnlyList<SensorNode>> GetSensorsAsync(int[] ids, CancellationToken ct);
     Task<Uav?> LockUavAsync(int id, CancellationToken ct);
     Task<Gateway?> LockGatewayAsync(int id, CancellationToken ct);
+    Task EnsureRentalAsync(Mission mission, DateTimeOffset now, CancellationToken ct);
     Task<IReadOnlyList<string>> ReservationConflictsAsync(Mission mission, bool starting, FarmAccessScope? scope, CancellationToken ct);
     Task ReplacePlanAsync(Mission mission, IReadOnlyList<MissionTarget> targets, IReadOnlyList<MissionWaypoint> waypoints, CancellationToken ct);
     void Add(Mission mission);
     void AddLog(MissionLog log);
+    Task<EvidenceImageData[]> NoteImagesAsync(int missionId, int noteId, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
     Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, FarmAccessScope scope, CancellationToken ct);
     Task<PagedResult<MissionLogResponse>> LogsAsync(int id, PageQuery query, CancellationToken ct);

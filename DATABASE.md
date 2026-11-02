@@ -189,7 +189,7 @@ Supported human role values:
 FarmAdministrator
 FarmOwner
 FarmEngineer
-UavDeviceOperator
+Technician
 ```
 
 Columns:
@@ -206,7 +206,7 @@ Migration `20261007041338_HumanUserRoles` removes memberships referencing the de
 
 An account with no supported role cannot log in, refresh or access `/api/auth/me` until an administrator assigns a valid role. Protected business policies read current database roles rather than trusting stale JWT roles.
 
-FarmAdministrator has global farm access without membership. FarmOwner, FarmEngineer and UavDeviceOperator require a current `user_farms` assignment to access a farm, in addition to the existing role policy. Roles still come exclusively from `user_roles`/`roles`.
+FarmAdministrator has global farm access without membership. FarmOwner requires a current `user_farms` assignment to access a farm. Engineer and Technician require contextual workflow authorization; farm membership alone grants neither role general farm access. Roles still come exclusively from `user_roles`/`roles`.
 
 Human users use JWT Bearer; gateway/device communication uses X-Api-Key + X-Gateway-Code independently. See API.md for the six-policy authorization matrix.
 
@@ -900,10 +900,10 @@ Never edit production schema manually without also creating the matching migrati
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
 - FarmAdministrator has global access, with no `user_farms` row required.
-- FarmOwner, FarmEngineer and UavDeviceOperator access assigned farms only. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
+- FarmOwner accesses assigned farms only. Engineer and Technician cannot use general farm endpoints. No assignments means empty scoped lists and aggregates; explicit existing resources outside access return 403.
 - Only FarmAdministrator manages assignments through GET/POST `/api/farms/{farmId}/members` and DELETE `/api/farms/{farmId}/members/{userId}`.
-- Assignment requires an existing active FarmOwner/FarmEngineer/UavDeviceOperator user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
-- Owner-created farms and the creator's assignment commit in one transaction. Administrator-created farms need no assignment. Existing farms/users receive no automatic assignments during migration.
+- Assignment requires an existing active FarmOwner user. Administrators (including mixed admin/owner roles) cannot be assigned. Assigning/removing membership never changes global roles.
+- Only administrators create farms; owner membership is assigned explicitly afterward. Existing farms/users receive no automatic assignments during migration.
 - Current database roles and memberships are checked per operation. Removing a membership immediately denies subsequent requests using the same JWT. Stale memberships cannot grant access without a permitted current role.
 - Farms, zones, nodes/channels, readings/history/latest/comparison, thresholds, missions and their child data/telemetry, alerts and farm-derived dashboard/report aggregates are scoped. Lists are filtered in SQL before paging/counting/aggregation. Every explicit farm/resource filter is authorized.
 - Alerts resolve their farm through SensorChannel -> SensorNode -> Zone -> Farm, otherwise SensorNode -> Zone -> Farm, otherwise Mission -> Farm. Alerts without such an association are administrator-only. Gateway/UAV identity alone does not establish a farm.
@@ -969,17 +969,6 @@ retain the author/time; LAUNCH_CONSUMED logs retain gateway/time. Consumption an
 commit atomically under the existing reservation transaction. No mission/history is deleted.
 
 
-### UAV and Device Operator (2026-10-27)
-
-`UavDeviceOperator` is assignable by administrators and supported by human login/JWT.
-The AddUavDeviceOperator migration seeds this role without restoring historical
-operator memberships removed by HumanUserRoles. Administrators must explicitly
-assign the role and farm memberships. Sensor creation requires an assigned farm;
-UAV/gateway catalogs retain their existing global scope. Only the POST collection
-endpoints for sensor-nodes, uavs and gateways use CreateDevices (administrator,
-owner and operator). ReadFarmData also includes operator. Editing, status
-changes, gateway credentials, channel management and flight actions retain their
-existing policies. Existing administrator/owner permissions remain unchanged.
 
 
 ### Archived unresolved sensor records
@@ -988,3 +977,47 @@ identity, restrictive FKs to node/gateway/optional mission, unique (sensor_node_
 source_record_key), original JSONB payload, and server received_at. It does not change
 existing readings or the sample administrator. Migration files were generated only;
 no database migration was applied during this remediation.
+
+### Updated SRS role migration (2026-10-28)
+
+Migration `20261028065024_UpdatedOperationalRoles` adds Technician without converting legacy operator accounts. Legacy role rows and memberships remain inert audit data. Only explicit administrator assignment grants Technician. Downgrade preserves assigned Technician rows; re-upgrade is idempotent. No application database migration has been run by this task.
+
+Engineer/Technician job context and rental-based device scoping remain pending subsequent phases; the current generic farm API intentionally denies these roles. Device credentials and sample administrator provisioning are unchanged.
+
+ConsultationRequests adds consultations and consultation_history with integer identity keys, bounded fields, UTC event times, optional engineer FK, scoped queue index and RESTRICT foreign keys. Notifications are stored in the existing table and email delivery reuses the existing worker. No application database migration was executed.
+
+Migration 20261028121947_FarmSurveyRevisions creates farm_surveys and survey_zones. Consultation/revision is unique; zone rows belong to a specific immutable revision, with RESTRICT foreign keys and nullable crop age/area. Survey creation serializes on the consultation row; current engineer eligibility is checked under the user-row lock. No application database migration was executed.
+
+20261028122649_ConsultationCustomerFarm: consultations.owner_id and farm_id are nullable RESTRICT FKs to users/farms; owner_id/farm_id composite index supports scoped retrieval. Existing records remain unbound. Customer binding is recorded in consultation_history, never inferred from public contact data.
+`20261028165531_DeviceProposalRevisions` adds device_proposals, proposal_lines and installation_requests, with RESTRICT foreign keys, unique consultation/revision and request/proposal constraints. Confirmation actor/time/evidence persist on each proposal revision. Installation submission has its own persisted status and administrator notification transaction.
+`20261028170444_InstallationRequestReview` adds nullable reviewer FK (RESTRICT), reviewed_at UTC and review_note to installation_requests. Existing requests remain unreviewed; no historical rows are rewritten and no application database migration was run.
+`20261028172133_InstallationJobAssignments` creates installation_jobs and installation_job_history, integer keys, UTC appointment/event times, unique installation_request_id, technician/status/schedule index and RESTRICT foreign keys. Assignment/start history is append-only. No application database migration has been run.
+`20261028173338_InstallationReportVersions` adds installation_reports and installed_device_checks, report revision uniqueness, one typed asset FK per check (database constraint), unique per-report physical devices and RESTRICT foreign keys. Expands job history notes from 2000 to 4000 to retain report reference plus decision note. No app DB migrated; rollback narrows notes and removes new report tables, so it is not safe after retaining production report data.
+`20261029005316_InstallationDeviceAllocations` adds typed installation asset allocation rows with registered code/name snapshots, actor/time, release time, exactly-one-device check and filtered unique indexes for active sensor/UAV/gateway reservations. All foreign keys RESTRICT. Replacement releases prior rows instead of deleting history; approved-installation reservations persist until the rental return/replacement lifecycle is implemented.
+
+### Workflow evidence images
+Migration `20261029011251_WorkflowEvidenceImages` adds `evidence_images`: integer ID, exactly one nullable survey/report FK, PNG/JPEG content type, bytea content (4..2097152 bytes). Both parent FKs use RESTRICT and indexed lookup. Saves share the parent transaction; old revision images remain unchanged. Bounded images are stored in PostgreSQL to avoid orphan files and storage/DB transaction drift; backups and storage capacity must include this data. No application database migration was executed.
+
+### Rental lifecycle
+Migration `20261029054949_RentalContracts` adds rental_contracts, rental_device_assignments and rental_history. One contract per installation job; period end must exceed start. Typed device assignments retain installation allocation, code/name/location and return timestamp. Filtered unique physical-device indexes prevent simultaneous unreturned rental assignments. RESTRICT FKs preserve history. Expiry/warnings and lifecycle changes use contract row locks; warning dedup is per confirmed end date. No application database migration has been executed.
+
+Migration `20261029111406_MissionNoteEvidence` adds nullable `evidence_images.mission_log_id`, indexed RESTRICT FK to `mission_logs`, and extends the exactly-one-parent constraint to survey/report/mission log. Existing survey/report data remain valid; no data rewrite. Stored image content limits and MIME constraints are unchanged. Downgrade cannot restore the old parent constraint while mission-only image rows exist, so it fails transactionally instead of deleting evidence. No application database migration was run.
+
+Migration20261029113616_DeviceIncidents adds device_incidents referencing farm, rental_device_assignment, reporter and optional mission with RESTRICT FKs and farm/id index. EvidenceImage gains incident_id and extends exactly-one-parent validation; image size/type constraints remain unchanged. No application database was migrated.
+
+Migration20261029114933_ServiceJobAssignments adds service_jobs and service_job_history with incident, technician and actor RESTRICT FKs, unique incident job, technician/status/appointment index and immutable assignment/start history. No application database migration applied. Current incident-backed service jobs do not yet represent independent preventive schedule occurrences; a later migration will add that required source relationship.
+
+Migration `20261029165058_ServiceReportVersions` creates service_reports with integer identity, unique (job_id,revision), bounded evidence fields, explicit connectivity/operation booleans, submission/confirmation/review actor and UTC times. All report relationships use RESTRICT. EvidenceImage adds indexed nullable service_report_id and extends exactly-one-parent validation; existing image content limits remain unchanged. Each new report is immutable work evidence; review fields are set once by guarded transitions. Downgrade removes report data and cannot restore the earlier image constraint while service-only images exist; do not use downgrade to retain production history. No application database migration applied.
+
+### Service device replacement history
+Migration `20261030070236_ServiceDeviceReplacements` adds `service_device_replacements` with RESTRICT FKs to ServiceJob, old/new RentalDeviceAssignment and Technician. Unique old/new assignment indexes prevent branching or reuse of the same successor assignment; `(job_id,id)` supports ordered history. `service_reports.replacement_id` is nullable and RESTRICT-linked to the replacement captured at submission. Existing live allocation/rental partial unique indexes continue to enforce physical device reservation. Old assignment/allocation IDs and timestamps remain historical records. No application database was migrated by this task.
+
+### Independent service job assignments
+Migration `20261030071640_IndependentServiceJobAssignments` makes `service_jobs.incident_id` nullable and adds required indexed `rental_device_assignment_id` with a RESTRICT FK. It backfills existing jobs from their incident assignment before enforcing NOT NULL, retaining status, revision and history. Multiple jobs without incidents are allowed; linked incidents retain their unique job constraint. Downgrade refuses to proceed while independent jobs exist, avoiding deletion or fabricated incident links. Applied only to disposable test databases; application database remains unchanged.
+
+### Maintenance schedules and occurrences (foundation)
+Migration `20261030123842_MaintenanceSchedules` adds schedules with exactly one scope (rental assignment or SENSOR/GATEWAY/UAV type), service policy, interval in days, next UTC due date, responsible Technician, enabled flag, revision and creator/updater timestamps. Database checks enforce scope and interval. Occurrences retain schedule, due date, assignment, generated service job and policy snapshot. Unique `(schedule_id,due_at,rental_device_assignment_id)` and unique `job_id` constrain duplicate work; all FKs are RESTRICT. Disabling or editing a schedule must retain occurrences. Downgrade drops these tables and their data; do not use it to preserve operational history. Application database has not been migrated. CRUD, due worker and UI are still pending; schema alone does not activate maintenance scheduling.
+
+### Crop condition support foundation
+Migration `20261101100505_CropConditionSupport` adds crop_condition_reports, crop_consultation_updates and crop_condition_sensors with integer keys, bounded text, UTC timestamps and RESTRICT relationships. Sensor links use a composite key to prevent duplicate channels per report. Evidence images can belong to either a crop report or a consultation update; the existing exactly-one-parent constraint and size/type limits apply across all workflows. Downgrade refuses while crop reports exist to protect communication/evidence history. No application database migration applied.
+This is a schema foundation, not an available API. State tokens NEW/IN_REVIEW/AWAITING_INFORMATION/RESOLVED and action tokens are implementation assumptions where SRS3.7 does not prescribe literal values. Intake limits200 characters for crop,4000 for symptoms/communication,50 distinct channel references reuse bounded conventions; authorization and same-farm/zone validation must be enforced in upcoming repository/API code. No AI diagnosis is implemented.

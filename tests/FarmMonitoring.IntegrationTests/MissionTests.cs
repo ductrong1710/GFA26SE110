@@ -33,6 +33,7 @@ public class MissionTests(ApiFactory factory)
         db.SensorNodes.Add(node); db.Gateways.Add(gateway);
         await db.SaveChangesAsync();
         await factory.AssignFarmAsync(farm.Id, "owner@example.com");
+        await factory.SeedRentalAsync(farm.Id, uav.Id, gateway.Id);
         return (farm.Id, node.Id, uav.Id, gateway.Id);
     }
 
@@ -42,6 +43,83 @@ public class MissionTests(ApiFactory factory)
         sensorNodeIds = new[] { data.sensor }, targetAssignments = new[] { new { sensorNodeId = data.sensor, waypointSequenceNo = 1, sequenceNo = 1 } },
         waypoints = new[] { new { sequenceNo = 1, latitude = 10.1m, longitude = 106.2m, altitudeM = 10m } }
     };
+    [Fact]
+    public async Task Operational_notes_append_without_changing_plan_status_or_results()
+    {
+        var setup = await Setup();
+        using var owner = await Login();
+        var before = await Data(await owner.PostAsJsonAsync("/api/missions", Plan(setup)));
+        var id = before.GetProperty("id").GetInt32();
+        const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS3sAAAAASUVORK5CYII=";
+        foreach (var note in new[] { "Inspect irrigation sensor", "Bring replacement battery" })
+            (await owner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note, images = new[] { new { contentType = "image/png", dataBase64 = png } } })).EnsureSuccessStatusCode();
+        var after = await Data(await owner.GetAsync($"/api/missions/{id}"));
+        Assert.Equal(before.GetProperty("status").GetString(), after.GetProperty("status").GetString());
+        Assert.Equal(before.GetProperty("operatorNotes").ToString(), after.GetProperty("operatorNotes").ToString());
+        Assert.Equal(before.GetProperty("planRevision").GetInt32(), after.GetProperty("planRevision").GetInt32());
+        Assert.Equal(before.GetProperty("targets").ToString(), after.GetProperty("targets").ToString());
+        var logs = await Data(await owner.GetAsync($"/api/missions/{id}/logs"));
+        var notes = logs.EnumerateArray().Where(x => x.GetProperty("logType").GetString() == "OPERATIONAL_NOTE").ToArray();
+        Assert.Equal(2, notes.Length);
+        Assert.All(notes, x => Assert.True(x.GetProperty("userId").GetInt32() > 0));
+        Assert.All(notes, x => Assert.Equal(1, x.GetProperty("imageCount").GetInt32()));
+        var imagesPath = $"/api/missions/{id}/notes/{notes[0].GetProperty("id").GetInt32()}/images";
+        var images = await Data(await owner.GetAsync(imagesPath));
+        Assert.Equal(png, Assert.Single(images.EnumerateArray()).GetProperty("dataBase64").GetString());
+        var other = await Data(await owner.PostAsJsonAsync("/api/missions", Plan(setup)));
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/missions/{other.GetProperty("id").GetInt32()}/notes/{notes[0].GetProperty("id").GetInt32()}/images")).StatusCode);
+        using var anonymous = factory.CreateApiClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(imagesPath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/missions/{id}/notes/2147483647/images")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = "Invalid evidence", images = new[] { new { contentType = "image/png", dataBase64 = "invalid" } } })).StatusCode);
+        var unchangedLogs = await Data(await owner.GetAsync($"/api/missions/{id}/logs"));
+        Assert.Equal(2, unchangedLogs.EnumerateArray().Count(x => x.GetProperty("logType").GetString() == "OPERATIONAL_NOTE"));
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = " " })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = new string('x', 2001) })).StatusCode);
+        (await owner.PostAsJsonAsync($"/api/missions/{id}/cancel", new { note = "Cancelled before launch" })).EnsureSuccessStatusCode();
+        (await owner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = "Post-mission inspection recorded" })).EnsureSuccessStatusCode();
+        Assert.Equal("CANCELLED", (await Data(await owner.GetAsync($"/api/missions/{id}"))).GetProperty("status").GetString());
+        using var admin = await Login("admin@example.com");
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync(imagesPath)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = "Unauthorized" })).StatusCode);
+        var ownerId = (await Data(await owner.GetAsync("/api/auth/me"))).GetProperty("id").GetInt32();
+        (await admin.DeleteAsync($"/api/farms/{setup.farm}/members/{ownerId}")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = "No longer assigned" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync(imagesPath)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Mission_rejects_equipment_without_an_active_rental()
+    {
+        var setup = await Setup();
+        using var owner = await Login();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.RentalContracts.Where(x => x.FarmId == setup.farm).ExecuteUpdateAsync(x => x.SetProperty(r => r.Status, RentalStatus.EXPIRED));
+        }
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync("/api/missions", Plan(setup))).StatusCode);
+    }
+    [Fact]
+    public async Task Expired_rental_blocks_start_but_allows_cancellation_and_running_completion()
+    {
+        var setup = await Setup();
+        using var owner = await Login();
+        var id = (await Data(await owner.PostAsJsonAsync("/api/missions", Plan(setup)))).GetProperty("id").GetInt32();
+        var start = DateTimeOffset.UtcNow.AddHours(1);
+        (await owner.PostAsJsonAsync($"/api/missions/{id}/schedule", new { scheduledStartAt = start, scheduledEndAt = start.AddHours(1) })).EnsureSuccessStatusCode();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.RentalContracts.Where(x => x.FarmId == setup.farm).ExecuteUpdateAsync(x => x.SetProperty(r => r.EndAt, DateTimeOffset.UtcNow.AddSeconds(-1)));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync($"/api/missions/{id}/start", new { })).StatusCode);
+        (await owner.PostAsJsonAsync($"/api/missions/{id}/cancel", new { reason = "Rental expired before launch" })).EnsureSuccessStatusCode();
+        await db.Missions.Where(x => x.Id == id).ExecuteUpdateAsync(x => x.SetProperty(m => m.Status, MissionStatus.RUNNING));
+        var rental = await db.RentalContracts.SingleAsync(x => x.FarmId == setup.farm);
+        using var admin = await Login("admin@example.com");
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/rental-contracts/{rental.Id}/end", new { expectedRevision = rental.Revision, note = "Cannot retrieve airborne equipment", devicesReturned = true })).StatusCode);
+        await db.MissionTargets.Where(x => x.MissionId == id).ExecuteUpdateAsync(x => x.SetProperty(t => t.Status, MissionTargetStatus.COLLECTED));
+        (await owner.PostAsJsonAsync($"/api/missions/{id}/complete", new { })).EnsureSuccessStatusCode();
+    }
     private static async Task<JsonElement> Data(HttpResponseMessage response)
     {
         response.EnsureSuccessStatusCode();
@@ -133,7 +211,7 @@ public class MissionTests(ApiFactory factory)
         var start = DateTimeOffset.UtcNow.AddHours(1);
         var schedule = await Data(await op.PostAsJsonAsync($"/api/missions/{id}/schedule", new { scheduledStartAt = start, scheduledEndAt = start.AddHours(1) }));
         Assert.Equal("SCHEDULED", schedule.GetProperty("status").GetString());
-        Assert.Equal("RUNNING", (await Data(await op.PostAsJsonAsync($"/api/missions/{id}/start", new { }))).GetProperty("status").GetString());
+        Assert.Equal("RUNNING", (await Data(await op.PatchAsJsonAsync($"/api/missions/{id}/status", new { status = "RUNNING", note = "Flight observed locally" }))).GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await op.PutAsJsonAsync($"/api/missions/{id}", Plan(setup))).StatusCode);
         var failed = await Data(await op.PostAsJsonAsync($"/api/missions/{id}/fail", new { failureReason = "Gateway communication lost", operatorNotes = "Landed manually" }));
         Assert.Equal("FAILED", failed.GetProperty("status").GetString());
@@ -144,6 +222,9 @@ public class MissionTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, (await op.PostAsJsonAsync($"/api/missions/{id}/cancel", new { note = "Too late" })).StatusCode);
         var logs = await op.GetFromJsonAsync<JsonElement>($"/api/missions/{id}/logs?pageSize=100");
         Assert.Equal(4, logs.GetProperty("data").GetArrayLength());
+        var started = Assert.Single(logs.GetProperty("data").EnumerateArray(), x => x.GetProperty("logType").GetString() == "STARTED");
+        Assert.Equal("Flight observed locally", started.GetProperty("message").GetString());
+        Assert.True(started.GetProperty("userId").GetInt32() > 0);
         Assert.Single((await op.GetFromJsonAsync<JsonElement>($"/api/missions/{id}/waypoints")).GetProperty("data").EnumerateArray());
         Assert.Equal(1, (await Data(await op.GetAsync($"/api/missions/{id}/results"))).GetProperty("totalTargets").GetInt32());
         var list = await op.GetFromJsonAsync<JsonElement>($"/api/missions?farmId={setup.farm}&status=FAILED");
@@ -176,28 +257,16 @@ public class MissionTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Reservation_details_do_not_disclose_another_farm()
+    public async Task Rental_equipment_cannot_be_used_on_another_authorized_farm()
     {
         var first = await Setup();
         var second = await Setup();
         using var owner = await Login();
-        using var admin = await Login("admin@example.com");
-        var held = (await Data(await admin.PostAsJsonAsync("/api/missions", Plan(first)))).GetProperty("id").GetInt32();
-        var candidate = (await Data(await owner.PostAsJsonAsync("/api/missions", Plan(second with { uav = first.uav, gateway = first.gateway })))).GetProperty("id").GetInt32();
-        var start = DateTimeOffset.UtcNow.AddHours(3);
-        var schedule = new { scheduledStartAt = start, scheduledEndAt = start.AddHours(1) };
-        (await admin.PostAsJsonAsync($"/api/missions/{held}/schedule", schedule)).EnsureSuccessStatusCode();
-        await using var scope = factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.UserFarms.Where(x => x.FarmId == first.farm).ExecuteDeleteAsync();
-        var response = await owner.PostAsJsonAsync($"/api/missions/{candidate}/schedule", schedule);
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var response = await owner.PostAsJsonAsync("/api/missions", Plan(second with { uav = first.uav, gateway = first.gateway }));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         var message = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString()!;
-        Assert.DoesNotContain($"Mission #{held}", message);
-        Assert.DoesNotContain("Morning collection", message);
-        Assert.Contains("administrator", message);
+        Assert.DoesNotContain($"Farm #{first.farm}", message);
     }
-
     [Fact]
     public async Task Planning_requires_correct_farm_and_ready_equipment_and_authorized_user()
     {

@@ -14,6 +14,7 @@ public sealed record MissionRequest(string Name, int FarmId, int? UavId, int? Ga
 }
 public sealed record ScheduleMissionRequest(DateTimeOffset ScheduledStartAt, DateTimeOffset ScheduledEndAt);
 public sealed record MissionActionRequest(string? OperatorNotes, string? FailureReason, string? Note, string? Reason);
+public sealed record MissionNoteRequest(string Note, EvidenceImageData[]? Images = null);
 public sealed record MissionStatusRequest(string Status, string? Note);
 public sealed class MissionQuery : PageQuery
 {
@@ -38,4 +39,4 @@ public sealed record MissionResponse(int Id, string Name, string Status, Mission
     IReadOnlyList<TargetResponse> Targets, IReadOnlyList<WaypointResponse> Waypoints, MissionProgress Progress, int PlanRevision = 0);
 public sealed record MissionResults(int MissionId, string Status, int TotalTargets, int SuccessfulTargets,
     int FailedTargets, int SkippedTargets, int PendingTargets, IReadOnlyList<TargetResponse> Targets);
-public sealed record MissionLogResponse(int Id, int MissionId, int? UserId, int? GatewayId, string LogType, string Message, DateTimeOffset CreatedAt);
+public sealed record MissionLogResponse(int Id, int MissionId, int? UserId, int? GatewayId, string LogType, string Message, DateTimeOffset CreatedAt, int ImageCount = 0);

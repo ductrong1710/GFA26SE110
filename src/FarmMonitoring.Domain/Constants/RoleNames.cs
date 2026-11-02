@@ -6,7 +6,7 @@ public static class RoleNames
     public const string FarmOwner = "FarmOwner";
     public const string FarmEngineer = "FarmEngineer";
 
-    public const string UavDeviceOperator = "UavDeviceOperator";
+    public const string Technician = "Technician";
 
-    public static bool IsSupported(string? role) => role is FarmAdministrator or FarmOwner or FarmEngineer or UavDeviceOperator;
+    public static bool IsSupported(string? role) => role is FarmAdministrator or FarmOwner or FarmEngineer or Technician;
 }

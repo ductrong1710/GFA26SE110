@@ -35,7 +35,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["Jwt:SecretKey"] = SigningKey,
             ["SEED_ADMIN_EMAIL"] = "", ["SEED_ADMIN_PASSWORD"] = "",
             ["Logging:LogLevel:Default"] = "Warning",
-            ["Monitoring:Enabled"] = "false"
+            ["Monitoring:Enabled"] = "false",
+            ["MaintenanceScheduler:Enabled"] = "false"
         }));
         builder.ConfigureServices(services => services.AddControllers().AddApplicationPart(typeof(RoleProbeController).Assembly));
     }
@@ -104,6 +105,33 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         var ids = await db.Users.Where(x => emails.Contains(x.Email)).Select(x => x.Id).ToArrayAsync();
         Assert.Equal(emails.Length, ids.Length);
         foreach (var id in ids) db.UserFarms.Add(new UserFarm { FarmId = farmId, UserId = id, CreatedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+    }
+
+    public async Task SeedRentalAsync(int farmId, int uavId, int gatewayId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var owner = await db.Users.SingleAsync(x => x.Email == "owner@example.com");
+        var engineer = await db.Users.SingleAsync(x => x.Email == "engineer@example.com");
+        var admin = await db.Users.SingleAsync(x => x.Email == "admin@example.com");
+        var now = DateTimeOffset.UtcNow;
+        var consultation = new Consultation { CustomerName = "Rental fixture", Phone = "0901234567", FarmLocation = "Test farm", ServiceNeed = "Monitoring", Content = "Test agreement",
+            FarmId = farmId, OwnerId = owner.Id, EngineerId = engineer.Id, CreatedAt = now, Status = ConsultationStatus.COMPLETED };
+        var survey = new FarmSurvey { Consultation = consultation, EngineerId = engineer.Id, Revision = 1, FarmName = "Test farm", FarmLocation = "Test", MonitoringNeeds = "Monitoring", CreatedAt = now };
+        var zone = new SurveyZone { Survey = survey, Name = "Installed", InstallationLocation = "Test field" };
+        var proposal = new DeviceProposal { Consultation = consultation, Survey = survey, Revision = 1, CreatedByUserId = engineer.Id, RentalMonths = 12, RequestedInstallationAt = now, CreatedAt = now, Status = ProposalStatus.SUBMITTED };
+        var line = new ProposalLine { Proposal = proposal, SurveyZone = zone, DeviceType = "UAV and gateway", Quantity = 2, InstallationLocation = "Test field" };
+        proposal.Lines.Add(line);
+        var job = new InstallationJob { InstallationRequest = new InstallationRequest { Proposal = proposal, FarmId = farmId, OwnerId = owner.Id, SubmittedByUserId = engineer.Id, SubmittedAt = now, Status = InstallationRequestStatus.APPROVED },
+            TechnicianId = admin.Id, ScheduledAt = now, CreatedAt = now, Status = InstallationJobStatus.APPROVED };
+        db.InstallationJobs.Add(job); await db.SaveChangesAsync();
+        var allocations = new[] {
+            new InstallationDeviceAllocation { JobId = job.Id, ProposalLineId = line.Id, UavId = uavId, Code = "fixture-uav", Name = "UAV", AllocatedByUserId = admin.Id, AllocatedAt = now },
+            new InstallationDeviceAllocation { JobId = job.Id, ProposalLineId = line.Id, GatewayId = gatewayId, Code = "fixture-gateway", Name = "Gateway", AllocatedByUserId = admin.Id, AllocatedAt = now } };
+        db.InstallationDeviceAllocations.AddRange(allocations); await db.SaveChangesAsync();
+        db.RentalContracts.Add(new RentalContract { InstallationJobId = job.Id, FarmId = farmId, OwnerId = owner.Id, StartAt = now.AddDays(-1), EndAt = now.AddYears(1), Status = RentalStatus.ACTIVE, CreatedAt = now,
+            Devices = allocations.Select(a => new RentalDeviceAssignment { InstallationAllocationId = a.Id, UavId = a.UavId, GatewayId = a.GatewayId, Code = a.Code, Name = a.Name, InstallationLocation = "Test field" }).ToList() });
         await db.SaveChangesAsync();
     }
 

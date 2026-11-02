@@ -1,4 +1,7 @@
 using System.Text;
+using FarmMonitoring.Application.Features.CropSupport;
+using FarmMonitoring.Application.Features.TechnicalSupport;
+using FarmMonitoring.Application.Features.Rentals;
 using FarmMonitoring.Api.Authorization;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Users;
@@ -33,11 +36,44 @@ public static class ApiServiceExtensions
     public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
         services.AddScoped<AuthService>();
+        services.AddScoped<RentalService>();
+        services.AddScoped<DeviceIncidentService>();
+        services.AddScoped<CropSupportService>();
+        services.AddScoped<IValidator<CreateCropConditionRequest>, CreateCropConditionValidator>();
+        services.AddScoped<IValidator<CropConsultationRequest>, CropConsultationValidator>();
+        services.AddScoped<ServiceJobService>();
+        services.AddScoped<MaintenanceScheduleService>();
+        services.AddScoped<IValidator<MaintenanceScheduleRequest>, MaintenanceScheduleValidator>();
+        services.AddScoped<ServiceReportService>();
+        services.AddScoped<ServiceReplacementService>();
+        services.AddScoped<IValidator<ServiceReplacementRequest>, ServiceReplacementValidator>();
+        services.AddScoped<IValidator<ServiceReportRequest>, ServiceReportValidator>();
+        services.AddScoped<IValidator<ServiceJobAssignmentRequest>, ServiceJobAssignmentValidator>();
+        services.AddScoped<IValidator<CreateDeviceIncidentRequest>, CreateDeviceIncidentValidator>();
+        services.AddScoped<IValidator<CreateRentalRequest>, CreateRentalValidator>();
+        services.AddScoped<IValidator<RentalActionRequest>, RentalActionValidator>();
+        services.AddScoped<IValidator<ExtendRentalRequest>, ExtendRentalValidator>();
+        services.AddScoped<IValidator<EndRentalRequest>, EndRentalValidator>();
         services.AddScoped<PasswordRecoveryService>();
         services.AddScoped<UserService>();
         services.AddHttpContextAccessor();
         services.AddScoped<FarmMonitoring.Application.Interfaces.ICurrentUser, CurrentUser>();
         services.AddScoped<FarmAccessService>();
+        services.AddScoped<FarmMonitoring.Application.Features.Installations.InstallationReviewService>();
+        services.AddScoped<FarmMonitoring.Application.Features.Installations.InstallationJobService>();
+        services.AddScoped<FarmMonitoring.Application.Features.Installations.InstallationReportService>();
+        services.AddScoped<FarmMonitoring.Application.Features.Installations.InstallationDeviceService>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Installations.JobDevicesRequest>, FarmMonitoring.Application.Features.Installations.JobDevicesValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Installations.InstallationReportRequest>, FarmMonitoring.Application.Features.Installations.InstallationReportValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Installations.JobAssignmentRequest>, FarmMonitoring.Application.Features.Installations.JobAssignmentValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Installations.InstallationReviewRequest>, FarmMonitoring.Application.Features.Installations.InstallationReviewValidator>();
+        services.AddScoped<FarmMonitoring.Application.Features.Consultations.ConsultationService>();
+        services.AddScoped<FarmMonitoring.Application.Features.Consultations.ProposalService>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Consultations.ProposalRequest>, FarmMonitoring.Application.Features.Consultations.ProposalValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Consultations.ProposalConfirmationRequest>, FarmMonitoring.Application.Features.Consultations.ProposalConfirmationValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Consultations.SurveyRequest>, FarmMonitoring.Application.Features.Consultations.SurveyValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Consultations.SubmitConsultationRequest>, FarmMonitoring.Application.Features.Consultations.SubmitConsultationValidator>();
+        services.AddScoped<IValidator<FarmMonitoring.Application.Features.Consultations.FollowUpRequest>, FarmMonitoring.Application.Features.Consultations.FollowUpValidator>();
         services.AddScoped<FarmMembershipService>();
         services.AddScoped<FarmService>();
         services.AddScoped<SensorService>();
@@ -138,20 +174,32 @@ public static class ApiServiceExtensions
         services.AddScoped<IAuthorizationHandler, CurrentRoleHandler>();
         services.AddAuthorization(options =>
         {
+            options.AddPolicy(AccessPolicies.ManageMaintenanceSchedules, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
+            options.AddPolicy(AccessPolicies.OperationalUser, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.FarmEngineer, RoleNames.Technician)));
+            options.AddPolicy(AccessPolicies.ReviewInstallations, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
             options.AddPolicy(AccessPolicies.ManageUsers, policy => policy.RequireAuthenticatedUser()
                 .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
             options.AddPolicy(AccessPolicies.ManageFarms, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
             options.AddPolicy(AccessPolicies.ReadFarmData, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.FarmEngineer, RoleNames.UavDeviceOperator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
             options.AddPolicy(AccessPolicies.CreateDevices, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner, RoleNames.UavDeviceOperator)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
             options.AddPolicy(AccessPolicies.ManageDevices, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
             options.AddPolicy(AccessPolicies.ConfigureThresholds, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmEngineer)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator)));
+            options.AddPolicy(AccessPolicies.SubmitDeviceIncidents, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmOwner)));
             options.AddPolicy(AccessPolicies.ManageMissions, policy => policy.RequireAuthenticatedUser()
-                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmAdministrator, RoleNames.FarmOwner)));
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmOwner)));
+            options.AddPolicy(AccessPolicies.ProcessConsultations, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmEngineer)));
+            options.AddPolicy(AccessPolicies.ReadConsultations, policy => policy.RequireAuthenticatedUser()
+                .AddRequirements(new CurrentRoleRequirement(RoleNames.FarmEngineer, RoleNames.FarmAdministrator)));
         });
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(options =>

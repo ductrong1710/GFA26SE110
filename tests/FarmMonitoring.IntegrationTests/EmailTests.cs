@@ -116,8 +116,10 @@ public class EmailTests(ApiFactory factory)
             await workerScope.ServiceProvider.GetRequiredService<EmailDeliveryService>().RunOnceAsync(default);
         }
         await Task.WhenAll(Drain(), Drain());
-        Assert.Equal(email.Length, sender.Sent.Count);
-        Assert.Equal(email.Length, sender.Sent.Distinct().Count());
+        var emailIds = email.Select(x => x.Id).ToHashSet();
+        Assert.Equal(email.Length, sender.Sent.Count(emailIds.Contains));
+        Assert.Equal(sender.Sent.Count, sender.Sent.Distinct().Count());
+        var sentCount = sender.Sent.Count;
         var delivered = await db.Notifications.AsNoTracking().Where(x => x.AlertId == alert.Id && x.Channel == NotificationChannel.EMAIL).ToArrayAsync();
         Assert.All(delivered, x => { Assert.Equal(NotificationStatus.SENT, x.Status); Assert.NotNull(x.SentAt); Assert.Null(x.ErrorMessage); });
 
@@ -135,6 +137,6 @@ public class EmailTests(ApiFactory factory)
         Assert.DoesNotContain("Secret", failed.ErrorMessage!);
         Assert.True(await db.Alerts.AnyAsync(x => x.Id == alert.Id));
         await Drain();
-        Assert.Equal(email.Length, sender.Sent.Count);
+        Assert.Equal(sentCount, sender.Sent.Count);
     }
 }

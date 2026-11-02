@@ -74,6 +74,7 @@ public sealed class MissionTarget
 
 public sealed class MissionLog
 {
+    public List<EvidenceImage> Images { get; set; } = [];
     public int Id { get; set; }
     public int MissionId { get; set; }
     public Mission Mission { get; set; } = null!;

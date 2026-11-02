@@ -212,14 +212,14 @@ public sealed class GatewayCredentialTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Owner_retains_existing_global_ManageDevices_permission()
+    public async Task Owner_cannot_manage_gateway_credentials()
     {
         var gateway = await Gateway();
         using var owner = await Login("owner@example.com");
-        await Create(owner, gateway.Id);
-        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(Path(gateway.Id) + "/status")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await owner.PostAsync(Path(gateway.Id) + "/rotate", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync(Path(gateway.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsync(Path(gateway.Id), null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync(Path(gateway.Id) + "/status")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsync(Path(gateway.Id) + "/rotate", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.DeleteAsync(Path(gateway.Id))).StatusCode);
     }
 
     [Fact]

@@ -6,8 +6,9 @@ namespace FarmMonitoring.Application.Interfaces;
 
 public interface IEquipmentRepository
 {
-    Task<PagedResult<UavResponse>> ListUavsAsync(PageQuery query, CancellationToken ct);
-    Task<PagedResult<GatewayResponse>> ListGatewaysAsync(PageQuery query, CancellationToken ct);
+    Task<PagedResult<UavResponse>> ListUavsAsync(PageQuery query, int actorId, DateTimeOffset now, CancellationToken ct);
+    Task<PagedResult<GatewayResponse>> ListGatewaysAsync(PageQuery query, int actorId, DateTimeOffset now, CancellationToken ct);
+    Task<EquipmentRental?> ReadRentalAsync(int deviceId, bool uav, int actorId, DateTimeOffset now, CancellationToken ct);
     Task<Uav?> FindUavAsync(int id, CancellationToken ct);
     Task<Gateway?> FindGatewayAsync(int id, CancellationToken ct);
     void AddUav(Uav uav);

@@ -18,6 +18,6 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
         b.HasData(new Role { Id = 1, Name = RoleNames.FarmAdministrator },
             new Role { Id = 3, Name = RoleNames.FarmOwner },
             new Role { Id = 4, Name = RoleNames.FarmEngineer },
-            new Role { Id = 5, Name = RoleNames.UavDeviceOperator });
+            new Role { Id = 6, Name = RoleNames.Technician });
     }
 }

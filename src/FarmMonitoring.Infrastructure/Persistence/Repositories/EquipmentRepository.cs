@@ -4,14 +4,35 @@ using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using FarmMonitoring.Domain.Constants;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
 public sealed class EquipmentRepository(AppDbContext db) : IEquipmentRepository
 {
-    public async Task<PagedResult<UavResponse>> ListUavsAsync(PageQuery query, CancellationToken ct)
+    private async Task<bool> IsAdminAsync(int actorId, CancellationToken ct)
     {
+        var roles = await db.UserRoles.Where(x => x.UserId == actorId && x.User.IsActive).Select(x => x.Role.Name).ToArrayAsync(ct);
+        if (!roles.Contains(RoleNames.FarmAdministrator) && !roles.Contains(RoleNames.FarmOwner)) throw new AccessDeniedException("Equipment access denied.");
+        return roles.Contains(RoleNames.FarmAdministrator);
+    }
+    private IQueryable<RentalDeviceAssignment> Rentals(int actorId, bool admin) =>
+        FarmAccessQuery.RentalAssignments(db, new(actorId, admin)).AsNoTracking();
+    public async Task<EquipmentRental?> ReadRentalAsync(int deviceId, bool uav, int actorId, DateTimeOffset now, CancellationToken ct)
+    {
+        var admin = await IsAdminAsync(actorId, ct);
+        var rental = await Rentals(actorId, admin).Where(x => uav ? x.UavId == deviceId : x.GatewayId == deviceId)
+            .Select(x => new EquipmentRental(x.Contract.FarmId, x.Contract.StartAt, x.Contract.EndAt,
+                x.Contract.Status == RentalStatus.ACTIVE && x.Contract.EndAt <= now ? "EXPIRED" : x.Contract.Status.ToString())).SingleOrDefaultAsync(ct);
+        if (!admin && rental is null) throw new AccessDeniedException("This equipment is not assigned to your rental.");
+        return rental;
+    }
+    public async Task<PagedResult<UavResponse>> ListUavsAsync(PageQuery query, int actorId, DateTimeOffset now, CancellationToken ct)
+    {
+        var admin = await IsAdminAsync(actorId, ct);
+        var rentals = Rentals(actorId, admin);
         var rows = db.Uavs.AsNoTracking();
+        if (!admin) rows = rows.Where(x => rentals.Any(r => r.UavId == x.Id));
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim().ToLowerInvariant();
@@ -20,12 +41,16 @@ public sealed class EquipmentRepository(AppDbContext db) : IEquipmentRepository
         var count = await rows.CountAsync(ct);
         var items = await rows.OrderBy(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
             .Select(x => new UavResponse(x.Id, x.Code, x.Name, x.Model, x.Status, x.BatteryPercent, x.LastSeenAt,
-                x.IsActive, x.CreatedAt, x.UpdatedAt)).ToArrayAsync(ct);
+                x.IsActive, x.CreatedAt, x.UpdatedAt, rentals.Where(r => r.UavId == x.Id).Select(r => new EquipmentRental(r.Contract.FarmId,
+                    r.Contract.StartAt, r.Contract.EndAt, r.Contract.Status == RentalStatus.ACTIVE && r.Contract.EndAt <= now ? "EXPIRED" : r.Contract.Status.ToString())).FirstOrDefault())).ToArrayAsync(ct);
         return new(items, count, query.Page, query.PageSize);
     }
-    public async Task<PagedResult<GatewayResponse>> ListGatewaysAsync(PageQuery query, CancellationToken ct)
+    public async Task<PagedResult<GatewayResponse>> ListGatewaysAsync(PageQuery query, int actorId, DateTimeOffset now, CancellationToken ct)
     {
+        var admin = await IsAdminAsync(actorId, ct);
+        var rentals = Rentals(actorId, admin);
         var rows = db.Gateways.AsNoTracking();
+        if (!admin) rows = rows.Where(x => rentals.Any(r => r.GatewayId == x.Id));
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim().ToLowerInvariant();
@@ -34,7 +59,8 @@ public sealed class EquipmentRepository(AppDbContext db) : IEquipmentRepository
         var count = await rows.CountAsync(ct);
         var items = await rows.OrderBy(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
             .Select(x => new GatewayResponse(x.Id, x.Code, x.Name, x.GatewayType, x.Status, x.UavId, x.BatteryPercent,
-                x.LastSeenAt, x.FirmwareVersion, x.IsActive, x.CreatedAt, x.UpdatedAt)).ToArrayAsync(ct);
+                x.LastSeenAt, x.FirmwareVersion, x.IsActive, x.CreatedAt, x.UpdatedAt, rentals.Where(r => r.GatewayId == x.Id).Select(r => new EquipmentRental(r.Contract.FarmId,
+                    r.Contract.StartAt, r.Contract.EndAt, r.Contract.Status == RentalStatus.ACTIVE && r.Contract.EndAt <= now ? "EXPIRED" : r.Contract.Status.ToString())).FirstOrDefault())).ToArrayAsync(ct);
         return new(items, count, query.Page, query.PageSize);
     }
     public Task<Uav?> FindUavAsync(int id, CancellationToken ct) => db.Uavs.SingleOrDefaultAsync(x => x.Id == id, ct);

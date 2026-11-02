@@ -23,7 +23,8 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock) : IRep
         var alertRows = db.Alerts.AsNoTracking().ForFarms(db, scope, FarmAccessQuery.AlertFarm);
         if (farmId.HasValue) alertRows = AlertsInFarm(alertRows, farmId.Value);
         var gatewayRows = db.Gateways.AsNoTracking();
-        if (!scope.IsAdministrator || farmId.HasValue) gatewayRows = gatewayRows.Where(x => missionRows.Any(m => m.GatewayId == x.Id));
+        var rentals = FarmAccessQuery.RentalAssignments(db, scope).Where(x => farmIds.Contains(x.Contract.FarmId));
+        if (!scope.IsAdministrator || farmId.HasValue) gatewayRows = gatewayRows.Where(x => rentals.Any(r => r.GatewayId == x.Id));
         var farms = await farmRows.CountAsync(ct);
         var sensors = await db.SensorNodes.Where(x => farmIds.Contains(x.Zone.FarmId)).GroupBy(x => 1).Select(g => new DeviceCounts(g.Count(),
             g.Count(x => x.IsActive && x.Status.ToUpper() == "ONLINE"), g.Count(x => x.IsActive && x.Status.ToUpper() == "OFFLINE"),
@@ -84,18 +85,18 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock) : IRep
     public async Task<PagedResult<DeviceReportRow>> DevicesAsync(DeviceReportQuery query, FarmAccessScope scope, CancellationToken ct)
     {
         var sensorRows = db.SensorNodes.AsNoTracking().ForFarms(db, scope, x => x.Zone.FarmId);
-        var missionRows = db.Missions.AsNoTracking().ForFarms(db, scope, x => x.FarmId);
+        var rentals = FarmAccessQuery.RentalAssignments(db, scope);
         if (query.FarmId.HasValue)
         {
             sensorRows = sensorRows.Where(x => x.Zone.FarmId == query.FarmId);
-            missionRows = missionRows.Where(x => x.FarmId == query.FarmId);
+            rentals = rentals.Where(x => x.Contract.FarmId == query.FarmId);
         }
         var uavRows = db.Uavs.AsNoTracking();
         var gatewayRows = db.Gateways.AsNoTracking();
         if (!scope.IsAdministrator || query.FarmId.HasValue)
         {
-            uavRows = uavRows.Where(x => missionRows.Any(m => m.UavId == x.Id));
-            gatewayRows = gatewayRows.Where(x => missionRows.Any(m => m.GatewayId == x.Id));
+            uavRows = uavRows.Where(x => rentals.Any(r => r.UavId == x.Id));
+            gatewayRows = gatewayRows.Where(x => rentals.Any(r => r.GatewayId == x.Id));
         }
         var sensors = sensorRows.Select(x => new { DeviceType = "SENSOR_NODE", x.Id, Code = x.DeviceCode, x.Name, x.Status, x.IsActive, x.BatteryPercent, x.LastSeenAt });
         var uavs = uavRows.Select(x => new { DeviceType = "UAV", x.Id, x.Code, x.Name, x.Status, x.IsActive, x.BatteryPercent, x.LastSeenAt });

@@ -7,17 +7,18 @@ namespace FarmMonitoring.Application.Features.Equipment;
 
 public sealed class EquipmentService(IEquipmentRepository repository, TimeProvider clock, IValidator<PageQuery> pages,
     IValidator<UavRequest> uavs, IValidator<GatewayRequest> gateways, IValidator<EquipmentStatusRequest> statuses,
-    IValidator<AssignUavRequest> assignments)
+    IValidator<AssignUavRequest> assignments, ICurrentUser current)
 {
+    private int Actor => current.UserId ?? throw new AuthException("Authentication required.");
     public async Task<PagedResult<UavResponse>> ListUavsAsync(PageQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);
-        return await repository.ListUavsAsync(query, ct);
+        return await repository.ListUavsAsync(query, Actor, clock.GetUtcNow(), ct);
     }
     public async Task<PagedResult<GatewayResponse>> ListGatewaysAsync(PageQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);
-        var result = await repository.ListGatewaysAsync(query, ct);
+        var result = await repository.ListGatewaysAsync(query, Actor, clock.GetUtcNow(), ct);
         var now = clock.GetUtcNow();
         return result with { Items = result.Items.Select(x => x with {
             Status = GatewayPresence.Status(x.IsActive, x.LastSeenAt, now) }).ToArray() };
@@ -30,8 +31,16 @@ public sealed class EquipmentService(IEquipmentRepository repository, TimeProvid
             throw new AccessDeniedException("Gateway is inactive or unavailable.");
         return new(gatewayId, "ONLINE", now);
     }
-    public async Task<UavResponse> GetUavAsync(int id, CancellationToken ct) => ToResponse(await RequireUavAsync(id, ct));
-    public async Task<GatewayResponse> GetGatewayAsync(int id, CancellationToken ct) => ToResponse(await RequireGatewayAsync(id, ct));
+    public async Task<UavResponse> GetUavAsync(int id, CancellationToken ct)
+    {
+        var row = await RequireUavAsync(id, ct);
+        return ToResponse(row) with { Rental = await repository.ReadRentalAsync(id, true, Actor, clock.GetUtcNow(), ct) };
+    }
+    public async Task<GatewayResponse> GetGatewayAsync(int id, CancellationToken ct)
+    {
+        var row = await RequireGatewayAsync(id, ct);
+        return ToResponse(row) with { Rental = await repository.ReadRentalAsync(id, false, Actor, clock.GetUtcNow(), ct) };
+    }
     public async Task<UavResponse> CreateUavAsync(UavRequest request, CancellationToken ct)
     {
         await uavs.ValidateAndThrowAsync(request, ct);

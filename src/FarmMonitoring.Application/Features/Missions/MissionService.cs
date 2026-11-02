@@ -115,6 +115,27 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
         }, ct);
     }
 
+    public async Task AddNoteAsync(int id, MissionNoteRequest request, int actor, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Note) || request.Note.Length > 2000)
+            throw new ValidationException("Provide an operational note of at most 2000 characters.");
+        var images = EvidenceImages.Decode(request.Images);
+        await repository.InTransactionAsync(async () =>
+        {
+            var mission = await Find(id, true, ct);
+            repository.AddLog(new MissionLog { Mission = mission, UserId = actor, LogType = "OPERATIONAL_NOTE",
+                Message = request.Note.Trim(), CreatedAt = clock.GetUtcNow(), Images = images });
+            await repository.SaveAsync(ct);
+            return true;
+        }, ct);
+    }
+
+    public async Task<EvidenceImageData[]> NoteImagesAsync(int id, int noteId, CancellationToken ct)
+    {
+        await Find(id, false, ct);
+        return await repository.NoteImagesAsync(id, noteId, ct);
+    }
+
     public async Task<MissionResponse> ChangeStatusAsync(int id, MissionStatus status, MissionActionRequest request, int actor, CancellationToken ct)
     {
         await actions.ValidateAndThrowAsync(request, ct);

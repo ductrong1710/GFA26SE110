@@ -71,6 +71,6 @@ public class ReportTests(ApiFactory factory)
         var ownerAlerts = (await op.GetFromJsonAsync<JsonElement>($"/api/reports/alerts?farmId={farmId}")).GetProperty("data");
         Assert.Equal(2, ownerAlerts.GetArrayLength());
         using var engineer = await Login("engineer@example.com");
-        Assert.Equal(2, (await engineer.GetFromJsonAsync<JsonElement>($"/api/reports/alerts?farmId={farmId}")).GetProperty("data").GetArrayLength());
+        Assert.Equal(HttpStatusCode.Forbidden, (await engineer.GetAsync($"/api/reports/alerts?farmId={farmId}")).StatusCode);
     }
 }

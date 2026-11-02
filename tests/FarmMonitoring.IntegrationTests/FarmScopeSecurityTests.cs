@@ -70,7 +70,9 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         await db.SaveChangesAsync(); globalAlertId = global.Id;
         await factory.SeedDeviceCredentialAsync(missions[0].GatewayId!.Value);
         await Status(HttpStatusCode.Created, await admin.PostAsJsonAsync($"/api/farms/{farms[0].Id}/members", new { userId = ownerId }));
-        await Status(HttpStatusCode.Created, await admin.PostAsJsonAsync($"/api/farms/{farms[0].Id}/members", new { userId = engineerId }));
+        // Historical engineer memberships must not grant general farm access after the SRS role change.
+        await factory.AssignFarmAsync(farms[0].Id, "engineer@example.com");
+        await factory.SeedRentalAsync(farms[0].Id, missions[0].UavId!.Value, missions[0].GatewayId!.Value);
     }
     public async Task DisposeAsync() { admin?.Dispose(); owner?.Dispose(); engineer?.Dispose(); await factory.DisposeAsync(); }
 
@@ -130,6 +132,13 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
             $"/api/missions/{m}/telemetry", $"/api/missions/{m}/telemetry/latest", $"/api/alerts/{alerts[1].Id}", $"/api/alerts/{globalAlertId}", $"/api/alerts?farmId={f}", $"/api/alerts?missionId={m}",
             $"/api/reports/sensor-data?farmId={f}", $"/api/reports/missions?farmId={f}", $"/api/reports/alerts?farmId={f}", $"/api/reports/devices?farmId={f}", $"/api/dashboard/overview?farmId={f}" };
         foreach (var path in forbidden) await Status(HttpStatusCode.Forbidden, await human.GetAsync(path));
+        if (asEngineer)
+        {
+            foreach (var path in new[] { $"/api/farms/{farms[0].Id}", "/api/farms", "/api/sensor-readings", "/api/missions", "/api/alerts", "/api/dashboard/overview" })
+                await Status(HttpStatusCode.Forbidden, await human.GetAsync(path));
+            await Status(HttpStatusCode.OK, await human.GetAsync("/api/notifications"));
+            return;
+        }
         foreach (var path in new[] { $"/api/farms/{farms[0].Id}", $"/api/zones/{channels[0].SensorNode.ZoneId}", $"/api/sensor-nodes/{channels[0].SensorNodeId}",
             $"/api/sensor-nodes/{channels[0].SensorNodeId}/unresolved-records",
             $"/api/sensor-channels/{channels[0].Id}/history", $"/api/sensor-channels/{channels[0].Id}/threshold", $"/api/missions/{missions[0].Id}/results",
@@ -164,21 +173,26 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Empty_memberships_return_empty_farm_scoped_data_but_preserve_global_equipment_catalog()
+    public async Task Empty_memberships_return_empty_farm_data_and_owner_equipment_catalog()
     {
         await Status(HttpStatusCode.NoContent, await admin.DeleteAsync($"/api/farms/{farms[0].Id}/members/{ownerId}"));
         foreach (var path in new[] { "/api/farms", "/api/sensor-nodes", "/api/sensor-readings", "/api/missions", "/api/alerts", "/api/reports/sensor-data", "/api/reports/alerts", "/api/reports/missions", "/api/reports/devices" })
             Assert.Empty((await Data(await owner.GetAsync(path))).EnumerateArray());
         Assert.Equal(0, (await Data(await owner.GetAsync("/api/dashboard/overview"))).GetProperty("farms").GetInt32());
-        Assert.Equal(2, (await Data(await owner.GetAsync("/api/uavs"))).GetArrayLength());
-        Assert.Equal(2, (await Data(await owner.GetAsync("/api/gateways"))).GetArrayLength());
+        Assert.Empty((await Data(await owner.GetAsync("/api/uavs"))).EnumerateArray());
+        Assert.Empty((await Data(await owner.GetAsync("/api/gateways"))).EnumerateArray());
+        Assert.Equal(2, (await Data(await admin.GetAsync("/api/uavs"))).GetArrayLength());
+        Assert.Equal(2, (await Data(await admin.GetAsync("/api/gateways"))).GetArrayLength());
     }
 
     [Fact]
-    public async Task Farm_creation_assigns_owner_atomically_and_admin_requires_no_membership()
+    public async Task Admin_creates_farm_and_explicit_owner_assignment_is_transactional()
     {
-        var created = await Data(await owner.PostAsJsonAsync("/api/farms", new { name = "Created by Owner" }));
+        await Status(HttpStatusCode.Forbidden, await owner.PostAsJsonAsync("/api/farms", new { name = "Created by Owner" }));
+        var created = await Data(await admin.PostAsJsonAsync("/api/farms", new { name = "Created by Admin" }));
         var id = created.GetProperty("id").GetInt32();
+        await Status(HttpStatusCode.Forbidden, await owner.GetAsync($"/api/farms/{id}"));
+        await Status(HttpStatusCode.Created, await admin.PostAsJsonAsync($"/api/farms/{id}/members", new { userId = ownerId }));
         await Status(HttpStatusCode.OK, await owner.GetAsync($"/api/farms/{id}"));
         var members = await Data(await admin.GetAsync($"/api/farms/{id}/members"));
         Assert.Equal(ownerId, Assert.Single(members.EnumerateArray()).GetProperty("userId").GetInt32());
@@ -187,10 +201,12 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         await Status(HttpStatusCode.Forbidden, await engineer.PostAsJsonAsync("/api/farms", new { name = "Forbidden" }));
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        // Inject a real PostgreSQL failure after farm insert, at membership insert.
+        // A failed membership write must not grant access or leave a partial assignment.
         await db.Database.ExecuteSqlRawAsync("CREATE FUNCTION reject_test_assignment() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test assignment failure'; END $$; CREATE TRIGGER reject_test_assignment BEFORE INSERT ON user_farms FOR EACH ROW EXECUTE FUNCTION reject_test_assignment();");
-        await Status(HttpStatusCode.InternalServerError, await owner.PostAsJsonAsync("/api/farms", new { name = "Must roll back" }));
-        Assert.False(await db.Farms.AnyAsync(x => x.Name == "Must roll back"));
+        var unassignedId = adminFarm.GetProperty("id").GetInt32();
+        await Status(HttpStatusCode.InternalServerError, await admin.PostAsJsonAsync($"/api/farms/{unassignedId}/members", new { userId = ownerId }));
+        Assert.False(await db.UserFarms.AnyAsync(x => x.FarmId == unassignedId && x.UserId == ownerId));
+        await Status(HttpStatusCode.Forbidden, await owner.GetAsync($"/api/farms/{unassignedId}"));
         await db.Database.ExecuteSqlRawAsync("DROP TRIGGER reject_test_assignment ON user_farms; DROP FUNCTION reject_test_assignment();");
     }
 
@@ -205,11 +221,11 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         foreach (var i in new[] { 0, 1 })
         {
             var status = i == 0 ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
-            await Status(status, await owner.PutAsJsonAsync($"/api/farms/{farms[i].Id}", new { name = "Farm update" }));
-            await Status(status, await owner.PatchAsJsonAsync($"/api/farms/{farms[i].Id}/status", new { isActive = true }));
-            await Status(i == 0 ? HttpStatusCode.Created : HttpStatusCode.Forbidden, await owner.PostAsJsonAsync($"/api/farms/{farms[i].Id}/zones", new { name = "Added zone" }));
-            await Status(status, await owner.PutAsJsonAsync($"/api/zones/{channels[i].SensorNode.ZoneId}", new { name = "Updated zone" }));
-            await Status(status, await engineer.PutAsJsonAsync($"/api/sensor-channels/{channels[i].Id}/threshold", new { maxValue = 42, isEnabled = true }));
+            await Status(HttpStatusCode.Forbidden, await owner.PutAsJsonAsync($"/api/farms/{farms[i].Id}", new { name = "Farm update" }));
+            await Status(HttpStatusCode.Forbidden, await owner.PatchAsJsonAsync($"/api/farms/{farms[i].Id}/status", new { isActive = true }));
+            await Status(HttpStatusCode.Forbidden, await owner.PostAsJsonAsync($"/api/farms/{farms[i].Id}/zones", new { name = "Added zone" }));
+            await Status(HttpStatusCode.Forbidden, await owner.PutAsJsonAsync($"/api/zones/{channels[i].SensorNode.ZoneId}", new { name = "Updated zone" }));
+            await Status(HttpStatusCode.Forbidden, await engineer.PutAsJsonAsync($"/api/sensor-channels/{channels[i].Id}/threshold", new { maxValue = 42, isEnabled = true }));
             await Status(HttpStatusCode.Forbidden, await owner.PutAsJsonAsync($"/api/sensor-channels/{channels[i].Id}/threshold", new { maxValue = 42 }));
             await Status(status, await owner.PutAsJsonAsync($"/api/missions/{missions[i].Id}", MissionPlan(i)));
             await Status(i == 0 ? HttpStatusCode.Created : HttpStatusCode.Forbidden, await owner.PostAsJsonAsync("/api/missions", MissionPlan(i)));
@@ -234,7 +250,7 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
                 await Status(HttpStatusCode.Forbidden, await client.PostAsJsonAsync($"/api/alerts/{alerts[1].Id}/{action}", new { note = "Denied" }));
         }
         foreach (var action in new[] { "acknowledge", "notes", "close" })
-            await Status(HttpStatusCode.OK, await engineer.PostAsJsonAsync($"/api/alerts/{alerts[0].Id}/{action}", new { note = "Allowed" }));
+            await Status(HttpStatusCode.OK, await admin.PostAsJsonAsync($"/api/alerts/{alerts[0].Id}/{action}", new { note = "Allowed" }));
         await Status(HttpStatusCode.OK, await owner.PostAsJsonAsync($"/api/missions/{missions[0].Id}/cancel", new { note = "Allowed" }));
     }
 
@@ -242,17 +258,17 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
     public async Task Concurrent_membership_assignment_creates_one_row_and_preserves_global_roles()
     {
         var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ =>
-            admin.PostAsJsonAsync($"/api/farms/{farms[1].Id}/members", new { userId = engineerId })));
+            admin.PostAsJsonAsync($"/api/farms/{farms[1].Id}/members", new { userId = ownerId })));
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Created);
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Conflict);
-        Assert.Equal("FarmEngineer", Assert.Single((await Data(await engineer.GetAsync("/api/auth/me"))).GetProperty("roles").EnumerateArray()).GetString());
+        Assert.Equal("FarmOwner", Assert.Single((await Data(await owner.GetAsync("/api/auth/me"))).GetProperty("roles").EnumerateArray()).GetString());
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal(2, await db.UserFarms.CountAsync(x => x.UserId == engineerId));
+        Assert.Equal(2, await db.UserFarms.CountAsync(x => x.UserId == ownerId));
         await Data(await admin.PutAsJsonAsync($"/api/users/{engineerId}/roles", new { roles = new[] { "FarmAdministrator", "FarmEngineer" } }));
         await Status(HttpStatusCode.UnprocessableEntity, await admin.PostAsJsonAsync($"/api/farms/{farms[0].Id}/members", new { userId = engineerId }));
         // Admin status now permits all farms independently of its old memberships.
-        await Status(HttpStatusCode.NoContent, await admin.DeleteAsync($"/api/farms/{farms[1].Id}/members/{engineerId}"));
+        await Status(HttpStatusCode.NoContent, await admin.DeleteAsync($"/api/farms/{farms[0].Id}/members/{engineerId}"));
         await Status(HttpStatusCode.OK, await engineer.GetAsync($"/api/farms/{farms[1].Id}"));
     }
 
@@ -276,9 +292,9 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         }
         var ownerNotifications = await Data(await owner.GetAsync("/api/notifications"));
         Assert.Equal("Scoped notification 0", Assert.Single(ownerNotifications.EnumerateArray()).GetProperty("message").GetString());
-        Assert.Single((await Data(await engineer.GetAsync("/api/notifications"))).EnumerateArray());
+        Assert.Empty((await Data(await engineer.GetAsync("/api/notifications"))).EnumerateArray());
         Assert.Equal(2, (await Data(await admin.GetAsync("/api/notifications"))).GetArrayLength());
-        var foreignNotificationId = (await Data(await engineer.GetAsync("/api/notifications")))[0].GetProperty("id").GetInt32();
+        var foreignNotificationId = (await Data(await admin.GetAsync("/api/notifications")))[0].GetProperty("id").GetInt32();
         await Status(HttpStatusCode.NotFound, await owner.PatchAsJsonAsync($"/api/notifications/{foreignNotificationId}/read", new { }));
         // A notification already delivered to this user remains private historical correspondence.
         await Status(HttpStatusCode.NoContent, await admin.DeleteAsync($"/api/farms/{farms[0].Id}/members/{ownerId}"));

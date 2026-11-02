@@ -24,10 +24,10 @@ public class HumanRoleTests(ApiFactory factory)
     }
 
     [Theory]
-    [InlineData("FarmAdministrator", true, true, true, true, true)]
-    [InlineData("FarmOwner", false, true, true, false, true)]
-    [InlineData("FarmEngineer", false, false, false, true, false)]
-    [InlineData("UavDeviceOperator", false, false, true, false, false)]
+    [InlineData("FarmAdministrator", true, true, true, true, false)]
+    [InlineData("FarmOwner", false, false, false, false, true)]
+    [InlineData("FarmEngineer", false, false, false, false, false)]
+    [InlineData("Technician", false, false, false, false, false)]
     public async Task Human_auth_and_policy_matrix_preserve_device_boundary(string role, bool users, bool farms, bool devices, bool thresholds, bool missions)
     {
         var (admin, _) = await Login("admin@example.com");
@@ -73,21 +73,16 @@ public class HumanRoleTests(ApiFactory factory)
         Assert.Equal(missions ? HttpStatusCode.Created : HttpStatusCode.Forbidden, (await human.PostAsJsonAsync("/api/missions", new { name = "Policy mission", farmId, sensorNodeIds = Array.Empty<int>(), waypoints = Array.Empty<object>() })).StatusCode);
         foreach (var path in new[] { "/api/farms", "/api/sensor-readings", "/api/missions", "/api/alerts", "/api/notifications", "/api/dashboard/overview",
             "/api/reports/sensor-data", "/api/reports/devices", "/api/reports/missions", "/api/reports/alerts" })
-            Assert.Equal(HttpStatusCode.OK, (await human.GetAsync(path)).StatusCode);
+            Assert.Equal(path == "/api/notifications" || role is "FarmAdministrator" or "FarmOwner" ? HttpStatusCode.OK : HttpStatusCode.Forbidden, (await human.GetAsync(path)).StatusCode);
 
-        if (role == "UavDeviceOperator")
+        if (role is "Technician" or "FarmEngineer")
         {
-            var sensor = new { zoneId, deviceCode = Guid.NewGuid().ToString("N"), name = "Operator sensor", status = "OFFLINE" };
-            Assert.Equal(HttpStatusCode.Created, (await human.PostAsJsonAsync("/api/sensor-nodes", sensor)).StatusCode);
-            Assert.Equal(HttpStatusCode.Created, (await human.PostAsJsonAsync("/api/gateways", new { code = Guid.NewGuid().ToString("N"), name = "Operator gateway", gatewayType = "ESP32", status = "OFFLINE" })).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, (await human.PutAsJsonAsync($"/api/gateways/{gatewayId}", new { code = "blocked", name = "Blocked", gatewayType = "ESP32", status = "OFFLINE" })).StatusCode);
-            // Exercise real membership endpoints and immediately re-check farm isolation.
             var userId = login.GetProperty("user").GetProperty("id").GetInt32();
-            (await admin.DeleteAsync($"/api/farms/{farmId}/members/{userId}")).EnsureSuccessStatusCode();
-            Assert.Equal(HttpStatusCode.Forbidden, (await human.PostAsJsonAsync("/api/sensor-nodes", sensor)).StatusCode);
-            (await admin.PostAsJsonAsync($"/api/farms/{farmId}/members", new { userId })).EnsureSuccessStatusCode();
+            Assert.Equal(HttpStatusCode.UnprocessableEntity,
+                (await admin.PostAsJsonAsync($"/api/farms/{farmId}/members", new { userId })).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await human.GetAsync($"/api/farms/{farmId}")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await human.PostAsJsonAsync("/api/sensor-nodes", new { zoneId, deviceCode = "denied", name = "Denied", status = "OFFLINE" })).StatusCode);
         }
-
         var telemetry = new { missionId, gatewayId, recordedAt = DateTimeOffset.UtcNow, batteryPercent = 80 };
         var sync = new { batchKey = Guid.NewGuid().ToString("N"), records = Array.Empty<object>() };
         Assert.Equal(HttpStatusCode.Unauthorized, (await human.PostAsJsonAsync("/api/device/telemetry", telemetry)).StatusCode);
@@ -103,6 +98,7 @@ public class HumanRoleTests(ApiFactory factory)
 
     [Theory]
     [InlineData("UnknownRole")]
+    [InlineData("UavDeviceOperator")]
     public async Task Unsupported_roles_are_rejected_by_user_endpoints(string role)
     {
         var (client, data) = await Login("admin@example.com");

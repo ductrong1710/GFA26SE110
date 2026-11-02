@@ -6,6 +6,11 @@ namespace FarmMonitoring.Api.Authorization;
 
 public static class AccessPolicies
 {
+    public const string ManageMaintenanceSchedules = nameof(ManageMaintenanceSchedules);
+    public const string OperationalUser = nameof(OperationalUser);
+    public const string ProcessConsultations = nameof(ProcessConsultations);
+    public const string ReadConsultations = nameof(ReadConsultations);
+    public const string ReviewInstallations = nameof(ReviewInstallations);
     public const string ManageUsers = nameof(ManageUsers);
     public const string ReadFarmData = nameof(ReadFarmData);
     public const string ManageFarms = nameof(ManageFarms);
@@ -13,6 +18,7 @@ public static class AccessPolicies
     public const string ManageDevices = nameof(ManageDevices);
     public const string ConfigureThresholds = nameof(ConfigureThresholds);
     public const string ManageMissions = nameof(ManageMissions);
+    public const string SubmitDeviceIncidents = nameof(SubmitDeviceIncidents);
 }
 
 public sealed record CurrentRoleRequirement(params string[] Roles) : IAuthorizationRequirement;

@@ -9,7 +9,7 @@ namespace FarmMonitoring.Api.Controllers;
 
 [ApiController]
 [Route("api/notifications")]
-[Authorize(Policy = AccessPolicies.ReadFarmData)]
+[Authorize(Policy = AccessPolicies.OperationalUser)]
 [Produces("application/json")]
 [ProducesResponseType<ApiError>(StatusCodes.Status400BadRequest)]
 [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]

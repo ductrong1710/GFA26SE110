@@ -65,6 +65,7 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         foreach (var target in mission.Targets) target.SensorNode = sensors.Single(x => x.Id == target.SensorNodeId);
         if (mission.Uav is { IsActive: false } || mission.Gateway is { IsActive: false })
             throw new BusinessRuleException("Assigned UAV and gateway must be active.");
+        await ValidateRental(mission, ct);
         if (ready && (mission.Uav is null || mission.Gateway is null || mission.Targets.Count == 0 || mission.Waypoints.Count == 0))
             throw new BusinessRuleException("Scheduling and starting require a UAV, gateway, at least one target and at least one waypoint.");
         if (ready && mission.Targets.Any(t => t.Waypoint is null || !mission.Waypoints.Contains(t.Waypoint)))
@@ -77,6 +78,7 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
     {
         if (mission.ScheduledStartAt <= clock.GetUtcNow()) throw new BusinessRuleException("Scheduled start must be in the future.");
     }
+    public Task ValidateRental(Mission mission, CancellationToken ct) => repository.EnsureRentalAsync(mission, clock.GetUtcNow(), ct);
     public async Task CheckOverlap(Mission mission, bool starting, CancellationToken ct)
     {
         var scope = currentUser.UserId.HasValue ? await access.GetScopeAsync(ct) : null;
