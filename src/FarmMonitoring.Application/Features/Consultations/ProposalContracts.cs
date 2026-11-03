@@ -2,12 +2,13 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Consultations;
 
-public sealed record ProposalLineRequest(int SurveyZoneId, string DeviceType, int Quantity, string InstallationLocation);
+public sealed record ProposalLineRequest(int SurveyZoneId, string DeviceType, int Quantity, string InstallationLocation = "", int? PublicContentId = null);
 public sealed record ProposalRequest(int ExpectedRevision, int SurveyId, int RentalMonths, DateTimeOffset RequestedInstallationAt,
     string? Notes, ProposalLineRequest[] Lines);
 public sealed record ProposalConfirmationRequest(string Note);
 public sealed record ProposalSummary(int Id, int Revision, int SurveyId, string Status, DateTimeOffset CreatedAt);
-public sealed record ProposalLineResponse(int Id, int SurveyZoneId, string DeviceType, int Quantity, string InstallationLocation);
+public sealed record ProposalLineResponse(int Id, int SurveyZoneId, string DeviceType, int Quantity, string InstallationLocation = "", int? PublicContentId = null,
+    int? PriceRevision = null, decimal? MonthlyRentVnd = null, string? ProductName = null);
 public sealed record ProposalResponse(int Id, int ConsultationId, int SurveyId, int Revision, int RentalMonths,
     DateTimeOffset RequestedInstallationAt, string? Notes, string Status, int CreatedByUserId, DateTimeOffset CreatedAt,
     int? PlanConfirmedByUserId, DateTimeOffset? PlanConfirmedAt, string? PlanConfirmationNote,
@@ -35,7 +36,7 @@ public sealed class ProposalLineValidator : AbstractValidator<ProposalLineReques
         RuleFor(x => x.SurveyZoneId).GreaterThan(0);
         RuleFor(x => x.DeviceType).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Quantity).InclusiveBetween(1, 1000);
-        RuleFor(x => x.InstallationLocation).NotEmpty().MaximumLength(1000);
+        RuleFor(x => x.InstallationLocation).MaximumLength(1000);
     }
 }
 public sealed class ProposalConfirmationValidator : AbstractValidator<ProposalConfirmationRequest>

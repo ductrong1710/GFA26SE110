@@ -64,6 +64,7 @@ public sealed class ConsultationRepository(AppDbContext db) : IConsultationRepos
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await LockEngineerAsync(engineerId, ct);
         var row = await LockAsync(id, ct);
+        if (row.EngineerId == null && row.Status == ConsultationStatus.NEW) { row.EngineerId=engineerId; row.Status=ConsultationStatus.IN_PROGRESS; }
         if (row.EngineerId != engineerId) throw new AccessDeniedException("Only the assigned engineer can update this consultation.");
         if (row.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
         row.UpdatedAt = now;
@@ -82,6 +83,7 @@ public sealed class ConsultationRepository(AppDbContext db) : IConsultationRepos
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await LockEngineerAsync(survey.EngineerId, ct);
         var consultation = await LockAsync(survey.ConsultationId, ct);
+        if (consultation.EngineerId == null && consultation.Status == ConsultationStatus.NEW) { consultation.EngineerId=survey.EngineerId; consultation.Status=ConsultationStatus.IN_PROGRESS; }
         if (consultation.EngineerId != survey.EngineerId) throw new AccessDeniedException("Only the assigned engineer can record a survey.");
         if (consultation.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
         var latest = await db.FarmSurveys.Where(x => x.ConsultationId == survey.ConsultationId).MaxAsync(x => (int?)x.Revision, ct) ?? 0;

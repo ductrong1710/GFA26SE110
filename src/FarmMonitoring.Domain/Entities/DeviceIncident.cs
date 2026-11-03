@@ -5,8 +5,8 @@ public sealed class DeviceIncident
 {
     public int Id { get; set; }
     public int FarmId { get; set; }
-    public int RentalDeviceAssignmentId { get; set; }
-    public RentalDeviceAssignment RentalDeviceAssignment { get; set; } = null!;
+    public int? RentalDeviceAssignmentId { get; set; }
+    public RentalDeviceAssignment? RentalDeviceAssignment { get; set; }
     public string DeviceCode { get; set; } = "";
     public int ReporterId { get; set; }
     public string Description { get; set; } = "";

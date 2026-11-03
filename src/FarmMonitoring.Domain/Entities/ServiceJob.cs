@@ -2,7 +2,7 @@ namespace FarmMonitoring.Domain.Entities;
 
 public enum ServiceJobStatus { ASSIGNED, IN_PROGRESS, REPORT_SUBMITTED, OWNER_CONFIRMED, REWORK, CLOSED }
 public enum ServiceJobType { MAINTENANCE, REPAIR }
-public enum ServiceJobAction { ASSIGNED, REASSIGNED, STARTED, REPORT_SUBMITTED, OWNER_CONFIRMED, RETURNED, CLOSED, DEVICE_REPLACED }
+public enum ServiceJobAction { ASSIGNED, REASSIGNED, STARTED, REPORT_SUBMITTED, OWNER_CONFIRMED, RETURNED, CLOSED, DEVICE_REPLACED, PLAN_PROPOSED, PLAN_APPROVED, PLAN_REJECTED, PLAN_EXECUTED }
 public sealed class ServiceJob
 {
     public int Id { get; set; }
@@ -13,6 +13,7 @@ public sealed class ServiceJob
     public ServiceJobType Type { get; set; }
     public int TechnicianId { get; set; }
     public DateTimeOffset ScheduledAt { get; set; }
+    public DateTimeOffset ScheduledEndAt { get; set; }
     public ServiceJobStatus Status { get; set; }
     public int Revision { get; set; } = 1;
     public DateTimeOffset CreatedAt { get; set; }
@@ -28,6 +29,7 @@ public sealed class ServiceJobHistory
     public int UserId { get; set; }
     public int TechnicianId { get; set; }
     public DateTimeOffset ScheduledAt { get; set; }
+    public DateTimeOffset ScheduledEndAt { get; set; }
     public string Note { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
 }

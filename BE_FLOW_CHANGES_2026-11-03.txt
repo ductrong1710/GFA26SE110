@@ -1,0 +1,240 @@
+THAY ĐỔI FLOW BACKEND — 03/11/2026
+================================
+
+1. PHẠM VI
+- Chỉ thay đổi BE và kiểm thử/tài liệu. Chưa triển khai giao diện web/mobile.
+- Không quản lý tồn kho, kho xe, kế toán, doanh thu, công tác phí, cổng thanh toán.
+- Không ký điện tử trên App. Giấy ký ngoài được tải dưới dạng ảnh JPEG/PNG.
+- Các phần dưới phân biệt chức năng đã code với trách nhiệm FE và giới hạn còn lại.
+
+2. YÊU CẦU TƯ VẤN TRÊN HOMEPAGE
+- POST /api/consultations vẫn cho khách chưa đăng nhập gửi form.
+- Admin và kỹ sư đọc danh sách liên hệ tại:
+  GET /api/operations/consultation-requests?from=...&to=...&page=1&pageSize=20&search=...
+- Trả tên, điện thoại, nhu cầu, vị trí nông trại, nội dung, thời điểm gửi.
+- Dashboard Admin có số form trong kỳ và 5 form gần nhất.
+- Không dùng trạng thái chưa tiếp nhận, ca trực hay KPI bỏ sót trong dashboard mới.
+- Người trực xem danh sách và liên hệ bên ngoài. Không có phân công/duyệt form tư vấn.
+- Zalo/Messenger/điện thoại chỉ là liên kết ngoài; không có endpoint ghi nhận click,
+  hội thoại hay tự tạo yêu cầu từ các kênh này.
+- Các API claim cũ giữ lại cho client cũ. Luồng mới không cần gọi claim: khi kỹ sư
+  lưu khảo sát hoặc follow-up đầu tiên, BE tự ghi người phụ trách để kiểm soát
+  các bước thương mại tiếp theo. Không dùng việc này để thống kê khách đã được gọi.
+
+3. KHẢO SÁT NHU CẦU VÀ PHƯƠNG ÁN THUÊ
+- Kỹ sư ghi thông tin liên hệ, địa chỉ, diện tích, khu vực/cây trồng, nhu cầu, ảnh.
+- Không thu tuổi cây hoặc vị trí dự kiến lắp cảm biến/gateway trong khảo sát mới.
+- Trường cropAgeDays/installationLocation cũ vẫn đọc được để giữ lịch sử/client;
+  bản khảo sát mới ghi cropAgeDays=null, installationLocation="".
+- Proposal không yêu cầu vị trí lắp. Vị trí thực tế bắt buộc trong báo cáo KTV.
+- Mỗi proposal line mới phải có publicContentId trỏ DEVICE đang công khai và có giá.
+- BE chụp tên sản phẩm, revision bảng giá và đơn giá tháng tại lúc lập phương án.
+- Tiền thuê ban đầu = tổng(đơn giá tháng * số lượng) * số tháng thuê.
+- Giữ nguyên confirm-plan -> confirm-deposit -> submit-installation.
+- Cọc/thanh toán bên ngoài. Hồ sơ phải được liên kết Owner và farm hợp lệ trước
+  khi gửi yêu cầu lắp đặt như cơ chế hiện có.
+
+4. BẢNG GIÁ HOMEPAGE
+- PublicContent hỗ trợ thêm kind=COMPONENT và replacementPriceVnd.
+- estimatedMonthlyRentVnd chỉ áp dụng cho DEVICE; đây là giá thuê mỗi tháng.
+- replacementPriceVnd áp dụng cho DEVICE/COMPONENT; đây là giá thay thế mỗi đơn vị.
+- Giá >=0, tối đa hai chữ số thập phân, trong giới hạn numeric(18,2).
+- Tạo/sửa/publish/unpublish vẫn dùng /api/admin/public-content và expectedRevision.
+- GET /api/public-content trả thêm replacementPriceVnd và priceRevision.
+- Mỗi phiên bản cập nhật/lần xuất bản được lưu trong public_price_versions,
+  có thời điểm ghi nhận UTC và trạng thái công khai. Migration chỉ chụp trạng thái
+  hiện có; không bịa lại bảng giá trước khi triển khai.
+- Proposal và phiếu sửa chữa giữ bản sao giá; đổi Homepage không cập nhật ngược.
+- Giá trong phiếu phải khớp giấy ký. Phát sinh mới cần thỏa thuận/giấy xác nhận mới.
+
+5. ĐIỀU PHỐI KỸ THUẬT VIÊN
+- Request phân công lắp đặt/sửa chữa thêm scheduledEndAt (tùy chọn).
+- Mặc định thời lượng 2 giờ nếu thiếu; ngày kết thúc phải sau bắt đầu và <=24 giờ.
+- Kiểm tra trùng cả installation_jobs và service_jobs, có đệm di chuyển 30 phút.
+- Loại khỏi xung đột các việc APPROVED/CLOSED. Các việc chưa đóng vẫn chiếm
+  khung giờ dự kiến; chưa có mô hình định tuyến hoặc giờ làm việc/ca/nghỉ phép.
+- Khóa hàng user của KTV khi phân công để hai request không cùng đặt trùng lịch.
+- GET /api/operations/available-technicians?from=...&to=...
+  trả KTV đang hoạt động và không trùng lịch, recommended là người đầu theo tên/id.
+- Khi đổi lịch có thể truyền excludeType=INSTALLATION hoặc SERVICE và excludeId.
+- API đề xuất chỉ đọc; API phân công luôn kiểm tra lại, không tin kết quả cũ trên FE.
+- Admin đổi người/lịch bằng API assignment hiện có cho ASSIGNED/IN_PROGRESS/REWORK.
+- Người mới nhận thông báo; người bị thay được thông báo; Owner biết lịch mới.
+- KTV chỉ xem/cập nhật công việc hiện được giao. Người cũ mất quyền truy cập ca.
+- Lịch sử cũ giữ nguyên, không đổi tên người thực hiện trong những lần trước.
+
+6. BẢO TRÌ ĐỊNH KỲ
+- Giữ worker tạo công việc và giao thẳng KTV đã cấu hình trong lịch bảo trì.
+- Nếu trùng lịch, tìm khung giờ trống tiếp theo theo bước 30 phút, thời lượng 2 giờ.
+- Gửi thông báo WEB/EMAIL cho KTV và Owner như trước.
+- Admin vẫn đổi KTV hoặc ngày giờ của công việc tự sinh bằng assignment API.
+- Sửa người trong maintenance-schedules ảnh hưởng lần sinh sau; muốn đổi ca đã sinh
+  phải sửa assignment của service-job đó. Không sửa ngược lịch sử occurrence.
+
+7. KTV KHẢO SÁT THỰC TẾ VÀ LẮP ĐẶT
+- Sau phân công, KTV kiểm tra thực tế và xác định vị trí rồi lắp/chạy thử.
+- Vị trí thực tế, kiểm tra phụ kiện/kết nối/vận hành phải có trong báo cáo.
+- Nếu thay loại/số lượng làm đổi chi phí, phải quay lại phương án được khách chấp
+  thuận; BE không cho báo cáo vượt số lượng thiết bị đã duyệt/cấp phát.
+- POST /api/installation-jobs/{id}/reports thêm:
+  completedAt: thời điểm hoàn tất thực tế UTC (tùy chọn, mặc định thời điểm gửi).
+  paperwork: { contract: [ảnh], handover: [ảnh], bills: [ảnh tùy chọn],
+               paperContractNumber: "số trên giấy nếu có" }.
+- contract và handover bắt buộc, mỗi nhóm tối đa 5 ảnh PNG/JPEG, 2 MiB/ảnh.
+- completedAt không được ở tương lai hoặc trước ngày tạo công việc.
+- Bill chỉ là bằng chứng khoản thanh toán ngoài; BE không xác minh ngân hàng.
+- completedAt phải là thời điểm hoàn tất bàn giao; sửa báo cáo sau đó cần giữ đúng
+  ngày này, tránh đẩy ngày bắt đầu thuê theo ngày gửi lại báo cáo.
+- Response báo cáo có paperworkJson, completedAt, suggestedRentalStartAt.
+
+8. ADMIN DUYỆT GIẤY TỜ VÀ TẠO HỒ SƠ THUÊ
+- Khách chỉ ký giấy. Có ảnh hợp đồng/bàn giao thì không bắt khách đăng nhập
+  confirm-handover trước khi Admin duyệt. Endpoint xác nhận online cũ chỉ giữ
+  tương thích; không phải bước bắt buộc của flow mới.
+- Admin tự đối chiếu đúng khách/farm, thiết bị/mã, số lượng, giá đã chốt,
+  thời hạn, chữ ký, ảnh đủ trang, kết quả test và bill nếu có.
+- BE chặn duyệt nếu test thiết bị không đạt, thiếu giấy ký, stale revision,
+  người duyệt sai quyền hoặc thiết bị/cấp phát không còn hợp lệ.
+- Duyệt APPROVED và tạo RentalContract thực hiện chung transaction, không nhập
+  lại khách/farm/thiết bị/giá. Giấy tờ liên kết qua báo cáo lắp đặt đã duyệt.
+- Ngày thuê = 00:00 giờ Việt Nam của ngày sau completedAt (UTC+7).
+  Ví dụ hoàn tất thứ Hai -> bắt đầu thứ Ba, không lấy ngày Admin mở báo cáo.
+- Kết thúc = ngày bắt đầu + rentalMonths của phương án.
+- Hồ sơ DRAFT tự ACTIVE khi worker chạy tới ngày thuê; không tự thu tiền.
+- Worker mặc định chạy mỗi giờ nên cập nhật trạng thái có độ trễ theo cấu hình.
+- API tạo rental-contract cũ vẫn có để xử lý dữ liệu chưa có hợp đồng;
+  gọi sau khi tự tạo sẽ trả 409, không tạo bản trùng.
+- GET rental detail trả priceLines, totalRentVnd của kỳ thuê ban đầu, paperworkJson.
+- Dữ liệu cũ chưa có giá được trả null, không suy đoán số tiền.
+- totalRentVnd hiện là tiền kỳ ban đầu; không phải doanh thu thực nhận hoặc tổng
+  tất cả lần gia hạn. Gia hạn vẫn dùng API ngày kết thúc/ghi chú hiện có.
+- Nhắc hết hạn/gia hạn/thu hồi và lịch sử hợp đồng giữ cơ chế hiện có.
+
+9. BÁO CÁO CÂY BỆNH VÀ THIẾT BỊ
+- Giữ hai module riêng: crop-condition-reports và device-incidents.
+- Báo cáo cây có ảnh, triệu chứng, farm/zone, liên kết sensor và mùa vụ như trước.
+- Khách không phải biết/chụp serial thiết bị khi báo không nhận được dữ liệu.
+- POST /api/device-incidents hỗ trợ rentalDeviceAssignmentId=null và farmId.
+- Khi biết thiết bị, FE gửi assignment ID từ lựa chọn theo tên, không bắt nhập mã.
+- Khi chưa biết, báo cáo để assignment=null, mã rỗng; Admin xác định thiết bị trước
+  lúc tạo service job và truyền rentalDeviceAssignmentId trong request phân công.
+- BE kiểm tra thiết bị được chọn đúng farm và còn được thuê.
+- Không tự suy ra thiết bị hỏng từ việc không có dữ liệu. Ảnh sự cố không bắt buộc.
+
+10. PHƯƠNG ÁN SỬA CHỮA / THAY THẾ
+- API cũ POST /api/service-jobs/{id}/replacements không còn đổi thiết bị ngay;
+  trả 409 hướng dẫn dùng service plan. Không được giữ client cũ để bypass duyệt.
+- GET /api/operations/service-jobs/{id}/plans: Admin/KTV hiện phụ trách xem.
+- POST cùng route tạo phương án:
+  { expectedRevision, note, sensorNodeId/uavId/gatewayId tùy chọn,
+    lines: [{ publicContentId, quantity, warranty, reason }] }.
+- Tối đa một thiết bị mới mỗi phương án (hoặc không thay toàn bộ thiết bị).
+- Thiết bị thay phải cùng loại, active, sensor đúng farm, chưa cấp/giữ cho ca khác.
+- Pending plan giữ thiết bị mới để tránh cấp trùng với lắp đặt/ca khác.
+- Giá lấy từ sản phẩm/linh kiện đang public có replacementPriceVnd, lưu tên,
+  revision, số lượng và đơn giá. Công sửa/bảo trì không tính phí.
+- warranty=true: thành tiền dòng=0; phải ghi lý do để Admin kiểm tra.
+- warranty=false: thành tiền=số lượng*đơn giá đã chụp.
+- Không có dòng tiền công, phí di chuyển hay kế toán trong phiếu này.
+- POST /api/operations/service-plans/{id}/review:
+  { expectedRevision: revision CÔNG VIỆC, approve: true/false, note }.
+- Chỉ Admin duyệt/từ chối phương án trước khi KTV thực hiện.
+- Từ chối giải phóng giữ chỗ và cho KTV tạo phương án mới; giữ bản cũ để tra cứu.
+- Nếu không thay linh kiện/máy, tạo phương án lines=[] không có target; vẫn cần
+  duyệt và giấy nghiệm thu, tổng tiền=0.
+
+11. KÝ GIẤY, GHI NHẬN THỰC HIỆN, BÁO CÁO CUỐI
+- Khách đồng ý chi phí bằng giấy trước khi làm; không ký trên App.
+- POST /api/operations/service-plans/{id}/execute:
+  { expectedRevision: revision công việc, signedAgreement: [ảnh giấy ký],
+    oldDeviceImages: [ảnh], newDeviceImages: [ảnh] }.
+- KTV hiện được giao mới được thực hiện. Phương án phải được Admin duyệt.
+- Khi thay máy, bắt buộc ảnh máy cũ/mới để đối chiếu serial bằng mắt.
+- BE kiểm tra định dạng/giới hạn ảnh, không OCR hoặc tự xác minh chữ ký/serial.
+- Bước execute chỉ lưu phương án và bằng chứng, không đổi rental assignment,
+  không tắt máy cũ hay ghi nhận máy mới chính thức.
+- POST /api/service-jobs/{id}/reports thêm signedHandover: [ảnh nghiệm thu ký giấy].
+- Chỉ gửi được khi có phương án EXECUTED, có báo cáo/test và giấy ký.
+- Khi báo cáo gửi, trạng thái REPORT_SUBMITTED nghĩa chờ Admin hậu kiểm.
+- Không bắt khách đăng nhập confirm-operation; giữ endpoint cũ để tương thích.
+- Nếu bị trả báo cáo, KTV sửa và gửi phiên bản báo cáo mới, không xóa bản cũ.
+
+12. DUYỆT CUỐI VÀ ĐỔI THIẾT BỊ
+- Admin duyệt /api/service-jobs/{id}/approve sau đối chiếu giấy, giá và kết quả.
+- Trong cùng transaction: áp dụng plan, kết thúc liên kết thuê/cấp phát cũ,
+  tạo liên kết mới, tắt thiết bị cũ, lưu lineage cũ->mới, liên kết báo cáo,
+  resolve incident nếu có, đóng việc, ghi lịch sử và thông báo.
+- Thiết bị cũ có status=FAULTY_AWAITING_COLLECTION; không xóa thiết bị/lịch sử.
+- ReturnedAt ở liên kết thuê cũ đánh dấu kết thúc liên kết phục vụ lần thay máy;
+  không dùng nó làm bằng chứng máy đã về kho. Tình trạng vật lý chờ thu hồi lưu
+  trên asset status. Không có hệ thống kho trong phạm vi này.
+- Không cho đổi máy khi old/new đang liên quan mission RUNNING hoặc flight
+  active/recovery. Lỗi ở bất kỳ bước nào rollback toàn bộ duyệt và thay thế.
+- expectedRevision và khóa transaction chống duyệt/thay máy hai lần.
+- Luồng này không thay đổi ngày bắt đầu/kết thúc hợp đồng đang thuê.
+
+13. API ĐIỀU PHỐI, LỊCH SỬ VÀ DASHBOARD
+- GET /api/operations/calendar?from=...&to=...&technicianId=...
+  Admin xem toàn bộ hoặc lọc người; KTV chỉ xem mình, không được lọc người khác.
+  Trả việc lắp/bảo trì/sửa, thời gian bắt đầu/kết thúc, farm, địa chỉ, khách,
+  điện thoại, trạng thái, revision; đệm di chuyển 30 phút được trả riêng.
+- GET /api/operations/{installation|service}/{jobId}/installed-devices
+  Admin/KTV hiện được giao xem thiết bị đang thuê tại farm và báo cáo liên quan.
+- GET /api/operations/device-history?code=...&page=...&pageSize=...
+  Admin tra assignments, lịch sử lắp, báo cáo lỗi/linh kiện/test/xác nhận,
+  người thực hiện và quan hệ thay thế.
+- GET /api/operations/dashboard?from=...&to=...
+  Chỉ Admin. Trả bucket ngày theo giờ Việt Nam cho cảnh báo, nhiệm vụ UAV,
+  việc theo loại/trạng thái, hai loại báo cáo; có danh sách chờ phân công,
+  hợp đồng kết thúc trong kỳ, công việc bảo trì, số form và 5 form gần nhất.
+- Tối đa 366 ngày, from bao gồm/to không bao gồm. Có thể gọi hai kỳ để so sánh,
+  FE tổng hợp ngày thành tuần/tháng. Không chèn số giả cho ngày thiếu dữ liệu.
+- Biểu đồ công việc/nhiệm vụ phân nhóm theo ngày tạo và trạng thái HIỆN TẠI,
+  không được trình bày là số lần chuyển trạng thái trong quá khứ.
+- FE tự dựng Kanban/calendar/Gantt/biểu đồ; BE không tạo giao diện.
+- Endpoint dashboard hiện là toàn hệ thống, chưa có farm filter riêng ở route mới.
+- Mã thiết bị là nhận diện sẵn có; schema thiết bị hiện chưa có trường serial
+  và cấu hình tổng quát riêng cho mọi loại. Không bịa serial từ code; ảnh giấy và
+  ảnh serial là bằng chứng để Admin/KTV đối chiếu. Đây là giới hạn cần FE hiển thị rõ.
+
+14. TƯƠNG THÍCH, DATABASE VÀ TRIỂN KHAI
+- Migration: 20261103084905_OperationalWorkflow.
+- Thêm service_plans, public_price_versions, giá snapshot proposal, giấy báo cáo,
+  completedAt, thời điểm kết thúc dự kiến của job/history; incident cho phép
+  chưa xác định thiết bị.
+- Backfill end dự kiến của lịch cũ = scheduledAt+2h. Không thay ngày thuê cũ,
+  không ép hồ sơ lịch sử phải có ảnh giấy hoặc giá chưa từng được ghi nhận.
+- Downgrade bị chặn khi sẽ làm mất plan/giấy ký/incident chưa xác định thiết bị.
+- Không tự chạy migration trên database ứng dụng trong công việc này.
+- FE cũ phải cập nhật: publicContentId trên proposal, giấy ký trên reports,
+  service plans trước reports, không gọi immediate replacements,
+  không tạo lại rental sau khi duyệt lắp đặt đã tự tạo.
+- Email thực gửi phụ thuộc SMTP; WEB notification lưu database như trước.
+- Bắt buộc camera và lưu nháp offline là trách nhiệm Mobile App. BE chỉ nhận
+  dữ liệu khi có mạng; chưa có hàng đợi offline đặc thù cho nghiệp vụ này.
+- Ảnh giấy không phải file PDF; chưa thêm PDF upload ở phiên bản này.
+
+15. KIỂM THỬ
+- Dự án đang dùng xUnit 2.9.3, Microsoft.NET.Test.Sdk, xunit.runner.visualstudio.
+- Integration dùng Microsoft.AspNetCore.Mvc.Testing và PostgreSQL thực cô lập.
+- scripts/Test-Postgres.ps1 tạo cluster tạm, migrate test DB rồi dừng/dọn sau test.
+- Thêm unit test: ranh giới ngày Việt Nam/cuối năm, đệm di chuyển, duration,
+  phí bảo hành/giá snapshot, báo không xác định thiết bị, khảo sát đơn giản,
+  bắt buộc giấy ký hợp lệ.
+- Thêm integration: tư vấn không claim, quyền dashboard, incident không mã,
+  lắp đặt giấy->Admin đổi KTV->duyệt->rental hôm sau, giá thuê giữ nguyên,
+  plan giá linh kiện giữ nguyên, duyệt trước/sau, ảnh giấy, concurrent approvals,
+  rollback khi còn chuyến bay, typed replacement/reservation và migration cũ.
+- KẾT QUẢ CHẠY CUỐI 03/11/2026:
+  dotnet build --no-restore: thành công, 0 warning, 0 error.
+  Unit tests: 157/157 PASS.
+  Integration tests: 209/209 PASS trên PostgreSQL 18 tạm cô lập.
+  Tổng: 366/366 PASS, không skip.
+  git diff --check: không có lỗi whitespace.
+- Lệnh chạy toàn bộ:
+  ./scripts/Test-Postgres.ps1 -PostgresBin 'C:\Program Files\PostgreSQL\18\bin' -NoRestore -LogName test-final.log
+- Log: .local/test-final.log. TRX: tests/FarmMonitoring.UnitTests/TestResults và
+  tests/FarmMonitoring.IntegrationTests/TestResults (lượt cuối ngày 03/11/2026).
+- Các test cũ kỳ vọng thay máy ngay đã được chuyển sang kiểm tra kế hoạch giữ chỗ,
+  duyệt trước/sau và rollback. Test hợp đồng/khảo sát sửa theo giấy ký, tự tạo thuê
+  và không cần claim riêng. Fixture migration cũ ghi SQL theo schema lịch sử.

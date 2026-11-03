@@ -1,6 +1,7 @@
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
 using FluentValidation;
+using FarmMonitoring.Application.Features.Consultations;
 
 namespace FarmMonitoring.Application.Features.Rentals;
 
@@ -12,7 +13,8 @@ public sealed record RentalSummary(int Id, int InstallationJobId, int FarmId, in
 public sealed record RentalDeviceResponse(int Id, int? SensorNodeId, int? UavId, int? GatewayId, string Code, string Name, string InstallationLocation, DateTimeOffset? ReturnedAt);
 public sealed record RentalHistoryResponse(int Id, string Action, int? UserId, string Note, DateTimeOffset CreatedAt, DateTimeOffset StartAt, DateTimeOffset EndAt);
 public sealed record RentalDetail(int Id, int InstallationJobId, int FarmId, int OwnerId, DateTimeOffset StartAt, DateTimeOffset EndAt, string Status, int Revision,
-    IReadOnlyList<RentalDeviceResponse> Devices, IReadOnlyList<RentalHistoryResponse> History);
+    IReadOnlyList<RentalDeviceResponse> Devices, IReadOnlyList<RentalHistoryResponse> History,
+    IReadOnlyList<ProposalLineResponse>? PriceLines = null, decimal? TotalRentVnd = null, string? PaperworkJson = null);
 public sealed class CreateRentalValidator : AbstractValidator<CreateRentalRequest>
 {
     public CreateRentalValidator(TimeProvider clock)

@@ -14,6 +14,7 @@ public sealed class InstallationDeviceRepository(AppDbContext db) : IInstallatio
     public async Task SetAsync(int jobId, int actorId, JobDevicesRequest request, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await FlightReservation.LockAsync(db,ct);
         await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id = {actorId} FOR UPDATE").ToArrayAsync(ct);
         if (!await db.UserRoles.AnyAsync(x => x.UserId == actorId && x.User.IsActive && x.Role.Name == RoleNames.FarmAdministrator, ct)) throw new AccessDeniedException("Administrator access required.");
         var job = await db.InstallationJobs.FromSqlInterpolated($"SELECT * FROM installation_jobs WHERE id = {jobId} FOR UPDATE").SingleOrDefaultAsync(ct) ?? throw new NotFoundException("Installation job not found.");
@@ -25,6 +26,7 @@ public sealed class InstallationDeviceRepository(AppDbContext db) : IInstallatio
         var sensors = request.Devices.Where(x => x.SensorNodeId.HasValue).Select(x => x.SensorNodeId!.Value).ToArray();
         var uavs = request.Devices.Where(x => x.UavId.HasValue).Select(x => x.UavId!.Value).ToArray();
         var gateways = request.Devices.Where(x => x.GatewayId.HasValue).Select(x => x.GatewayId!.Value).ToArray();
+        if (await db.ServicePlans.AnyAsync(x => (x.Status == ServicePlanStatus.PROPOSED || x.Status == ServicePlanStatus.APPROVED || x.Status == ServicePlanStatus.EXECUTED) && (x.SensorNodeId.HasValue && sensors.Contains(x.SensorNodeId.Value) || x.UavId.HasValue && uavs.Contains(x.UavId.Value) || x.GatewayId.HasValue && gateways.Contains(x.GatewayId.Value)),ct)) throw new ConflictException("Device is reserved for a pending repair.");
         var sensorRows = await db.SensorNodes.Where(x => sensors.Contains(x.Id) && x.IsActive && x.Zone.FarmId == installation.FarmId).ToDictionaryAsync(x => x.Id, ct);
         var uavRows = await db.Uavs.Where(x => uavs.Contains(x.Id) && x.IsActive).ToDictionaryAsync(x => x.Id, ct);
         var gatewayRows = await db.Gateways.Where(x => gateways.Contains(x.Id) && x.IsActive).ToDictionaryAsync(x => x.Id, ct);

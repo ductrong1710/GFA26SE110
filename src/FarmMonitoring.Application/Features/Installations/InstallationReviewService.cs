@@ -46,5 +46,5 @@ public sealed class InstallationReviewService(IInstallationRepository repository
     private static InstallationDetail Response(InstallationRequest row) => new(row.Id, row.Proposal.ConsultationId, row.ProposalId,
         row.FarmId, row.OwnerId, row.Status.ToString(), row.SubmittedAt, row.Proposal.RentalMonths, row.Proposal.RequestedInstallationAt,
         row.Proposal.PlanConfirmationNote, row.Proposal.DepositConfirmationNote, row.ReviewedByUserId, row.ReviewedAt, row.ReviewNote,
-        row.Proposal.Lines.OrderBy(x => x.Id).Select(x => new ProposalLineResponse(x.Id, x.SurveyZoneId, x.DeviceType, x.Quantity, x.InstallationLocation)).ToArray());
+        row.Proposal.Lines.OrderBy(x => x.Id).Select(x => new ProposalLineResponse(x.Id, x.SurveyZoneId, x.DeviceType, x.Quantity, x.InstallationLocation, x.PublicContentId, x.PriceRevision, x.MonthlyRentVnd, x.ProductName)).ToArray());
 }

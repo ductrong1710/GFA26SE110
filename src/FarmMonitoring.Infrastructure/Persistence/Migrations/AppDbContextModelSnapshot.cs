@@ -750,7 +750,7 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("mission_id");
 
-                    b.Property<int>("RentalDeviceAssignmentId")
+                    b.Property<int?>("RentalDeviceAssignmentId")
                         .HasColumnType("integer")
                         .HasColumnName("rental_device_assignment_id");
 
@@ -1402,6 +1402,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("scheduled_at");
 
+                    b.Property<DateTimeOffset>("ScheduledEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_end_at");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1455,6 +1459,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("scheduled_at");
 
+                    b.Property<DateTimeOffset>("ScheduledEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_end_at");
+
                     b.Property<int>("TechnicianId")
                         .HasColumnType("integer")
                         .HasColumnName("technician_id");
@@ -1487,6 +1495,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("approved");
 
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
                     b.Property<string>("ConfirmationNote")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -1518,6 +1530,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("notes");
+
+                    b.Property<string>("PaperworkJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("paperwork_json");
 
                     b.Property<string>("ReviewNote")
                         .HasMaxLength(2000)
@@ -2190,9 +2206,27 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("installation_location");
 
+                    b.Property<decimal?>("MonthlyRentVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("monthly_rent_vnd");
+
+                    b.Property<int?>("PriceRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("price_revision");
+
+                    b.Property<string>("ProductName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("product_name");
+
                     b.Property<int>("ProposalId")
                         .HasColumnType("integer")
                         .HasColumnName("proposal_id");
+
+                    b.Property<int?>("PublicContentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("public_content_id");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("integer")
@@ -2205,6 +2239,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProposalId");
+
+                    b.HasIndex("PublicContentId");
 
                     b.HasIndex("SurveyZoneId");
 
@@ -2250,6 +2286,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("published");
 
+                    b.Property<decimal?>("ReplacementPriceVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("replacement_price_vnd");
+
                     b.Property<int>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("integer")
@@ -2273,6 +2314,55 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_public_content_revision", "revision > 0");
                         });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.PublicPriceVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("MonthlyRentVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("monthly_rent_vnd");
+
+                    b.Property<int>("PublicContentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("public_content_id");
+
+                    b.Property<bool>("Published")
+                        .HasColumnType("boolean")
+                        .HasColumnName("published");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<decimal?>("ReplacementPriceVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("replacement_price_vnd");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublicContentId", "Revision")
+                        .IsUnique();
+
+                    b.ToTable("public_price_versions", (string)null);
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.RefreshToken", b =>
@@ -2984,6 +3074,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("scheduled_at");
 
+                    b.Property<DateTimeOffset>("ScheduledEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_end_at");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -3045,6 +3139,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("scheduled_at");
 
+                    b.Property<DateTimeOffset>("ScheduledEndAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_end_at");
+
                     b.Property<int>("TechnicianId")
                         .HasColumnType("integer")
                         .HasColumnName("technician_id");
@@ -3062,6 +3160,110 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("service_job_history", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.ServicePlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("EvidenceJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("evidence_json");
+
+                    b.Property<int?>("GatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("gateway_id");
+
+                    b.Property<int>("JobId")
+                        .HasColumnType("integer")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("OldAssignmentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("old_assignment_id");
+
+                    b.Property<string>("PriceLinesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("price_lines_json");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<int?>("ReviewerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("reviewer_id");
+
+                    b.Property<int?>("SensorNodeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_node_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("TechnicianId")
+                        .HasColumnType("integer")
+                        .HasColumnName("technician_id");
+
+                    b.Property<decimal>("TotalVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_vnd");
+
+                    b.Property<int?>("UavId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uav_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayId")
+                        .IsUnique()
+                        .HasFilter("status IN ('PROPOSED','APPROVED','EXECUTED') AND gateway_id IS NOT NULL");
+
+                    b.HasIndex("JobId")
+                        .IsUnique()
+                        .HasFilter("status IN ('PROPOSED','APPROVED','EXECUTED')");
+
+                    b.HasIndex("OldAssignmentId");
+
+                    b.HasIndex("ReviewerId");
+
+                    b.HasIndex("SensorNodeId")
+                        .IsUnique()
+                        .HasFilter("status IN ('PROPOSED','APPROVED','EXECUTED') AND sensor_node_id IS NOT NULL");
+
+                    b.HasIndex("TechnicianId");
+
+                    b.HasIndex("UavId")
+                        .IsUnique()
+                        .HasFilter("status IN ('PROPOSED','APPROVED','EXECUTED') AND uav_id IS NOT NULL");
+
+                    b.ToTable("service_plans", (string)null);
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.ServiceReport", b =>
@@ -3123,6 +3325,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Property<bool>("OperationPassed")
                         .HasColumnType("boolean")
                         .HasColumnName("operation_passed");
+
+                    b.Property<string>("PaperworkJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("paperwork_json");
 
                     b.Property<int?>("ReplacementId")
                         .HasColumnType("integer")
@@ -3895,8 +4101,7 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasOne("FarmMonitoring.Domain.Entities.RentalDeviceAssignment", "RentalDeviceAssignment")
                         .WithMany()
                         .HasForeignKey("RentalDeviceAssignmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FarmMonitoring.Domain.Entities.User", null)
                         .WithMany()
@@ -4405,6 +4610,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FarmMonitoring.Domain.Entities.PublicContent", null)
+                        .WithMany()
+                        .HasForeignKey("PublicContentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FarmMonitoring.Domain.Entities.SurveyZone", "SurveyZone")
                         .WithMany()
                         .HasForeignKey("SurveyZoneId")
@@ -4414,6 +4624,15 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Proposal");
 
                     b.Navigation("SurveyZone");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.PublicPriceVersion", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.PublicContent", null)
+                        .WithMany()
+                        .HasForeignKey("PublicContentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.RefreshToken", b =>
@@ -4643,6 +4862,49 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Job");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.ServicePlan", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Gateway", null)
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.ServiceJob", "Job")
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.RentalDeviceAssignment", null)
+                        .WithMany()
+                        .HasForeignKey("OldAssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorNode", null)
+                        .WithMany()
+                        .HasForeignKey("SensorNodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("TechnicianId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Uav", null)
+                        .WithMany()
+                        .HasForeignKey("UavId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Job");
                 });

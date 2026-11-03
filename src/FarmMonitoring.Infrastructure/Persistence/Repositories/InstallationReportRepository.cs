@@ -4,6 +4,7 @@ using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Constants;
 using FarmMonitoring.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using FarmMonitoring.Application.Features.TechnicalSupport;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 public sealed class InstallationReportRepository(AppDbContext db) : IInstallationReportRepository
@@ -24,6 +25,10 @@ public sealed class InstallationReportRepository(AppDbContext db) : IInstallatio
         if (!roles.Contains(RoleNames.Technician) || job.TechnicianId != actorId) throw new AccessDeniedException("Assigned Technician access required.");
         CheckRevision(job, request.ExpectedRevision);
         if (job.Status is not (InstallationJobStatus.IN_PROGRESS or InstallationJobStatus.REWORK)) throw new ConflictException("Start work or resolve requested rework before submitting a report.");
+        if (request.Paperwork is null) throw new BusinessRuleException("Attach signed paper contract and handover.");
+        PaperEvidence.Installation(request.Paperwork);
+        var completedAt = request.CompletedAt?.ToUniversalTime() ?? now;
+        if (completedAt > now || completedAt < job.CreatedAt) throw new BusinessRuleException("Completion must be between job creation and now.");
         var installation = await db.InstallationRequests.Include(x => x.Proposal).ThenInclude(x => x.Lines).SingleAsync(x => x.Id == job.InstallationRequestId, ct);
         var lines = installation.Proposal.Lines;
         var allocated = await db.InstallationDeviceAllocations.Where(x => x.JobId == jobId && x.ReleasedAt == null).ToArrayAsync(ct);
@@ -44,6 +49,7 @@ public sealed class InstallationReportRepository(AppDbContext db) : IInstallatio
             Devices = request.Devices.Select(d => new InstalledDeviceCheck { ProposalLineId = d.ProposalLineId, SensorNodeId = d.SensorNodeId, UavId = d.UavId, GatewayId = d.GatewayId,
                 InstallationLocation = d.InstallationLocation.Trim(), AccessoriesChecked = d.AccessoriesChecked!.Value, ConnectivityPassed = d.ConnectivityPassed!.Value,
                 OperationPassed = d.OperationPassed!.Value, TestResults = d.TestResults.Trim() }).ToList() };
+        report.PaperworkJson = System.Text.Json.JsonSerializer.Serialize(request.Paperwork); report.CompletedAt = completedAt;
         db.InstallationReports.Add(report); job.Status = InstallationJobStatus.REPORT_SUBMITTED; job.Revision++;
         History(job, InstallationJobAction.REPORT_SUBMITTED, actorId, $"Installation report revision {report.Revision} submitted.", now);
         await WorkflowNotifications.AddForUserAsync(db, installation.OwnerId, "Installation handover confirmation required", $"Review the latest report for installation job #{jobId}.", now, ct);
@@ -53,6 +59,7 @@ public sealed class InstallationReportRepository(AppDbContext db) : IInstallatio
     public async Task DecideAsync(int jobId, int actorId, string action, ReportDecisionRequest request, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await FlightReservation.LockAsync(db,ct);
         var roles = await LockActorAsync(actorId, ct);
         var job = await LockJobAsync(jobId, ct);
         var installation = await db.InstallationRequests.SingleAsync(x => x.Id == job.InstallationRequestId, ct);
@@ -75,7 +82,7 @@ public sealed class InstallationReportRepository(AppDbContext db) : IInstallatio
         else
         {
             if (action is not ("approve" or "return")) throw new BusinessRuleException("Unsupported installation decision.");
-            if (action == "approve" && (job.Status != InstallationJobStatus.OWNER_CONFIRMED || report.ConfirmedAt is null)) throw new ConflictException("Current owner handover confirmation is required.");
+            if (action == "approve" && (job.Status is not (InstallationJobStatus.OWNER_CONFIRMED or InstallationJobStatus.REPORT_SUBMITTED) || report.PaperworkJson is null)) throw new ConflictException("Signed paper contract and handover are required.");
             if (action == "return" && job.Status is not (InstallationJobStatus.REPORT_SUBMITTED or InstallationJobStatus.OWNER_CONFIRMED)) throw new ConflictException("Only a submitted report can be returned.");
             if (action == "approve" && report.Devices.Any(d => !d.AccessoriesChecked || !d.ConnectivityPassed || !d.OperationPassed)) throw new BusinessRuleException("Resolve failed device checks before approval.");
             report.ReviewedByUserId = actorId; report.ReviewedAt = now; report.ReviewNote = request.Note.Trim(); report.Approved = action == "approve";
@@ -86,7 +93,14 @@ public sealed class InstallationReportRepository(AppDbContext db) : IInstallatio
         job.Revision++;
         History(job, action == "confirm-handover" ? InstallationJobAction.OWNER_CONFIRMED : action == "approve" ? InstallationJobAction.APPROVED : InstallationJobAction.RETURNED,
             actorId, $"Report #{report.Id}: {request.Note.Trim()}", now);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        await db.SaveChangesAsync(ct);
+        if (action == "approve")
+        {
+            var months = await db.InstallationRequests.Where(x=>x.Id == job.InstallationRequestId).Select(x=>x.Proposal.RentalMonths).SingleAsync(ct);
+            var start = OperationalRules.RentalStart(report.CompletedAt ?? report.CreatedAt);
+            await new RentalRepository(db).CreateWithinAsync(jobId,actorId,new(start,start.AddMonths(months),"Created from approved signed paper handover."),now,ct);
+        }
+        await transaction.CommitAsync(ct);
     }
     private async Task<string[]> LockActorAsync(int id, CancellationToken ct)
     {

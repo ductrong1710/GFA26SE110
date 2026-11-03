@@ -77,8 +77,8 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
             ConsultationId = id, EngineerId = engineer, FarmName = request.FarmName.Trim(), FarmLocation = request.FarmLocation.Trim(),
             FarmArea = request.FarmArea, MonitoringNeeds = request.MonitoringNeeds.Trim(), Notes = Optional(request.Notes), CreatedAt = clock.GetUtcNow(),
             Images = EvidenceImages.Decode(request.Images),
-            Zones = request.Zones.Select(x => new SurveyZone { Name = x.Name.Trim(), Crop = Optional(x.Crop), CropAgeDays = x.CropAgeDays,
-                Symptoms = Optional(x.Symptoms), InstallationLocation = x.InstallationLocation.Trim() }).ToList()
+            Zones = request.Zones.Select(x => new SurveyZone { Name = x.Name.Trim(), Crop = Optional(x.Crop), CropAgeDays = null,
+                Symptoms = Optional(x.Symptoms), InstallationLocation = "" }).ToList()
         };
         await repository.AddSurveyAsync(survey, request.ExpectedRevision, ct);
         return ToSurveyResponse(survey);

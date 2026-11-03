@@ -43,6 +43,11 @@ public sealed class ProposalLineConfiguration : IEntityTypeConfiguration<Proposa
         b.Property(x => x.SurveyZoneId).HasColumnName("survey_zone_id");
         b.Property(x => x.DeviceType).HasColumnName("device_type").HasMaxLength(150).IsRequired();
         b.Property(x => x.Quantity).HasColumnName("quantity");
+        b.Property(x => x.PublicContentId).HasColumnName("public_content_id");
+        b.Property(x => x.PriceRevision).HasColumnName("price_revision");
+        b.Property(x => x.MonthlyRentVnd).HasColumnName("monthly_rent_vnd").HasPrecision(18,2);
+        b.Property(x => x.ProductName).HasColumnName("product_name").HasMaxLength(200);
+        b.HasOne<PublicContent>().WithMany().HasForeignKey(x => x.PublicContentId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.InstallationLocation).HasColumnName("installation_location").HasMaxLength(1000).IsRequired();
         b.HasOne(x => x.Proposal).WithMany(x => x.Lines).HasForeignKey(x => x.ProposalId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.SurveyZone).WithMany().HasForeignKey(x => x.SurveyZoneId).OnDelete(DeleteBehavior.Restrict);

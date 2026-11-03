@@ -29,7 +29,7 @@ public sealed class ProposalService(IProposalRepository repository, Consultation
             RentalMonths = request.RentalMonths, RequestedInstallationAt = request.RequestedInstallationAt.ToUniversalTime(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(), CreatedAt = clock.GetUtcNow(),
             Lines = request.Lines.Select(x => new ProposalLine { SurveyZoneId = x.SurveyZoneId, DeviceType = x.DeviceType.Trim(),
-                Quantity = x.Quantity, InstallationLocation = x.InstallationLocation.Trim() }).ToList() };
+                Quantity = x.Quantity, InstallationLocation = "", PublicContentId = x.PublicContentId }).ToList() };
         await repository.CreateAsync(row, request.ExpectedRevision, ct);
         return Response(row);
     }
@@ -48,5 +48,5 @@ public sealed class ProposalService(IProposalRepository repository, Consultation
     private static ProposalResponse Response(DeviceProposal x) => new(x.Id, x.ConsultationId, x.SurveyId, x.Revision, x.RentalMonths,
         x.RequestedInstallationAt, x.Notes, x.Status.ToString(), x.CreatedByUserId, x.CreatedAt, x.PlanConfirmedByUserId,
         x.PlanConfirmedAt, x.PlanConfirmationNote, x.DepositConfirmedByUserId, x.DepositConfirmedAt, x.DepositConfirmationNote,
-        x.Lines.OrderBy(l => l.Id).Select(l => new ProposalLineResponse(l.Id, l.SurveyZoneId, l.DeviceType, l.Quantity, l.InstallationLocation)).ToArray());
+        x.Lines.OrderBy(l => l.Id).Select(l => new ProposalLineResponse(l.Id, l.SurveyZoneId, l.DeviceType, l.Quantity, l.InstallationLocation, l.PublicContentId, l.PriceRevision, l.MonthlyRentVnd, l.ProductName)).ToArray());
 }

@@ -125,7 +125,15 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         proposal.Lines.Add(line);
         var job = new InstallationJob { InstallationRequest = new InstallationRequest { Proposal = proposal, FarmId = farmId, OwnerId = owner.Id, SubmittedByUserId = engineer.Id, SubmittedAt = now, Status = InstallationRequestStatus.APPROVED },
             TechnicianId = admin.Id, ScheduledAt = now, CreatedAt = now, Status = InstallationJobStatus.APPROVED };
-        db.InstallationJobs.Add(job); await db.SaveChangesAsync();
+        if (InitialMigration is not null)
+        {
+            // Historical fixtures cannot insert columns introduced by the current model.
+            proposal.Lines.Clear();
+            db.InstallationRequests.Add(job.InstallationRequest); db.Set<SurveyZone>().Add(zone); await db.SaveChangesAsync();
+            line.Id = await db.Database.SqlQuery<int>($"INSERT INTO proposal_lines (proposal_id,survey_zone_id,device_type,quantity,installation_location) VALUES ({proposal.Id},{zone.Id},{line.DeviceType},{line.Quantity},{line.InstallationLocation}) RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();
+            job.Id = await db.Database.SqlQuery<int>($"INSERT INTO installation_jobs (installation_request_id,technician_id,scheduled_at,status,revision,created_at) VALUES ({job.InstallationRequest.Id},{admin.Id},{now},'APPROVED',1,{now}) RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();
+        }
+        else { db.InstallationJobs.Add(job); await db.SaveChangesAsync(); }
         var allocations = new[] {
             new InstallationDeviceAllocation { JobId = job.Id, ProposalLineId = line.Id, UavId = uavId, Code = "fixture-uav", Name = "UAV", AllocatedByUserId = admin.Id, AllocatedAt = now },
             new InstallationDeviceAllocation { JobId = job.Id, ProposalLineId = line.Id, GatewayId = gatewayId, Code = "fixture-gateway", Name = "Gateway", AllocatedByUserId = admin.Id, AllocatedAt = now } };

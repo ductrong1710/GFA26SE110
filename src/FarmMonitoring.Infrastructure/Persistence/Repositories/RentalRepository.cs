@@ -1,5 +1,6 @@
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Rentals;
+using FarmMonitoring.Application.Features.Consultations;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Constants;
 using FarmMonitoring.Domain.Entities;
@@ -28,20 +29,29 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
     public async Task<RentalDetail> GetAsync(int id, int actorId, DateTimeOffset now, CancellationToken ct)
     {
         var rows = await ScopeAsync(actorId, ct);
-        var row = await rows.Include(x => x.Devices).Include(x => x.History).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
+        var row = await rows.Include(x => x.Devices).Include(x => x.History).Include(x => x.InstallationJob).ThenInclude(x => x.InstallationRequest).ThenInclude(x => x.Proposal).ThenInclude(x => x.Lines).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
         {
             if (await db.RentalContracts.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this rental is denied.");
             throw new NotFoundException("Rental contract not found.");
         }
+        var proposal = row.InstallationJob.InstallationRequest.Proposal;
+        var paper = await db.InstallationReports.Where(x => x.JobId == row.InstallationJobId && x.Approved == true).OrderByDescending(x => x.Revision).Select(x => x.PaperworkJson).FirstOrDefaultAsync(ct);
         return new(row.Id, row.InstallationJobId, row.FarmId, row.OwnerId, row.StartAt, row.EndAt, row.EffectiveStatus(now).ToString(), row.Revision,
             row.Devices.OrderBy(x => x.Id).Select(x => new RentalDeviceResponse(x.Id, x.SensorNodeId, x.UavId, x.GatewayId, x.Code, x.Name, x.InstallationLocation, x.ReturnedAt)).ToArray(),
-            row.History.OrderBy(x => x.Id).Select(x => new RentalHistoryResponse(x.Id, x.Action, x.UserId, x.Note, x.CreatedAt, x.StartAt, x.EndAt)).ToArray());
+            row.History.OrderBy(x => x.Id).Select(x => new RentalHistoryResponse(x.Id, x.Action, x.UserId, x.Note, x.CreatedAt, x.StartAt, x.EndAt)).ToArray(),
+            proposal.Lines.OrderBy(x=>x.Id).Select(x=>new ProposalLineResponse(x.Id,x.SurveyZoneId,x.DeviceType,x.Quantity,x.InstallationLocation,x.PublicContentId,x.PriceRevision,x.MonthlyRentVnd,x.ProductName)).ToArray(),
+            proposal.Lines.Any(x=>x.MonthlyRentVnd == null) ? null : proposal.Lines.Sum(x=>x.MonthlyRentVnd!.Value*x.Quantity)*proposal.RentalMonths,paper);
     }
     public async Task<int> CreateAsync(int jobId, int actorId, CreateRentalRequest request, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await FlightReservation.LockAsync(db, ct);
+        var id = await CreateWithinAsync(jobId,actorId,request,now,ct);
+        await transaction.CommitAsync(ct); return id;
+    }
+    internal async Task<int> CreateWithinAsync(int jobId,int actorId,CreateRentalRequest request,DateTimeOffset now,CancellationToken ct)
+    {
         await LockAdminAsync(actorId, ct);
         var job = await db.InstallationJobs.FromSqlInterpolated($"SELECT * FROM installation_jobs WHERE id = {jobId} FOR UPDATE").SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("Installation job not found.");
@@ -49,7 +59,9 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         if (await db.RentalContracts.AnyAsync(x => x.InstallationJobId == jobId, ct)) throw new ConflictException("This installation already has a rental contract.");
         var installation = await db.InstallationRequests.SingleAsync(x => x.Id == job.InstallationRequestId, ct);
         var report = await db.InstallationReports.Include(x => x.Devices).Where(x => x.JobId == jobId).OrderByDescending(x => x.Revision).FirstAsync(ct);
-        if (report.Approved != true || report.ConfirmedAt is null) throw new ConflictException("Confirmed and approved installation evidence is required.");
+        if (report.Approved != true || report.PaperworkJson is null && report.ConfirmedAt is null) throw new ConflictException("Confirmed and approved installation evidence is required.");
+        if (request.StartAt != OperationalRules.RentalStart(report.CompletedAt ?? report.CreatedAt))
+            throw new BusinessRuleException("Rental must start at midnight Vietnam time on the day after completed installation handover.");
         var allocations = await db.InstallationDeviceAllocations.Where(x => x.JobId == jobId && x.ReleasedAt == null).ToArrayAsync(ct);
         if (allocations.Length == 0 || allocations.Length != report.Devices.Count) throw new ConflictException("Installation device allocation no longer matches approval.");
         var rental = new RentalContract { InstallationJobId = jobId, FarmId = installation.FarmId, OwnerId = installation.OwnerId,
@@ -63,7 +75,7 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         }
         await EnsureEligibleAsync(rental, ct);
         History(rental, "CREATED", actorId, request.Note, now); db.RentalContracts.Add(rental);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return rental.Id;
+        await db.SaveChangesAsync(ct); return rental.Id;
     }
     public async Task ChangeAsync(int id, int actorId, string action, int expectedRevision, string note, DateTimeOffset? endAt, DateTimeOffset now, CancellationToken ct)
     {
@@ -110,6 +122,15 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         var warningAt = now.AddDays(warningDays);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await FlightReservation.LockAsync(db, ct);
+        var starting = await db.RentalContracts.FromSqlInterpolated($"SELECT * FROM rental_contracts WHERE status = 'DRAFT' AND start_at <= {now} AND end_at > {now} ORDER BY id LIMIT {batchSize} FOR UPDATE SKIP LOCKED").ToArrayAsync(ct);
+        foreach (var rental in starting)
+        {
+            await db.Entry(rental).Collection(x => x.Devices).LoadAsync(ct);
+            await EnsureEligibleAsync(rental, ct);
+            rental.Status = RentalStatus.ACTIVE; rental.Revision++;
+            History(rental, "ACTIVATED", null, "Automatically activated at agreed rental start.", now);
+            await NotifyAsync(rental, "Rental activated", now, ct);
+        }
         var due = await db.RentalContracts.FromSqlInterpolated($"SELECT * FROM rental_contracts WHERE status = 'ACTIVE' AND end_at <= {warningAt} AND (end_at <= {now} OR warned_for_end_at IS DISTINCT FROM end_at) ORDER BY end_at, id LIMIT {batchSize} FOR UPDATE SKIP LOCKED").ToArrayAsync(ct);
         foreach (var rental in due)
         {

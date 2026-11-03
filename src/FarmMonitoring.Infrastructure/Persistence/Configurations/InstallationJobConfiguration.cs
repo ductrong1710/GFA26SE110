@@ -13,6 +13,7 @@ public sealed class InstallationJobConfiguration : IEntityTypeConfiguration<Inst
         b.Property(x => x.InstallationRequestId).HasColumnName("installation_request_id");
         b.Property(x => x.TechnicianId).HasColumnName("technician_id");
         b.Property(x => x.ScheduledAt).HasColumnName("scheduled_at");
+        b.Property(x => x.ScheduledEndAt).HasColumnName("scheduled_end_at");
         b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(30);
         b.Property(x => x.Revision).HasColumnName("revision");
         b.Property(x => x.CreatedAt).HasColumnName("created_at");
@@ -33,6 +34,7 @@ public sealed class InstallationJobHistoryConfiguration : IEntityTypeConfigurati
         b.Property(x => x.UserId).HasColumnName("user_id");
         b.Property(x => x.TechnicianId).HasColumnName("technician_id");
         b.Property(x => x.ScheduledAt).HasColumnName("scheduled_at");
+        b.Property(x => x.ScheduledEndAt).HasColumnName("scheduled_end_at");
         b.Property(x => x.Note).HasColumnName("note").HasMaxLength(4000).IsRequired();
         b.Property(x => x.CreatedAt).HasColumnName("created_at");
         b.HasOne(x => x.Job).WithMany(x => x.History).HasForeignKey(x => x.JobId).OnDelete(DeleteBehavior.Restrict);

@@ -17,7 +17,7 @@ public sealed class InstallationReportsController(InstallationReportService serv
     [HttpGet("reports/{id:int}")]
     public async Task<ActionResult<ApiResponse<InstallationReportResponse>>> Get(int jobId, int id, CancellationToken ct) => Ok(ApiResponse<InstallationReportResponse>.Ok(await service.GetAsync(jobId, id, ct)));
     [HttpPost("reports")]
-    [RequestSizeLimit(20971520)]
+    [RequestSizeLimit(62914560)]
     public async Task<ActionResult<ApiResponse<InstallationReportResponse>>> Submit(int jobId, InstallationReportRequest request, CancellationToken ct)
     {
         var row = await service.SubmitAsync(jobId, request, ct);

@@ -4,6 +4,7 @@ param(
     [string]$Configuration = 'Debug',
     [switch]$NoRestore,
     [string]$Filter,
+    [ValidatePattern('^[a-zA-Z0-9_.-]+\.log$')][string]$LogName = 'test-latest.log',
     [switch]$BrowserTests
 )
 
@@ -56,10 +57,10 @@ try {
         return
     }
     $filterArguments = if ($Filter) { @('--filter', $Filter) } else { @() }
-    & $Dotnet test --no-build --configuration $Configuration --logger 'console;verbosity=normal' --logger trx @filterArguments *> (Join-Path $backendRoot '.local/test-latest.log')
+    & $Dotnet test --no-build --configuration $Configuration --logger 'console;verbosity=normal' --logger trx @filterArguments *> (Join-Path $backendRoot ('.local/' + $LogName))
     $testResult = $LASTEXITCODE
-    Get-Content (Join-Path $backendRoot '.local/test-latest.log') -Tail 90
-    if ($testResult -ne 0) { throw 'dotnet test failed. See .local/test-latest.log and TestResults.' }
+    Get-Content (Join-Path $backendRoot ('.local/' + $LogName)) -Tail 90
+    if ($testResult -ne 0) { throw "dotnet test failed. See .local/$LogName and TestResults." }
 }
 finally {
     if ($started) {

@@ -1,5 +1,41 @@
 # API.md
 
+### Operational workflow revision — 2026-11-03 (supersedes older claim/paper/replacement descriptions)
+
+See `BE_FLOW_CHANGES_2026-11-03.txt` for exact payloads and FE migration notes.
+New authenticated `/api/operations` endpoints: `calendar`, `available-technicians`,
+`dashboard`, `consultation-requests`, `device-history`,
+`{installation|service}/{jobId}/installed-devices`, `service-jobs/{id}/plans` (GET/POST),
+`service-plans/{id}/review` and `/execute` (POST). Calendar is Admin/global or
+Technician/self; dashboard/history/availability/review are Admin-only. Leads also
+permit active Engineers. Plans and installed equipment require current job context.
+Periods are `[from,to)` and at most 366 days. Availability appointments max 24h.
+Assignment payloads add optional `scheduledEndAt` (default start +2h), cross-type
+conflicts include 30-minute travel buffer; Admin may reassign an eligible open job.
+
+Homepage content adds `COMPONENT`, `replacementPriceVnd`, public `priceRevision`.
+Proposal lines require a published rental `publicContentId`; responses retain price
+revision/name/monthly-price snapshots. Engineer surveys no longer capture age or
+installation position. The first recorded survey/follow-up can establish context
+without a separate claim. The new lead list/dashboard expose no claim/shift KPI.
+
+Installation reports require `paperwork.contract` and `.handover` image arrays;
+optional `.bills`, `.paperContractNumber`, and `completedAt`. Paper approval does not
+require owner online confirmation. Successful final approval creates a rental
+atomically, starting midnight UTC+7 on the day after actual completion, ending after
+the agreed months. Do not call create-rental again. The rental worker activates due
+drafts. Detail adds `priceLines`, initial-period `totalRentVnd`, `paperworkJson`.
+
+Device incidents accept a null assignment with required `farmId`; no serial/photo
+required. Admin must identify a current assignment before creating its service job.
+Immediate `/replacements` now rejects with 409. Create a plan (published price lines,
+quantity, warranty reason and optional typed device target), Admin review, then
+execute with signed paper agreement and old/new device images for a physical
+exchange. Service reports require `signedHandover` and an EXECUTED plan. Final Admin
+approval alone applies equipment changes and closes the job atomically. Plan actions
+use the job's `expectedRevision`, not a separate plan revision. No online signature,
+stock mutation, payment processing or accounting is introduced.
+
 ### Operational dashboard summary
 
 `GET /api/dashboard/overview?farmId={id}` additionally returns `operations`: `openInstallations`, `openMaintenance`, `openRepairs`, `activeRentals`, `expiringRentals`, `expiredRentals`, `warningDays`, `activeSeasons`, and `recentCultivation` (up to five `{id, seasonId, seasonName, date, type, description}` entries ordered by activity date then ID). Existing overview fields are unchanged. Counts are computed in the same repeatable-read snapshot as device/alert/mission totals. Owner results require current farm membership and the linked owner identity; Admin can view all or filter to one farm. Expiring contracts use the configured `RentalExpiration:WarningDays`; dates and status are evaluated on the server. Missing cultivation data returns an empty array, never estimated activities or harvest values.
