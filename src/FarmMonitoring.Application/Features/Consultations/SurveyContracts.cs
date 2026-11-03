@@ -35,7 +35,7 @@ public sealed class SurveyZoneValidator : AbstractValidator<SurveyZoneRequest>
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Crop).MaximumLength(150);
-        // Legacy age fields are retained for read compatibility only.
+        RuleFor(x => x.CropAgeDays).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Symptoms).MaximumLength(2000);
         RuleFor(x => x.InstallationLocation).MaximumLength(1000);
     }

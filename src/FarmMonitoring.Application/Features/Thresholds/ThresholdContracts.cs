@@ -4,6 +4,8 @@ namespace FarmMonitoring.Application.Features.Thresholds;
 
 public sealed record ThresholdRequest(decimal? MinValue, decimal? MaxValue, int? DataTimeoutMinutes,
     decimal? LowBatteryPercent, bool IsEnabled = true);
+public sealed record ThresholdChangeResponse(int Id, int? ChangedByUserId, DateTimeOffset ChangedAt,
+    decimal? MinValue, decimal? MaxValue, int? DataTimeoutMinutes, decimal? LowBatteryPercent, bool IsEnabled);
 public sealed record ThresholdResponse(int Id, int SensorChannelId, decimal? MinValue, decimal? MaxValue,
     int? DataTimeoutMinutes, decimal? LowBatteryPercent, bool IsEnabled, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
 

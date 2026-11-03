@@ -1077,3 +1077,7 @@ Crop sensor context now uses a dedicated read-only paged report endpoint. It reu
 SRS3.9/BR40–42 require manual data only: unknown season dates/age/results remain null, not inferred from current time, activity costs or other fields. Initial implementation uses ACTIVE/COMPLETED status tokens, date-only agricultural dates, hectares, age in days, yield kg and VND amounts; units/tokens are explicit assumptions because SRS does not specify them. Known area must be positive; known yield/cost/revenue/age may be zero, never negative. Planned end cannot precede known start. Activity taxonomy is WATERING/FERTILIZING/PESTICIDE/INSPECTION/OTHER with required date/description and optional cost/notes/images. Completion may retain unknown end/results. Contracts/validators/schema exist; application services still must enforce current Owner scope, same-farm zone, lifecycle/revisions and shared image decoding. No active endpoints or UI yet.
 
 A Farm Owner can plan a mission for an entire authorized farm or a single zone on that farm. Zone-specific plans validate all target sensors when saved, scheduled, or started. The purpose is optional for existing plans and independent of operator notes.
+
+### Survey and proposal location preservation
+
+Survey zones retain submitted proposed installation locations and optional nonnegative crop ages. Proposal lines retain submitted installation locations, as required by the updated SRS. These values remain available alongside the published product price snapshot.

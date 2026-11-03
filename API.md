@@ -1332,3 +1332,7 @@ Requests without the flag continue to require recorded outcomes for every target
 
 Mission create and edit requests accept an optional purpose of up to 2,000 characters. Mission detail returns purpose independently of operatorNotes and appended operational observations.
 Mission requests also accept an optional zoneId. The zone must belong to the selected farm and contain all target sensors. Mission detail returns zone as {id, name} or null for a farm-wide plan.
+
+### Threshold history
+
+Administrators can read GET /api/sensor-channels/{id}/threshold/history with the standard page/pageSize query. Results contain the persisted settings, changedAt and changedByUserId, newest first. Migrated legacy snapshots have a null actor. Each successful threshold update records one immutable history row in the same transaction.

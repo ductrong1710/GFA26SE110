@@ -77,6 +77,7 @@ public class ConsultationValidationTests
         Assert.False(validator.Validate(request with { Zones = [null!] }).IsValid);
         Assert.False(validator.Validate(request with { Zones = [zone, zone with { Name = " north " }] }).IsValid);
         Assert.True(validator.Validate(request with { Zones = [zone with { CropAgeDays = null }] }).IsValid);
+        Assert.False(validator.Validate(request with { Zones = [zone with { CropAgeDays = -1 }] }).IsValid);
         Assert.True(validator.Validate(request with { Zones = [zone with { InstallationLocation = "" }] }).IsValid);
         Assert.False(validator.Validate(request with { ExpectedRevision = -1 }).IsValid);
     }

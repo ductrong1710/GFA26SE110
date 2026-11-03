@@ -6,7 +6,8 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Thresholds;
 
-public sealed class ThresholdService(FarmAccessService access, IThresholdRepository repository, IValidator<ThresholdRequest> validator, TimeProvider clock)
+public sealed class ThresholdService(FarmAccessService access, IThresholdRepository repository, IValidator<ThresholdRequest> validator,
+    IValidator<PageQuery> pages, TimeProvider clock)
 {
     public async Task<ThresholdResponse> GetAsync(int channelId, CancellationToken ct)
     {
@@ -24,7 +25,16 @@ public sealed class ThresholdService(FarmAccessService access, IThresholdReposit
             DataTimeoutMinutes = request.DataTimeoutMinutes, LowBatteryPercent = request.LowBatteryPercent,
             IsEnabled = request.IsEnabled, CreatedAt = clock.GetUtcNow()
         };
-        return ToResponse(await repository.UpsertAsync(threshold, ct) ?? throw new NotFoundException("Sensor channel not found."));
+        var actor = await access.GetScopeAsync(ct);
+        if (!actor.IsAdministrator) throw new AccessDeniedException("Administrator permission required.");
+        return ToResponse(await repository.UpsertAsync(threshold, actor.UserId, ct) ?? throw new NotFoundException("Sensor channel not found."));
+    }
+    public async Task<PagedResult<ThresholdChangeResponse>> HistoryAsync(int channelId, PageQuery page, CancellationToken ct)
+    {
+        await pages.ValidateAndThrowAsync(page, ct);
+        await access.EnsureAdministratorAsync(ct);
+        await access.EnsureAsync(FarmResource.SensorChannel, channelId, ct);
+        return await repository.HistoryAsync(channelId, page, ct);
     }
 
     private static ThresholdResponse ToResponse(SensorThreshold x) => new(x.Id, x.SensorChannelId, x.MinValue, x.MaxValue,
