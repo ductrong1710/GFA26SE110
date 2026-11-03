@@ -750,6 +750,9 @@ Email sending is backend-driven based on alert/notification rules.
 
 ### GET `/api/dashboard/overview`
 
+For administrators, `history` contains daily event counts over the current UTC day and the preceding 29 days, through the time of the request. Each row contains `date`, `category` and `count`. Categories are `ALERT_OPENED`, `MISSION_{terminal status}`, and `{INSTALLATION|MAINTENANCE|REPAIR}_{job action}`. Only recorded events appear, ordered by date and category. The optional farm filter applies to every category. Owners receive no administrative history.
+
+
 Example response data:
 
 ```json
