@@ -61,3 +61,11 @@ test('backend mission can resume without fabricating targets or coordinates', ()
   assert.equal(plan.farmId, 3)
   assert.deepEqual(plan.sensorIds, [])
 })
+test('resuming and saving a mission preserves its purpose separately from operator notes', () => {
+  const plan = planFromMission({ id: 12, name: 'Survey', zone: { id: 7, name: 'North orchard' }, purpose: 'Check irrigation coverage', operatorNotes: 'Inspect dock',
+    farm: { id: 3 }, targets: [], waypoints: [] })
+  const request = missionRequest(plan)
+  assert.equal(request.purpose, 'Check irrigation coverage')
+  assert.equal(request.operatorNotes, 'Inspect dock')
+  assert.equal(request.zoneId, 7)
+})

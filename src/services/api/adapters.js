@@ -31,5 +31,5 @@ export function missionRequest(plan, uav) {
   const scheduledStartAt = plan.scheduledLocal ? new Date(`${plan.scheduledLocal}+07:00`).toISOString() : null
   const scheduledEndAt = plan.scheduledEndLocal ? new Date(`${plan.scheduledEndLocal}+07:00`).toISOString() : null
   if (Boolean(scheduledStartAt) !== Boolean(scheduledEndAt)) throw new Error('Enter both scheduled start and end times.')
-  return { name: plan.name, farmId: Number(plan.farmId), uavId: nullableNumber(plan.uavId), gatewayId: nullableNumber(plan.gatewayId), scheduledStartAt, scheduledEndAt, sensorNodeIds: plan.sensorIds, targetAssignments, waypoints, operatorNotes: plan.notes || null }
+  return { name: plan.name, farmId: Number(plan.farmId), zoneId: nullableNumber(plan.zoneId), uavId: nullableNumber(plan.uavId), gatewayId: nullableNumber(plan.gatewayId), scheduledStartAt, scheduledEndAt, sensorNodeIds: plan.sensorIds, targetAssignments, waypoints, purpose: plan.purpose?.trim() || null, operatorNotes: plan.notes || null }
 }
