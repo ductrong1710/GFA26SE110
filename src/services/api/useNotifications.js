@@ -18,7 +18,8 @@ export function useNotifications(userId, role) {
   }, [identity])
   const all = query.data ?? []
   const unread = all.filter(item => item.status !== 'READ')
-  const latest = [...all].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id - a.id).slice(0, 5)
+  const items = [...all].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id - a.id)
+  const latest = items.slice(0, 5)
   const markRead = async (id = 'all') => {
     if (busy.current) return
     busy.current = true
@@ -42,7 +43,7 @@ export function useNotifications(userId, role) {
       if (current.current === startedIdentity) query.reload()
     }
   }
-  return { ...query, latest, hasUnread: unread.length > 0, markRead,
+  return { ...query, items, latest, hasUnread: unread.length > 0, markRead,
     pending: mutation.identity === identity ? mutation.pending : null,
     mutationError: mutation.identity === identity ? mutation.error : '' }
 }
