@@ -1,5 +1,7 @@
 # Smart Farm frontend
 
+Luồng giao diện mới: [ghi chú triển khai và kiểm thử](FE_WORKFLOW_CHANGES_2026-11-03.md).
+
 React application built with Vite. The authenticated workspace uses the ASP.NET
 backend as its source of truth; it does not sign in with demo accounts or load
 mock records into production pages.
