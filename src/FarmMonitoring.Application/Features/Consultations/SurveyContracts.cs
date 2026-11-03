@@ -3,11 +3,11 @@ using FarmMonitoring.Application.Common;
 
 namespace FarmMonitoring.Application.Features.Consultations;
 
-public sealed record SurveyZoneRequest(string Name, string? Crop, int? CropAgeDays, string? Symptoms, string InstallationLocation);
+public sealed record SurveyZoneRequest(string Name, string? Crop, int? CropAgeDays = null, string? Symptoms = null, string InstallationLocation = "");
 public sealed record SurveyRequest(int ExpectedRevision, string FarmName, string FarmLocation, decimal? FarmArea,
     string MonitoringNeeds, string? Notes, SurveyZoneRequest[] Zones, EvidenceImageData[]? Images = null);
 public sealed record SurveySummary(int Id, int Revision, string FarmName, int EngineerId, DateTimeOffset CreatedAt);
-public sealed record SurveyZoneResponse(int Id, string Name, string? Crop, int? CropAgeDays, string? Symptoms, string InstallationLocation);
+public sealed record SurveyZoneResponse(int Id, string Name, string? Crop, int? CropAgeDays = null, string? Symptoms = null, string InstallationLocation = "");
 public sealed record SurveyResponse(int Id, int ConsultationId, int Revision, int EngineerId, string FarmName,
     string FarmLocation, decimal? FarmArea, string MonitoringNeeds, string? Notes, DateTimeOffset CreatedAt, IReadOnlyList<SurveyZoneResponse> Zones, IReadOnlyList<EvidenceImageData> Images);
 
@@ -35,8 +35,8 @@ public sealed class SurveyZoneValidator : AbstractValidator<SurveyZoneRequest>
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Crop).MaximumLength(150);
-        RuleFor(x => x.CropAgeDays).InclusiveBetween(0, 36500);
+        // Legacy age fields are retained for read compatibility only.
         RuleFor(x => x.Symptoms).MaximumLength(2000);
-        RuleFor(x => x.InstallationLocation).NotEmpty().MaximumLength(1000);
+        RuleFor(x => x.InstallationLocation).MaximumLength(1000);
     }
 }

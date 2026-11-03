@@ -8,6 +8,7 @@ public sealed class ServiceReportConfiguration : IEntityTypeConfiguration<Servic
     public void Configure(EntityTypeBuilder<ServiceReport> b)
     {
         b.ToTable("service_reports"); b.HasKey(x => x.Id);
+        b.Property(x => x.PaperworkJson).HasColumnName("paperwork_json").HasColumnType("jsonb");
         b.Property(x => x.ReplacementId).HasColumnName("replacement_id");
         b.HasOne(x => x.Replacement).WithMany().HasForeignKey(x => x.ReplacementId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();

@@ -27,6 +27,10 @@ public sealed class DeviceProposal
 
 public sealed class ProposalLine
 {
+    public int? PublicContentId { get; set; }
+    public int? PriceRevision { get; set; }
+    public decimal? MonthlyRentVnd { get; set; }
+    public string? ProductName { get; set; }
     public int Id { get; set; }
     public int ProposalId { get; set; }
     public DeviceProposal Proposal { get; set; } = null!;

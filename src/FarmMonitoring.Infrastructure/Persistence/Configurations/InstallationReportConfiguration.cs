@@ -8,6 +8,8 @@ public sealed class InstallationReportConfiguration : IEntityTypeConfiguration<I
     public void Configure(EntityTypeBuilder<InstallationReport> b)
     {
         b.ToTable("installation_reports"); b.HasKey(x => x.Id);
+        b.Property(x => x.PaperworkJson).HasColumnName("paperwork_json").HasColumnType("jsonb");
+        b.Property(x => x.CompletedAt).HasColumnName("completed_at");
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         b.Property(x => x.JobId).HasColumnName("job_id"); b.Property(x => x.Revision).HasColumnName("revision");
         b.Property(x => x.TechnicianId).HasColumnName("technician_id"); b.Property(x => x.CreatedAt).HasColumnName("created_at");

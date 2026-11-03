@@ -2,6 +2,7 @@ namespace FarmMonitoring.Domain.Entities;
 
 public sealed class ServiceReport
 {
+    public string? PaperworkJson { get; set; }
     public int? ReplacementId { get; set; }
     public ServiceDeviceReplacement? Replacement { get; set; }
     public int Id { get; set; }

@@ -6,10 +6,11 @@ using System.Linq.Expressions;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
-public sealed class PublicContentRepository(AppDbContext db) : IPublicContentRepository
+public sealed class PublicContentRepository(AppDbContext db, TimeProvider clock) : IPublicContentRepository
 {
+    public PublicContentRepository(AppDbContext db) : this(db,TimeProvider.System) { }
     private static readonly Expression<Func<PublicContent, ManagedEntry>> Summary = x =>
-        new ManagedEntry(x.Id, x.Kind.ToString(), x.Title, x.Body, x.EstimatedMonthlyRentVnd, x.ImageType != null, x.Published, x.Revision);
+        new ManagedEntry(x.Id, x.Kind.ToString(), x.Title, x.Body, x.EstimatedMonthlyRentVnd, x.ImageType != null, x.Published, x.Revision, x.ReplacementPriceVnd);
     public async Task<PagedResult<ManagedEntry>> ManagedAsync(PageQuery page, CancellationToken ct)
     {
         var rows = db.PublicContent.AsNoTracking();
@@ -34,6 +35,7 @@ public sealed class PublicContentRepository(AppDbContext db) : IPublicContentRep
         row.Title = request.Title.Trim();
         row.Body = request.Body.Trim();
         row.EstimatedMonthlyRentVnd = request.EstimatedMonthlyRentVnd;
+        row.ReplacementPriceVnd = request.ReplacementPriceVnd;
         if (image != null || request.RemoveImage)
         {
             row.Image = image?.Content;
@@ -50,16 +52,22 @@ public sealed class PublicContentRepository(AppDbContext db) : IPublicContentRep
     }
     private async Task<ManagedEntry> CommitAsync(PublicContent row, CancellationToken ct)
     {
-        try { await db.SaveChangesAsync(ct); }
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        try {
+            await db.SaveChangesAsync(ct);
+            db.Set<PublicPriceVersion>().Add(new() { PublicContentId=row.Id,Revision=row.Revision,Title=row.Title,MonthlyRentVnd=row.EstimatedMonthlyRentVnd,
+                ReplacementPriceVnd=row.ReplacementPriceVnd,Published=row.Published,RecordedAt=clock.GetUtcNow() });
+            await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+        }
         catch (DbUpdateConcurrencyException) { throw new ConflictException("Reload the current content revision."); }
-        return new(row.Id, row.Kind.ToString(), row.Title, row.Body, row.EstimatedMonthlyRentVnd, row.ImageType != null, row.Published, row.Revision);
+        return new(row.Id, row.Kind.ToString(), row.Title, row.Body, row.EstimatedMonthlyRentVnd, row.ImageType != null, row.Published, row.Revision, row.ReplacementPriceVnd);
     }
     public async Task<PagedResult<PublicEntry>> PublishedAsync(PageQuery page, CancellationToken ct)
     {
         var published = db.PublicContent.AsNoTracking().Where(x => x.Published);
         var total = await published.CountAsync(ct);
         var entries = await published.OrderBy(x => x.Id).Skip((page.Page - 1) * page.PageSize).Take(page.PageSize)
-            .Select(x => new PublicEntry(x.Id, x.Kind.ToString(), x.Title, x.Body, x.EstimatedMonthlyRentVnd, x.ImageType != null))
+            .Select(x => new PublicEntry(x.Id, x.Kind.ToString(), x.Title, x.Body, x.EstimatedMonthlyRentVnd, x.ImageType != null, x.ReplacementPriceVnd, x.Revision))
             .ToArrayAsync(ct);
         return new(entries, total, page.Page, page.PageSize);
     }

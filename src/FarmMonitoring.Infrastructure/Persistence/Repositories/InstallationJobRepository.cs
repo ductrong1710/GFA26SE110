@@ -52,7 +52,7 @@ public sealed class InstallationJobRepository(AppDbContext db) : IInstallationJo
         var proposal = row.InstallationRequest.Proposal;
         return new(row.Id, row.InstallationRequestId, row.InstallationRequest.FarmId, row.TechnicianId, row.ScheduledAt, row.Status.ToString(), row.Revision,
             proposal.Survey.FarmName, proposal.Survey.FarmLocation,
-            proposal.Lines.OrderBy(x => x.Id).Select(x => new ProposalLineResponse(x.Id, x.SurveyZoneId, x.DeviceType, x.Quantity, x.InstallationLocation)).ToArray(),
+            proposal.Lines.OrderBy(x => x.Id).Select(x => new ProposalLineResponse(x.Id, x.SurveyZoneId, x.DeviceType, x.Quantity, x.InstallationLocation, x.PublicContentId, x.PriceRevision, x.MonthlyRentVnd, x.ProductName)).ToArray(),
             row.History.OrderBy(x => x.Id).Select(x => new JobHistoryResponse(x.Id, x.Action.ToString(), x.UserId, x.TechnicianId, x.ScheduledAt, x.Note, x.CreatedAt)).ToArray());
     }
     public async Task<int> AssignAsync(int id, bool create, int actorId, JobAssignmentRequest request, DateTimeOffset now, CancellationToken ct)
@@ -79,6 +79,9 @@ public sealed class InstallationJobRepository(AppDbContext db) : IInstallationJo
             if (job.Status is not (InstallationJobStatus.ASSIGNED or InstallationJobStatus.IN_PROGRESS or InstallationJobStatus.REWORK)) throw new ConflictException("This job cannot be reassigned.");
             job.Revision++;
         }
+        var end = (request.ScheduledEndAt ?? request.ScheduledAt.AddHours(2)).ToUniversalTime();
+        await TechnicianCalendar.EnsureFreeAsync(db, request.TechnicianId, request.ScheduledAt.ToUniversalTime(), end, create ? null : job.Id, null, ct);
+        job.ScheduledEndAt = end;
         var previousTechnician = job.TechnicianId;
         job.TechnicianId = request.TechnicianId; job.ScheduledAt = request.ScheduledAt.ToUniversalTime(); job.Status = InstallationJobStatus.ASSIGNED;
         History(job, create ? InstallationJobAction.ASSIGNED : InstallationJobAction.REASSIGNED, actorId, request.Note.Trim(), now);
@@ -107,5 +110,5 @@ public sealed class InstallationJobRepository(AppDbContext db) : IInstallationJo
         await db.InstallationJobs.FromSqlInterpolated($"SELECT * FROM installation_jobs WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct)
         ?? throw new NotFoundException("Installation job not found.");
     private static void History(InstallationJob job, InstallationJobAction action, int actorId, string note, DateTimeOffset now) =>
-        job.History.Add(new() { Action = action, UserId = actorId, TechnicianId = job.TechnicianId, ScheduledAt = job.ScheduledAt, Note = note, CreatedAt = now });
+        job.History.Add(new() { Action = action, UserId = actorId, TechnicianId = job.TechnicianId, ScheduledAt = job.ScheduledAt, ScheduledEndAt = job.ScheduledEndAt, Note = note, CreatedAt = now });
 }

@@ -4,13 +4,13 @@ using FarmMonitoring.Domain.Entities;
 
 namespace FarmMonitoring.Application.Features.PublicInformation;
 
-public sealed record PublicEntry(int Id, string Kind, string Title, string Body, decimal? EstimatedMonthlyRentVnd, bool HasImage);
+public sealed record PublicEntry(int Id, string Kind, string Title, string Body, decimal? EstimatedMonthlyRentVnd, bool HasImage, decimal? ReplacementPriceVnd = null, int PriceRevision = 1);
 public sealed record PublicImage(string ContentType, byte[] Content);
 
 public sealed record ManagedEntry(int Id, string Kind, string Title, string Body, decimal? EstimatedMonthlyRentVnd,
-    bool HasImage, bool Published, int Revision);
+    bool HasImage, bool Published, int Revision, decimal? ReplacementPriceVnd = null);
 public sealed record PublicContentRequest(int ExpectedRevision, string Kind, string Title, string Body, decimal? EstimatedMonthlyRentVnd,
-    EvidenceImageData? Image, bool RemoveImage);
+    EvidenceImageData? Image, bool RemoveImage, decimal? ReplacementPriceVnd = null);
 public sealed record PublicationRequest(int ExpectedRevision);
 
 public interface IPublicContentRepository
@@ -36,6 +36,9 @@ public sealed class PublicContentService(IPublicContentRepository repository, IV
     }
     public Task<ManagedEntry> SaveAsync(int? id, PublicContentRequest request, CancellationToken ct)
     {
+        if (request.ReplacementPriceVnd is decimal price &&
+            (request.Kind is not ("DEVICE" or "COMPONENT") || price < 0 || price >= 10000000000000000m || decimal.Round(price,2) != price))
+            throw new ValidationException("Replacement prices require DEVICE/COMPONENT and a nonnegative VND amount with up to two decimals.");
         if (!Enum.TryParse<PublicContentKind>(request.Kind, out var kind) || kind.ToString() != request.Kind || !Enum.IsDefined(kind))
             throw new ValidationException("Choose a supported public information category.");
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Length > 200 ||

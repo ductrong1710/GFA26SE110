@@ -20,6 +20,7 @@ public sealed class PublicContentConfiguration : IEntityTypeConfiguration<Public
         b.Property(x => x.Title).HasColumnName("title").HasMaxLength(200);
         b.Property(x => x.Body).HasColumnName("body").HasMaxLength(4000);
         b.Property(x => x.EstimatedMonthlyRentVnd).HasColumnName("estimated_monthly_rent_vnd").HasPrecision(18, 2);
+        b.Property(x => x.ReplacementPriceVnd).HasColumnName("replacement_price_vnd").HasPrecision(18, 2);
         b.Property(x => x.ImageType).HasColumnName("image_type").HasMaxLength(20);
         b.Property(x => x.Image).HasColumnName("image");
         b.Property(x => x.Published).HasColumnName("published");

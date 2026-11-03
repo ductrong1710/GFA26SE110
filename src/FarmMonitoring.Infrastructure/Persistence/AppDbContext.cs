@@ -5,6 +5,7 @@ namespace FarmMonitoring.Infrastructure.Persistence;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    public DbSet<ServicePlan> ServicePlans => Set<ServicePlan>();
     public DbSet<PublicContent> PublicContent => Set<PublicContent>();
     public DbSet<CropSeason> CropSeasons => Set<CropSeason>();
     public DbSet<CultivationActivity> CultivationActivities => Set<CultivationActivity>();

@@ -2,17 +2,20 @@ using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
 using FluentValidation;
+using FarmMonitoring.Application.Features.TechnicalSupport;
 
 namespace FarmMonitoring.Application.Features.Installations;
 
 public sealed record InstalledDeviceRequest(int ProposalLineId, int? SensorNodeId, int? UavId, int? GatewayId,
     string InstallationLocation, bool? AccessoriesChecked, bool? ConnectivityPassed, bool? OperationPassed, string TestResults);
-public sealed record InstallationReportRequest(int ExpectedRevision, string Notes, string? Issues, InstalledDeviceRequest[] Devices, EvidenceImageData[]? Images = null);
+public sealed record InstallationReportRequest(int ExpectedRevision, string Notes, string? Issues, InstalledDeviceRequest[] Devices, EvidenceImageData[]? Images = null,
+    PaperInstallation? Paperwork = null, DateTimeOffset? CompletedAt = null);
 public sealed record ReportDecisionRequest(int ExpectedRevision, int ReportId, string Note);
 public sealed record ReportSummary(int Id, int Revision, int TechnicianId, DateTimeOffset CreatedAt, bool? Approved);
 public sealed record InstallationReportResponse(int Id, int JobId, int Revision, int TechnicianId, string Notes, string? Issues,
     DateTimeOffset CreatedAt, int? ConfirmedByUserId, DateTimeOffset? ConfirmedAt, string? ConfirmationNote,
-    int? ReviewedByUserId, DateTimeOffset? ReviewedAt, string? ReviewNote, bool? Approved, IReadOnlyList<InstalledDeviceRequest> Devices, IReadOnlyList<EvidenceImageData> Images);
+    int? ReviewedByUserId, DateTimeOffset? ReviewedAt, string? ReviewNote, bool? Approved, IReadOnlyList<InstalledDeviceRequest> Devices, IReadOnlyList<EvidenceImageData> Images,
+    string? PaperworkJson = null, DateTimeOffset? CompletedAt = null, DateTimeOffset? SuggestedRentalStartAt = null);
 public sealed class InstallationReportValidator : AbstractValidator<InstallationReportRequest>
 {
     public InstallationReportValidator()
@@ -68,5 +71,5 @@ public sealed class InstallationReportService(IInstallationReportRepository repo
     private static InstallationReportResponse Response(InstallationReport x) => new(x.Id, x.JobId, x.Revision, x.TechnicianId, x.Notes, x.Issues, x.CreatedAt,
         x.ConfirmedByUserId, x.ConfirmedAt, x.ConfirmationNote, x.ReviewedByUserId, x.ReviewedAt, x.ReviewNote, x.Approved,
         x.Devices.OrderBy(d => d.Id).Select(d => new InstalledDeviceRequest(d.ProposalLineId, d.SensorNodeId, d.UavId, d.GatewayId, d.InstallationLocation,
-            d.AccessoriesChecked, d.ConnectivityPassed, d.OperationPassed, d.TestResults)).ToArray(), EvidenceImages.Encode(x.Images));
+            d.AccessoriesChecked, d.ConnectivityPassed, d.OperationPassed, d.TestResults)).ToArray(), EvidenceImages.Encode(x.Images), x.PaperworkJson, x.CompletedAt, OperationalRules.RentalStart(x.CompletedAt ?? x.CreatedAt));
 }

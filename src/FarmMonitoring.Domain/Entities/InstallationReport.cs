@@ -17,6 +17,8 @@ public sealed class InstallationReport
     public DateTimeOffset? ReviewedAt { get; set; }
     public string? ReviewNote { get; set; }
     public bool? Approved { get; set; }
+    public string? PaperworkJson { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
     public List<InstalledDeviceCheck> Devices { get; set; } = [];
     public List<EvidenceImage> Images { get; set; } = [];
 }

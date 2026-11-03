@@ -57,7 +57,10 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
                 ?? throw new NotFoundException("Device incident not found.");
             if (request.ExpectedRevision != 0) throw new ConflictException("A new service job has no prior revision.");
             if (await db.ServiceJobs.AnyAsync(x => x.IncidentId == id, ct)) throw new ConflictException("This incident already has a service job.");
-            job = new() { Incident = incident, IncidentId = id, RentalDeviceAssignmentId = incident.RentalDeviceAssignmentId, Type = Enum.Parse<ServiceJobType>(request.Type), CreatedAt = now };
+            var assignmentId = incident.RentalDeviceAssignmentId ?? request.RentalDeviceAssignmentId ?? throw new BusinessRuleException("Identify the affected farm device before creating a service job.");
+            if (!await db.RentalDeviceAssignments.AnyAsync(x => x.Id == assignmentId && x.Contract.FarmId == incident.FarmId && x.ReturnedAt == null && x.Contract.Status != RentalStatus.ENDED,ct))
+                throw new BusinessRuleException("Choose current equipment in the reported farm.");
+            job = new() { Incident = incident, IncidentId = id, RentalDeviceAssignmentId = assignmentId, Type = Enum.Parse<ServiceJobType>(request.Type), CreatedAt = now };
             db.ServiceJobs.Add(job);
         }
         else
@@ -68,10 +71,16 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
             if (job.Type.ToString() != request.Type) throw new ConflictException("Keep the recorded service type when rescheduling.");
             job.Revision++;
         }
+        var end = (request.ScheduledEndAt ?? request.ScheduledAt.AddHours(2)).ToUniversalTime();
+        await TechnicianCalendar.EnsureFreeAsync(db, request.TechnicianId, request.ScheduledAt.ToUniversalTime(), end, null, create ? null : job.Id, ct);
+        var previousTechnician = job.TechnicianId;
+        job.ScheduledEndAt = end;
         job.TechnicianId = request.TechnicianId; job.ScheduledAt = request.ScheduledAt.ToUniversalTime(); job.Status = ServiceJobStatus.ASSIGNED;
         History(job, create ? ServiceJobAction.ASSIGNED : ServiceJobAction.REASSIGNED, actorId, request.Note, now);
         await db.SaveChangesAsync(ct);
         await WorkflowNotifications.AddForUserAsync(db, job.TechnicianId, "Service job assigned", $"Service job #{job.Id} is assigned for {job.ScheduledAt:u}.", now, ct);
+        if (previousTechnician != 0 && previousTechnician != job.TechnicianId)
+            await WorkflowNotifications.AddForUserAsync(db, previousTechnician, "Service assignment changed", $"Service job #{job.Id} is no longer assigned to you.", now, ct);
         var assignment = await db.RentalDeviceAssignments.Include(x => x.Contract).SingleAsync(x => x.Id == job.RentalDeviceAssignmentId, ct);
         var ownerId = assignment.Contract.OwnerId;
         if (await FarmAccessQuery.AssignedFarmIds(db, ownerId).ContainsAsync(assignment.Contract.FarmId, ct))
@@ -94,5 +103,5 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
         await db.ServiceJobs.FromSqlInterpolated($"SELECT * FROM service_jobs WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct)
         ?? throw new NotFoundException("Service job not found.");
     private static void History(ServiceJob job, ServiceJobAction action, int actor, string note, DateTimeOffset now) =>
-        job.History.Add(new() { Action = action, UserId = actor, TechnicianId = job.TechnicianId, ScheduledAt = job.ScheduledAt, Note = note.Trim(), CreatedAt = now });
+        job.History.Add(new() { Action = action, UserId = actor, TechnicianId = job.TechnicianId, ScheduledAt = job.ScheduledAt, ScheduledEndAt = job.ScheduledEndAt, Note = note.Trim(), CreatedAt = now });
 }

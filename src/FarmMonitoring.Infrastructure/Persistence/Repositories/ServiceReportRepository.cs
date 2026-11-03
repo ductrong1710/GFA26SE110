@@ -6,8 +6,9 @@ using FarmMonitoring.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
-public sealed class ServiceReportRepository(AppDbContext db) : IServiceReportRepository
+public sealed class ServiceReportRepository(AppDbContext db, ServiceReplacementRepository replacements) : IServiceReportRepository
 {
+    public ServiceReportRepository(AppDbContext db) : this(db,new ServiceReplacementRepository(db)) { }
     public async Task<PagedResult<ServiceReportSummary>> ListAsync(int jobId, PageQuery query, CancellationToken ct)
     {
         var rows = db.ServiceReports.AsNoTracking().Where(x => x.JobId == jobId);
@@ -24,6 +25,9 @@ public sealed class ServiceReportRepository(AppDbContext db) : IServiceReportRep
         if (!roles.Contains(RoleNames.Technician) || job.TechnicianId != actorId) throw new AccessDeniedException("Assigned Technician access required.");
         CheckRevision(job, request.ExpectedRevision);
         if (job.Status is not (ServiceJobStatus.IN_PROGRESS or ServiceJobStatus.REWORK)) throw new ConflictException("Start work or resolve requested rework before submitting a report.");
+        var plan = await db.ServicePlans.Where(x => x.JobId == jobId && x.Status != ServicePlanStatus.REJECTED && x.Status != ServicePlanStatus.APPLIED).SingleOrDefaultAsync(ct);
+        if (plan is null || plan.Status != ServicePlanStatus.EXECUTED) throw new ConflictException("An approved, executed service plan with signed paper evidence is required.");
+        PaperEvidence.Required(request.SignedHandover,"signed repair handover");
         var report = new ServiceReport
         {
             Replacement = await db.ServiceDeviceReplacements.Where(x => x.JobId == jobId).OrderByDescending(x => x.Id).FirstOrDefaultAsync(ct),
@@ -31,7 +35,8 @@ public sealed class ServiceReportRepository(AppDbContext db) : IServiceReportRep
             Revision = (await db.ServiceReports.Where(x => x.JobId == jobId).MaxAsync(x => (int?)x.Revision, ct) ?? 0) + 1,
             Cause = request.Cause.Trim(), Work = request.Work.Trim(), Components = request.Components.Trim(), Notes = request.Notes.Trim(),
             TestResults = request.TestResults.Trim(), ConnectivityPassed = request.ConnectivityPassed!.Value, OperationPassed = request.OperationPassed!.Value,
-            Images = EvidenceImages.Decode(request.Images)
+            Images = EvidenceImages.Decode(request.Images),
+            PaperworkJson = System.Text.Json.JsonSerializer.Serialize(request.SignedHandover)
         };
         db.ServiceReports.Add(report); job.Status = ServiceJobStatus.REPORT_SUBMITTED; job.Revision++;
         History(job, ServiceJobAction.REPORT_SUBMITTED, actorId, $"Service report revision {report.Revision} submitted.", now);
@@ -43,6 +48,7 @@ public sealed class ServiceReportRepository(AppDbContext db) : IServiceReportRep
     public async Task DecideAsync(int jobId, int actorId, string action, ServiceReportDecisionRequest request, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await FlightReservation.LockAsync(db,ct);
         var roles = await LockActorAsync(actorId, ct);
         var job = await LockJobAsync(jobId, ct);
         var assignment = await AssignmentAsync(job, ct);
@@ -66,9 +72,14 @@ public sealed class ServiceReportRepository(AppDbContext db) : IServiceReportRep
         else
         {
             if (action is not ("approve" or "return")) throw new BusinessRuleException("Unsupported service decision.");
-            if (action == "approve" && (job.Status != ServiceJobStatus.OWNER_CONFIRMED || report.ConfirmedAt is null)) throw new ConflictException("Current owner operation confirmation is required.");
+            if (action == "approve" && (job.Status is not (ServiceJobStatus.OWNER_CONFIRMED or ServiceJobStatus.REPORT_SUBMITTED) || report.PaperworkJson is null)) throw new ConflictException("Signed paper handover is required.");
             if (action == "return" && job.Status is not (ServiceJobStatus.REPORT_SUBMITTED or ServiceJobStatus.OWNER_CONFIRMED)) throw new ConflictException("Only a submitted report can be returned.");
             if (action == "approve" && (!report.ConnectivityPassed || !report.OperationPassed)) throw new BusinessRuleException("Resolve failed device checks before approval.");
+            if (action == "approve")
+            {
+                await replacements.ApplyPendingAsync(jobId,actorId,now,ct);
+                report.Replacement = await db.ServiceDeviceReplacements.Where(x => x.JobId == jobId).OrderByDescending(x => x.Id).FirstOrDefaultAsync(ct);
+            }
             report.ReviewedByUserId = actorId; report.ReviewedAt = now; report.ReviewNote = request.Note.Trim(); report.Approved = action == "approve";
             job.Status = action == "approve" ? ServiceJobStatus.CLOSED : ServiceJobStatus.REWORK;
             if (action == "approve" && job.IncidentId is int incidentId)

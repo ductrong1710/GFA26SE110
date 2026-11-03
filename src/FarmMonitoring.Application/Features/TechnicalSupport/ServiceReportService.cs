@@ -6,13 +6,13 @@ using FluentValidation;
 namespace FarmMonitoring.Application.Features.TechnicalSupport;
 
 public sealed record ServiceReportRequest(int ExpectedRevision, string Cause, string Work, string Components, string TestResults, string Notes,
-    bool? ConnectivityPassed, bool? OperationPassed, EvidenceImageData[]? Images = null);
+    bool? ConnectivityPassed, bool? OperationPassed, EvidenceImageData[]? Images = null, EvidenceImageData[]? SignedHandover = null);
 public sealed record ServiceReportDecisionRequest(int ExpectedRevision, int ReportId, string Note);
 public sealed record ServiceReportSummary(int Id, int Revision, int TechnicianId, DateTimeOffset CreatedAt, bool? Approved);
 public sealed record ServiceReportResponse(int Id, int JobId, int Revision, int TechnicianId, string Cause, string Work, string Components,
     string TestResults, string Notes, bool ConnectivityPassed, bool OperationPassed, DateTimeOffset CreatedAt,
     int? ConfirmedByUserId, DateTimeOffset? ConfirmedAt, string? ConfirmationNote, int? ReviewedByUserId, DateTimeOffset? ReviewedAt,
-    string? ReviewNote, bool? Approved, IReadOnlyList<EvidenceImageData> Images, ServiceReplacementResponse? Replacement);
+    string? ReviewNote, bool? Approved, IReadOnlyList<EvidenceImageData> Images, ServiceReplacementResponse? Replacement, string? PaperworkJson = null);
 public sealed class ServiceReportValidator : AbstractValidator<ServiceReportRequest>
 {
     public ServiceReportValidator()
@@ -56,5 +56,5 @@ public sealed class ServiceReportService(IServiceReportRepository repository, Se
     }
     private static ServiceReportResponse Response(ServiceReport x) => new(x.Id, x.JobId, x.Revision, x.TechnicianId, x.Cause, x.Work, x.Components,
         x.TestResults, x.Notes, x.ConnectivityPassed, x.OperationPassed, x.CreatedAt, x.ConfirmedByUserId, x.ConfirmedAt, x.ConfirmationNote,
-        x.ReviewedByUserId, x.ReviewedAt, x.ReviewNote, x.Approved, EvidenceImages.Encode(x.Images), x.Replacement is null ? null : ServiceReplacementResponse.From(x.Replacement));
+        x.ReviewedByUserId, x.ReviewedAt, x.ReviewNote, x.Approved, EvidenceImages.Encode(x.Images), x.Replacement is null ? null : ServiceReplacementResponse.From(x.Replacement), x.PaperworkJson);
 }

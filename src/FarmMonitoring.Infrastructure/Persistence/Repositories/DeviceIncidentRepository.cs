@@ -14,7 +14,7 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
         var admin = roles.Contains(RoleNames.FarmAdministrator);
         if (!admin && !roles.Contains(RoleNames.FarmOwner)) throw new AccessDeniedException("Device incident access denied.");
         var farms = FarmAccessQuery.AssignedFarmIds(db, actor);
-        return db.DeviceIncidents.AsNoTracking().Where(x => admin || x.RentalDeviceAssignment.Contract.OwnerId == actor && farms.Contains(x.FarmId));
+        return db.DeviceIncidents.AsNoTracking().Where(x => admin || x.ReporterId == actor && farms.Contains(x.FarmId));
     }
     public async Task<PagedResult<DeviceIncidentSummary>> ListAsync(int actorId, PageQuery query, CancellationToken ct)
     {
@@ -43,6 +43,16 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
         await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id = {actorId} FOR UPDATE").ToArrayAsync(ct);
         if (!await db.UserRoles.AnyAsync(x => x.UserId == actorId && x.User.IsActive && x.Role.Name == RoleNames.FarmOwner, ct))
             throw new AccessDeniedException("Farm Owner access required.");
+        if (!request.RentalDeviceAssignmentId.HasValue)
+        {
+            if (request.FarmId is not int farmId || !await FarmAccessQuery.AssignedFarmIds(db,actorId).ContainsAsync(farmId,ct)) throw new AccessDeniedException("Choose your farm.");
+            if (!await db.Farms.AnyAsync(x => x.Id == farmId && x.IsActive,ct)) throw new BusinessRuleException("Farm must be active.");
+            if (request.MissionId.HasValue && !await db.Missions.AnyAsync(x=>x.Id == request.MissionId && x.FarmId == farmId,ct)) throw new BusinessRuleException("Mission must belong to this farm.");
+            var unknown = new DeviceIncident { FarmId=farmId,ReporterId=actorId,Description=request.Description.Trim(),ReportedAt=now,MissionId=request.MissionId,Images=images };
+            db.DeviceIncidents.Add(unknown); await db.SaveChangesAsync(ct);
+            await WorkflowNotifications.AddForRoleAsync(db,RoleNames.FarmAdministrator,"Device data issue reported",$"Incident #{unknown.Id} for farm #{farmId}; device identification required.",now,ct);
+            await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return unknown.Id;
+        }
         var assignment = await db.RentalDeviceAssignments.Include(x => x.Contract).SingleOrDefaultAsync(x => x.Id == request.RentalDeviceAssignmentId, ct)
             ?? throw new NotFoundException("Rental device assignment not found.");
         var rental = assignment.Contract;

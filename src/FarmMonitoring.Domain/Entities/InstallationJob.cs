@@ -9,6 +9,7 @@ public sealed class InstallationJob
     public InstallationRequest InstallationRequest { get; set; } = null!;
     public int TechnicianId { get; set; }
     public DateTimeOffset ScheduledAt { get; set; }
+    public DateTimeOffset ScheduledEndAt { get; set; }
     public InstallationJobStatus Status { get; set; }
     public int Revision { get; set; } = 1;
     public DateTimeOffset CreatedAt { get; set; }
@@ -23,6 +24,7 @@ public sealed class InstallationJobHistory
     public int UserId { get; set; }
     public int TechnicianId { get; set; }
     public DateTimeOffset ScheduledAt { get; set; }
+    public DateTimeOffset ScheduledEndAt { get; set; }
     public string Note { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
 }

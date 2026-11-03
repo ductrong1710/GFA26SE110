@@ -40,10 +40,14 @@ public sealed partial class MaintenanceScheduleRepository
         foreach (var assignment in eligible)
         {
             if (await db.MaintenanceOccurrences.AnyAsync(x => x.ScheduleId == id && x.DueAt == dueAt && x.RentalDeviceAssignmentId == assignment.Id, ct)) continue;
+            var appointment = now;
+            // Preserve the configured technician; place each automatic visit in a free slot.
+            while (await TechnicianCalendar.BusyAsync(db, schedule.TechnicianId, appointment, appointment.AddHours(2), null, null, ct))
+                appointment = appointment.AddMinutes(30);
             var job = new ServiceJob { RentalDeviceAssignmentId = assignment.Id, Type = ServiceJobType.MAINTENANCE,
-                TechnicianId = schedule.TechnicianId, ScheduledAt = now, CreatedAt = now };
+                TechnicianId = schedule.TechnicianId, ScheduledAt = appointment, ScheduledEndAt = appointment.AddHours(2), CreatedAt = now };
             job.History.Add(new() { Action = ServiceJobAction.ASSIGNED, UserId = schedule.UpdatedById, TechnicianId = schedule.TechnicianId,
-                ScheduledAt = now, CreatedAt = now, Note = $"Automatically created from maintenance schedule #{id}: {schedule.Policy}" });
+                ScheduledAt = appointment, ScheduledEndAt = appointment.AddHours(2), CreatedAt = now, Note = $"Automatically created from maintenance schedule #{id}: {schedule.Policy}" });
             db.ServiceJobs.Add(job); await db.SaveChangesAsync(ct);
             db.MaintenanceOccurrences.Add(new() { ScheduleId = id, DueAt = dueAt, RentalDeviceAssignmentId = assignment.Id,
                 JobId = job.Id, Policy = schedule.Policy, CreatedAt = now });

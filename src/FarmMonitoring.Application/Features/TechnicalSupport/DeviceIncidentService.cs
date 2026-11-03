@@ -4,14 +4,15 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.TechnicalSupport;
 
-public sealed record CreateDeviceIncidentRequest(int RentalDeviceAssignmentId, string Description, int? MissionId = null, EvidenceImageData[]? Images = null);
-public sealed record DeviceIncidentSummary(int Id, int FarmId, int RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId);
-public sealed record DeviceIncidentDetail(int Id, int FarmId, int RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId, int ReporterId, EvidenceImageData[] Images, int? ServiceJobId);
+public sealed record CreateDeviceIncidentRequest(int? RentalDeviceAssignmentId, string Description, int? MissionId = null, EvidenceImageData[]? Images = null, int? FarmId = null);
+public sealed record DeviceIncidentSummary(int Id, int FarmId, int? RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId);
+public sealed record DeviceIncidentDetail(int Id, int FarmId, int? RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId, int ReporterId, EvidenceImageData[] Images, int? ServiceJobId);
 public sealed class CreateDeviceIncidentValidator : AbstractValidator<CreateDeviceIncidentRequest>
 {
     public CreateDeviceIncidentValidator()
     {
-        RuleFor(x => x.RentalDeviceAssignmentId).GreaterThan(0);
+        RuleFor(x => x.RentalDeviceAssignmentId).GreaterThan(0).When(x => x.RentalDeviceAssignmentId.HasValue);
+        RuleFor(x => x.FarmId).NotNull().GreaterThan(0).When(x => !x.RentalDeviceAssignmentId.HasValue);
         RuleFor(x => x.Description).NotEmpty().MaximumLength(4000);
         RuleFor(x => x.MissionId).GreaterThan(0).When(x => x.MissionId.HasValue);
     }

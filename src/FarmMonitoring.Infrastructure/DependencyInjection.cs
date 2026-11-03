@@ -55,6 +55,9 @@ public static class DependencyInjection
         services.AddHostedService<MaintenanceSchedulerWorker>();
         services.AddScoped<IServiceReportRepository, ServiceReportRepository>();
         services.AddScoped<IServiceReplacementRepository, ServiceReplacementRepository>();
+        services.AddScoped<ServiceReplacementRepository>();
+        services.AddScoped<IOperationsRepository, OperationsRepository>();
+        services.AddScoped<FarmMonitoring.Application.Features.TechnicalSupport.OperationsService>();
         services.AddOptions<RentalExpirationSettings>().Bind(configuration.GetSection("RentalExpiration"))
             .Validate(x => x.IntervalSeconds is >= 1 and <= 86400 && x.WarningDays is >= 0 and <= 365 && x.BatchSize is >= 1 and <= 1000,
                 "Rental expiration interval, warning days or batch size is invalid.").ValidateOnStart();

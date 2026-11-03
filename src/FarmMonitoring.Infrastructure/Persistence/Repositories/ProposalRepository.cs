@@ -32,6 +32,13 @@ public sealed class ProposalRepository(AppDbContext db) : IProposalRepository
             ?? throw new BusinessRuleException("Choose a survey from this consultation.");
         if (proposal.Lines.Any(x => !survey.Zones.Any(z => z.Id == x.SurveyZoneId))) throw new BusinessRuleException("Every proposal line must reference a zone in the selected survey.");
         proposal.Revision = latest + 1;
+        foreach (var line in proposal.Lines)
+        {
+            if (line.PublicContentId is not int contentId) throw new BusinessRuleException("Select a published rental product for each line.");
+            var price = await db.PublicContent.AsNoTracking().SingleOrDefaultAsync(x => x.Id == contentId && x.Published && x.Kind == PublicContentKind.DEVICE && x.EstimatedMonthlyRentVnd != null, ct)
+                ?? throw new BusinessRuleException("Rental product must have a published monthly price.");
+            line.PriceRevision = price.Revision; line.MonthlyRentVnd = price.EstimatedMonthlyRentVnd; line.ProductName = price.Title;
+        }
         db.DeviceProposals.Add(proposal);
         History(consultation, proposal.CreatedByUserId, ConsultationAction.PROPOSAL_CREATED, $"Proposal revision {proposal.Revision} recorded.", proposal.CreatedAt);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);

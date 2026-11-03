@@ -5,7 +5,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Installations;
 
-public sealed record JobAssignmentRequest(int TechnicianId, DateTimeOffset ScheduledAt, string Note, int ExpectedRevision = 0);
+public sealed record JobAssignmentRequest(int TechnicianId, DateTimeOffset ScheduledAt, string Note, int ExpectedRevision = 0, DateTimeOffset? ScheduledEndAt = null);
 public sealed record JobStartRequest(int ExpectedRevision);
 public sealed record TechnicianOption(int Id, string FullName);
 public sealed record JobSummary(int Id, int InstallationRequestId, int FarmId, int TechnicianId, DateTimeOffset ScheduledAt, string Status, int Revision);
@@ -17,6 +17,7 @@ public sealed class JobAssignmentValidator : AbstractValidator<JobAssignmentRequ
     public JobAssignmentValidator(TimeProvider clock)
     {
         RuleFor(x => x.TechnicianId).GreaterThan(0);
+        RuleFor(x => x).Must(x => !x.ScheduledEndAt.HasValue || x.ScheduledEndAt > x.ScheduledAt && x.ScheduledEndAt <= x.ScheduledAt.AddHours(24)).WithMessage("End must follow start within 24 hours.");
         RuleFor(x => x.ScheduledAt).Must(x => x > clock.GetUtcNow()).WithMessage("Appointment must be in the future.");
         RuleFor(x => x.Note).NotEmpty().MaximumLength(2000);
         RuleFor(x => x.ExpectedRevision).InclusiveBetween(0, int.MaxValue - 1);
