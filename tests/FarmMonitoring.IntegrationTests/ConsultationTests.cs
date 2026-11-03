@@ -98,7 +98,7 @@ public sealed class ConsultationTests(ApiFactory factory)
             expectedRevision = revision, farmName = "Customer farm", farmLocation = "Can Tho", farmArea = (decimal?)null,
             monitoringNeeds = "Moisture and temperature", notes,
             images = revision == 0 ? new[] { new { contentType = "image/png", dataBase64 = image } } : [],
-            zones = new[] { new { name = "North", crop = "Rice", cropAgeDays = (int?)null, symptoms = "", installationLocation = "Along the irrigation canal" } }
+            zones = new[] { new { name = "North", crop = "Rice", cropAgeDays = 30, symptoms = "", installationLocation = "Along the irrigation canal" } }
         };
         // Recording the first survey now establishes the engineer context without claiming.
         Assert.Equal(HttpStatusCode.BadRequest, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Invalid image", "not-base64"))).StatusCode);
@@ -107,7 +107,8 @@ public sealed class ConsultationTests(ApiFactory factory)
         var first = (await survey.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
         Assert.Equal(1, first.GetProperty("revision").GetInt32());
         Assert.Equal(JsonValueKind.Null, first.GetProperty("farmArea").ValueKind);
-        Assert.Equal(JsonValueKind.Null, first.GetProperty("zones")[0].GetProperty("cropAgeDays").ValueKind);
+        Assert.Equal(30, first.GetProperty("zones")[0].GetProperty("cropAgeDays").GetInt32());
+        Assert.Equal("Along the irrigation canal", first.GetProperty("zones")[0].GetProperty("installationLocation").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Stale"))).StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(1, "Updated"))).StatusCode);
         var history = await engineer.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}/surveys");
@@ -181,6 +182,7 @@ public sealed class ConsultationTests(ApiFactory factory)
         var first = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
         var firstId = first.GetProperty("id").GetInt32();
         Assert.Equal(3, first.GetProperty("lines")[0].GetProperty("quantity").GetInt32());
+        Assert.Equal("Canal edge", first.GetProperty("lines")[0].GetProperty("installationLocation").GetString());
         var firstPath = $"/api/consultations/{id}/proposals/{firstId}";
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(firstPath + "/confirm-deposit", new { note = "Bank receipt" })).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(firstPath + "/submit-installation", new { })).StatusCode);

@@ -21,7 +21,8 @@ public sealed record DeviceCounts(int Total, int Online, int Offline, int Other,
 public sealed record MissionCounts(int Scheduled, int Running, int Failed);
 public sealed record AlertCounts(int Open, int Critical, int Acknowledged);
 public sealed record DashboardOverview(int Farms, DeviceCounts SensorNodes, DeviceCounts Gateways, MissionCounts Missions, AlertCounts Alerts,
-    DashboardOperations Operations);
+    DashboardOperations Operations, DashboardHistoryRow[]? History);
+public sealed record DashboardHistoryRow(DateOnly Date, string Category, int Count);
 public sealed record DashboardOperations(int OpenInstallations, int OpenMaintenance, int OpenRepairs,
     int ActiveRentals, int ExpiringRentals, int ExpiredRentals, int WarningDays, int ActiveSeasons, RecentCultivation[] RecentCultivation);
 public sealed record RecentCultivation(int Id, int SeasonId, string SeasonName, DateOnly Date, string Type, string Description);

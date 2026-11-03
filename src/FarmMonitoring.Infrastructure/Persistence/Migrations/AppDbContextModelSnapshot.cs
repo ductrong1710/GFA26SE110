@@ -3604,6 +3604,59 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.ThresholdChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at");
+
+                    b.Property<int?>("ChangedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("changed_by_user_id");
+
+                    b.Property<int?>("DataTimeoutMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("data_timeout_minutes");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_enabled");
+
+                    b.Property<decimal?>("LowBatteryPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("low_battery_percent");
+
+                    b.Property<decimal?>("MaxValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("max_value");
+
+                    b.Property<decimal?>("MinValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("min_value");
+
+                    b.Property<int>("SensorChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sensor_channel_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("SensorChannelId", "Id");
+
+                    b.ToTable("threshold_changes", (string)null);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Uav", b =>
                 {
                     b.Property<int>("Id")
@@ -5008,6 +5061,20 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Mission");
 
                     b.Navigation("Uav");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.ThresholdChange", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SensorChannel", null)
+                        .WithMany()
+                        .HasForeignKey("SensorChannelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.UserFarm", b =>

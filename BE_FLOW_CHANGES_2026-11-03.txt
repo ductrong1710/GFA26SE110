@@ -23,10 +23,9 @@ THAY ĐỔI FLOW BACKEND — 03/11/2026
 
 3. KHẢO SÁT NHU CẦU VÀ PHƯƠNG ÁN THUÊ
 - Kỹ sư ghi thông tin liên hệ, địa chỉ, diện tích, khu vực/cây trồng, nhu cầu, ảnh.
-- Không thu tuổi cây hoặc vị trí dự kiến lắp cảm biến/gateway trong khảo sát mới.
-- Trường cropAgeDays/installationLocation cũ vẫn đọc được để giữ lịch sử/client;
-  bản khảo sát mới ghi cropAgeDays=null, installationLocation="".
-- Proposal không yêu cầu vị trí lắp. Vị trí thực tế bắt buộc trong báo cáo KTV.
+- Khảo sát lưu tuổi cây khi được cung cấp và vị trí lắp dự kiến theo SRS.
+- Tuổi cây có thể để trống, giá trị được cung cấp phải không âm.
+- Proposal lưu vị trí lắp dự kiến theo SRS. Vị trí thực tế bắt buộc trong báo cáo KTV.
 - Mỗi proposal line mới phải có publicContentId trỏ DEVICE đang công khai và có giá.
 - BE chụp tên sản phẩm, revision bảng giá và đơn giá tháng tại lúc lập phương án.
 - Tiền thuê ban đầu = tổng(đơn giá tháng * số lượng) * số tháng thuê.

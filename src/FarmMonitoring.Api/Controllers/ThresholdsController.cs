@@ -1,6 +1,7 @@
 using FarmMonitoring.Api.Authorization;
 using FarmMonitoring.Api.Contracts;
 using FarmMonitoring.Application.Features.Thresholds;
+using FarmMonitoring.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,4 +24,8 @@ public sealed class ThresholdsController(ThresholdService thresholds) : Controll
     [Authorize(Policy = AccessPolicies.ConfigureThresholds)]
     public async Task<ActionResult<ApiResponse<ThresholdResponse>>> Set(int id, ThresholdRequest request, CancellationToken ct) =>
         Ok(ApiResponse<ThresholdResponse>.Ok(await thresholds.SetAsync(id, request, ct)));
+    [HttpGet("history")]
+    [Authorize(Policy = AccessPolicies.ConfigureThresholds)]
+    public async Task<ActionResult<ApiPageResponse<ThresholdChangeResponse>>> History(int id, [FromQuery] PageQuery page, CancellationToken ct) =>
+        Ok(ApiPageResponse<ThresholdChangeResponse>.From(await thresholds.HistoryAsync(id, page, ct)));
 }

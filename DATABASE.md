@@ -1053,3 +1053,7 @@ Migration `20261102092418_CropSeasons` adds crop_seasons and cultivation_activit
 
 Migration 20261103003623_MissionPurpose adds the nullable missions.purpose column (2,000 characters). Historical plans retain an unknown purpose.
 MissionZone adds an optional indexed missions.zone_id foreign key with restricted deletion. Existing rows retain their farm-wide scope.
+
+### Threshold change history
+
+Migration 20261103130751_ThresholdChangeHistory creates threshold_changes with restrictive foreign keys to sensor_channels and users and a channel/id history index. Existing settings receive a baseline snapshot with an unknown actor. New updates append an actor-attributed snapshot atomically with the current threshold update. Downgrade is refused when attributed history exists.

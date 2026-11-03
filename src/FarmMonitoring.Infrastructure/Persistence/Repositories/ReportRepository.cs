@@ -43,8 +43,30 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock, Rental
         var alerts = await alertRows.GroupBy(x => 1).Select(g => new AlertCounts(g.Count(x => x.Status == AlertStatus.OPEN),
             g.Count(x => x.Status != AlertStatus.CLOSED && x.Severity == AlertSeverity.CRITICAL), g.Count(x => x.Status == AlertStatus.ACKNOWLEDGED))).SingleOrDefaultAsync(ct) ?? new(0, 0, 0);
         var operations = await OperationsAsync(scope, farmIds, now, ct);
+        var history = scope.IsAdministrator ? await AdminHistoryAsync(farmIds, alertRows, missionRows, now, ct) : null;
         await transaction.CommitAsync(ct);
-        return new(farms, sensors, gateways, missions, alerts, operations);
+        return new(farms, sensors, gateways, missions, alerts, operations, history);
+    }
+    private async Task<DashboardHistoryRow[]> AdminHistoryAsync(IQueryable<int> farms, IQueryable<Alert> alerts,
+        IQueryable<Mission> missions, DateTimeOffset now, CancellationToken ct)
+    {
+        var from = new DateTimeOffset(now.UtcDateTime.Date.AddDays(-29), TimeSpan.Zero);
+        var rows = await alerts.Where(x => x.OpenedAt >= from && x.OpenedAt <= now)
+            .GroupBy(x => DateOnly.FromDateTime(x.OpenedAt.UtcDateTime))
+            .Select(g => new DashboardHistoryRow(g.Key, "ALERT_OPENED", g.Count())).ToListAsync(ct);
+        rows.AddRange(await missions.Where(x => x.CompletedAt >= from && x.CompletedAt <= now &&
+                (x.Status == MissionStatus.COMPLETED || x.Status == MissionStatus.FAILED || x.Status == MissionStatus.CANCELLED))
+            .GroupBy(x => new { Date = DateOnly.FromDateTime(x.CompletedAt!.Value.UtcDateTime), x.Status })
+            .Select(g => new DashboardHistoryRow(g.Key.Date, "MISSION_" + g.Key.Status.ToString(), g.Count())).ToListAsync(ct));
+        rows.AddRange(await db.Set<InstallationJobHistory>().Where(x => farms.Contains(x.Job.InstallationRequest.FarmId) &&
+                x.CreatedAt >= from && x.CreatedAt <= now)
+            .GroupBy(x => new { Date = DateOnly.FromDateTime(x.CreatedAt.UtcDateTime), x.Action })
+            .Select(g => new DashboardHistoryRow(g.Key.Date, "INSTALLATION_" + g.Key.Action.ToString(), g.Count())).ToListAsync(ct));
+        rows.AddRange(await db.Set<ServiceJobHistory>().Where(x => farms.Contains(x.Job.RentalDeviceAssignment.Contract.FarmId) &&
+                x.CreatedAt >= from && x.CreatedAt <= now)
+            .GroupBy(x => new { Date = DateOnly.FromDateTime(x.CreatedAt.UtcDateTime), x.Job.Type, x.Action })
+            .Select(g => new DashboardHistoryRow(g.Key.Date, g.Key.Type.ToString() + "_" + g.Key.Action.ToString(), g.Count())).ToListAsync(ct));
+        return rows.OrderBy(x => x.Date).ThenBy(x => x.Category).ToArray();
     }
     private async Task<DashboardOperations> OperationsAsync(FarmAccessScope scope, IQueryable<int> farmIds, DateTimeOffset now, CancellationToken ct)
     {

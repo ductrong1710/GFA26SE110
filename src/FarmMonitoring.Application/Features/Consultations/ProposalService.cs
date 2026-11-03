@@ -29,7 +29,7 @@ public sealed class ProposalService(IProposalRepository repository, Consultation
             RentalMonths = request.RentalMonths, RequestedInstallationAt = request.RequestedInstallationAt.ToUniversalTime(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(), CreatedAt = clock.GetUtcNow(),
             Lines = request.Lines.Select(x => new ProposalLine { SurveyZoneId = x.SurveyZoneId, DeviceType = x.DeviceType.Trim(),
-                Quantity = x.Quantity, InstallationLocation = "", PublicContentId = x.PublicContentId }).ToList() };
+                Quantity = x.Quantity, InstallationLocation = x.InstallationLocation?.Trim() ?? "", PublicContentId = x.PublicContentId }).ToList() };
         await repository.CreateAsync(row, request.ExpectedRevision, ct);
         return Response(row);
     }

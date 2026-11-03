@@ -59,6 +59,15 @@ public class ThresholdTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync(path, new { minValue = 40, maxValue = 10 })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync(path, new { lowBatteryPercent = 101, dataTimeoutMinutes = 0 })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/sensor-channels/2147483647/threshold", new { maxValue = 40 })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await op.GetAsync(path + "/history")).StatusCode);
+        var changes = (await admin.GetFromJsonAsync<JsonElement>(path + "/history")).GetProperty("data");
+        Assert.Equal(2, changes.GetArrayLength());
+        Assert.Equal(40m, changes[0].GetProperty("maxValue").GetDecimal());
+        Assert.False(changes[0].GetProperty("isEnabled").GetBoolean());
+        Assert.Equal(35m, changes[1].GetProperty("maxValue").GetDecimal());
+        Assert.Equal(10m, changes[1].GetProperty("minValue").GetDecimal());
+        var me = (await admin.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("data");
+        Assert.Equal(me.GetProperty("id").GetInt32(), changes[0].GetProperty("changedByUserId").GetInt32());
     }
 
     [Fact]
@@ -75,5 +84,7 @@ public class ThresholdTests(ApiFactory factory)
             ids.Add((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32());
         }
         Assert.Single(ids.Distinct());
+        var history = (await admin.GetFromJsonAsync<JsonElement>(path + "/history")).GetProperty("data");
+        Assert.Equal(new[] {30, 31, 32, 33}, history.EnumerateArray().Select(x => (int)x.GetProperty("maxValue").GetDecimal()).Order().ToArray());
     }
 }

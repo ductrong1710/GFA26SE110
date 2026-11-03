@@ -38,6 +38,8 @@ public class ReportTests(ApiFactory factory)
             var rental = await db.RentalContracts.Include(x => x.InstallationJob).Include(x => x.Devices).SingleAsync(x => x.FarmId == farm.Id);
             rental.EndAt = DateTimeOffset.UtcNow.AddDays(1);
             rental.InstallationJob.Status = InstallationJobStatus.ASSIGNED;
+            rental.InstallationJob.History.Add(new InstallationJobHistory { Action = InstallationJobAction.STARTED,
+                UserId = adminId, TechnicianId = adminId, ScheduledAt = DateTimeOffset.UtcNow, CreatedAt = DateTimeOffset.UtcNow });
             db.ServiceJobs.Add(new ServiceJob { RentalDeviceAssignmentId = rental.Devices.First().Id, TechnicianId = adminId,
                 Type = ServiceJobType.REPAIR, Status = ServiceJobStatus.ASSIGNED, ScheduledAt = DateTimeOffset.UtcNow, CreatedAt = DateTimeOffset.UtcNow });
             db.CropSeasons.Add(new CropSeason { FarmId = farm.Id, OwnerId = ownerId, Name = name, Crop = "Rice", CreatedAt = DateTimeOffset.UtcNow,
@@ -60,6 +62,8 @@ public class ReportTests(ApiFactory factory)
         using var admin = await Login("admin@example.com");
         var adminResult = (await admin.GetFromJsonAsync<JsonElement>($"/api/dashboard/overview?farmId={farmIds[0]}")).GetProperty("data").GetProperty("operations");
         Assert.Equal(2, adminResult.GetProperty("activeSeasons").GetInt32());
+        var activityHistory = (await admin.GetFromJsonAsync<JsonElement>($"/api/dashboard/overview?farmId={farmIds[0]}")).GetProperty("data").GetProperty("history");
+        Assert.Equal(1, activityHistory.EnumerateArray().Single(x => x.GetProperty("category").GetString() == "INSTALLATION_STARTED").GetProperty("count").GetInt32());
         await db.UserFarms.Where(x => x.FarmId == farmIds[0] && x.UserId == ownerId).ExecuteDeleteAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync($"/api/dashboard/overview?farmId={farmIds[0]}")).StatusCode);
     }
@@ -112,6 +116,10 @@ public class ReportTests(ApiFactory factory)
             Assert.Equal(HttpStatusCode.OK, (await op.GetAsync(path)).StatusCode);
         var adminAlerts = (await admin.GetFromJsonAsync<JsonElement>($"/api/reports/alerts?farmId={farmId}")).GetProperty("data");
         Assert.Equal(2, adminAlerts.GetArrayLength());
+        var adminOverview = (await admin.GetFromJsonAsync<JsonElement>($"/api/dashboard/overview?farmId={farmId}")).GetProperty("data");
+        var history = adminOverview.GetProperty("history").EnumerateArray().ToArray();
+        Assert.Equal(2, history.Where(x => x.GetProperty("category").GetString() == "ALERT_OPENED").Sum(x => x.GetProperty("count").GetInt32()));
+        Assert.Equal(1, history.Where(x => x.GetProperty("category").GetString() == "MISSION_COMPLETED").Sum(x => x.GetProperty("count").GetInt32()));
         var ownerAlerts = (await op.GetFromJsonAsync<JsonElement>($"/api/reports/alerts?farmId={farmId}")).GetProperty("data");
         Assert.Equal(2, ownerAlerts.GetArrayLength());
         using var engineer = await Login("engineer@example.com");
