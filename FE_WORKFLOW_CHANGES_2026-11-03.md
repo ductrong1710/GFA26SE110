@@ -17,8 +17,10 @@ giới hạn này trong cả bộ kiểm thử chính.
   Admin được thay KTV khi cần, gửi revision để BE kiểm tra xung đột lịch.
 - Lắp đặt: duyệt yêu cầu, phân công, cấp phát thiết bị, bắt đầu, báo cáo giấy tờ,
   trả bổ sung hoặc duyệt hậu kiểm. KTV chỉ xem công việc được giao.
-- Kỹ sư nông nghiệp: mở yêu cầu tư vấn, lưu khảo sát, đề xuất thiết bị/giá đã
-  công bố, xác nhận phương án/cọc rồi gửi yêu cầu lắp đặt. Không hỏi tuổi cây
+- Kỹ sư nông nghiệp: tư vấn/chốt thiết bị/nhận cọc bên ngoài, nhập khách hàng,
+  nông trại và thiết bị đã chốt; gửi hồ sơ một lần kèm bill cọc bắt buộc. Hệ thống
+  lưu khách/vườn trước khi thông báo Admin; không yêu cầu Admin nhập lại. Admin
+  kiểm tra và duyệt một lần rồi phân công KTV. Không hỏi tuổi cây
   hoặc vị trí dự kiến lắp cảm biến/gateway; KTV xác định khi khảo sát thực tế.
 - Bảo trì/sửa chữa: đề xuất thay thế, Admin duyệt trước khi làm, KTV lưu bằng
   chứng thực hiện, báo cáo hoàn tất, Admin duyệt cuối để BE áp dụng thay thế.
@@ -37,16 +39,20 @@ giới hạn này trong cả bộ kiểm thử chính.
   trong phương án; trường hợp bảo hành cần lý do. Giá thuê tháng là trường riêng.
 - Sửa giá công bố không sửa giá snapshot của phương án/hồ sơ đã chốt.
 - Không bổ sung kho, kế toán hoặc quy trình ký online.
+- Hồ sơ chờ duyệt được khóa sửa; trả bổ sung thì tạo phiên bản mới, giữ bill cũ.
+- Email khách mới dùng cho tài khoản FarmOwner; không đưa mật khẩu cho kỹ sư.
+  Khách có thể đặt mật khẩu bằng chức năng quên mật khẩu khi cần đăng nhập.
 - Quyền FE dùng để hiển thị; BE tiếp tục kiểm tra quyền, revision, lịch và dữ liệu.
 - Cần áp dụng migration BE `20261103084905_OperationalWorkflow` vào môi trường
   chạy trước khi dùng API mới. Chưa áp dụng vào cơ sở dữ liệu ứng dụng của bạn.
+- Luồng hồ sơ mới còn cần migration `20261103153523_ExternalConsultationDossier`.
 
 ## Kiểm tra và chạy
 
 Đặt `VITE_API_BASE_URL` trong `.env.local`, chạy BE và `npm run dev`.
 
-- `npm test`: 176 kiểm thử đạt (113 Node, 51 UI hiện có, 4 quản lý người dùng,
-  8 kiểm thử luồng mới), kèm kiểm tra số dòng.
+- `npm test`: 180 kiểm thử đạt (113 Node, 51 UI hiện có, 4 quản lý người dùng,
+  12 kiểm thử luồng mới), kèm kiểm tra số dòng.
 - `npm run build`: thành công; Vite còn cảnh báo bundle chính trên 500 KB.
 - Kiểm tra trình duyệt với BE/PostgreSQL tạm riêng: Homepage hiển thị giá thật,
   Admin xem dashboard/lịch/ca làm việc; KTV thấy ca của mình, bắt đầu công việc

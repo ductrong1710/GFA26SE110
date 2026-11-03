@@ -14,12 +14,16 @@ export default function WorkOrdersPage() {
   const admin = activeRole === ROLES.ADMINISTRATOR
   const query = useApiQuery(`work-orders:${kind}:${activeRole}`, async signal => ({ jobs: await allPages(`/api/${kind}-jobs`, {}, signal),
     requests: admin && kind === 'installation' ? await allPages('/api/installation-requests', {}, signal) : [],
+    dossiers: admin && kind === 'installation' ? await allPages('/api/installation-dossiers', {}, signal) : [],
   }))
   const jobs = (query.data?.jobs ?? []).filter(row => !status || row.status === status)
   const pendingRequests = (query.data?.requests ?? []).filter(row => ['SUBMITTED', 'APPROVED'].includes(row.status) && !query.data.jobs.some(job => job.installationRequestId === row.id))
   return <Workspace title={admin ? 'Lắp đặt & dịch vụ' : 'Công việc được giao'} description="Theo dõi tiến độ, mở hồ sơ và xử lý đúng bước." actions={<Link className="app-ui-button" to="/app/dispatch">Xem lịch công việc</Link>}>
     <div className="wf-toolbar"><Field title="Loại công việc"><select value={kind} onChange={e => { setKind(e.target.value); setStatus('') }}><option value="installation">Lắp đặt</option><option value="service">Bảo trì / sửa chữa</option></select></Field><Field title="Trạng thái"><select value={status} onChange={e => setStatus(e.target.value)}><option value="">Tất cả</option>{[...columns, 'CLOSED'].map(value => <option key={value} value={value}>{label(value)}</option>)}</select></Field></div>
-    <State query={query}>{admin && kind === 'installation' && <Panel title="Yêu cầu lắp đặt cần xử lý">
+    <State query={query}>{admin && kind === 'installation' && <Panel title="Hồ sơ kỹ sư gửi chờ duyệt" description="Kiểm tra thông tin khách hàng, nông trại và bill cọc rồi duyệt để phân công KTV.">
+      <ul className="wf-list">{query.data?.dossiers.map(row => <li key={row.id}><div><strong>{row.customerName} · {row.farmName}</strong><p>{row.farmLocation} · {row.phone}</p><small>{time(row.submittedAt)}</small></div><Link className="wf-link" to={`/app/consultations/${row.consultationId}`}>Xem hồ sơ và bill →</Link></li>)}</ul>
+      {!query.data?.dossiers.length && <p className="wf-empty">Không có hồ sơ đang chờ duyệt.</p>}
+    </Panel>}{admin && kind === 'installation' && <Panel title="Yêu cầu lắp đặt cần xử lý">
       <ul className="wf-list">{pendingRequests.map(row => <li key={row.id}><div><Badge value={row.status} /><p>Nông trại #{row.farmId} · {time(row.submittedAt)}</p></div><Link className="wf-link" to={`/app/installation-requests/${row.id}`}>Yêu cầu #{row.id} →</Link></li>)}</ul>
       {!pendingRequests.length && <p className="wf-empty">Không có yêu cầu lắp đặt đang chờ xử lý.</p>}
     </Panel>}

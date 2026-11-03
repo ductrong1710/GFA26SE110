@@ -1,6 +1,7 @@
 import { api } from './index.js'
 
 export const workflowLabels = {
+  WAITING_ADMIN: 'Chờ Admin duyệt hồ sơ',
   ASSIGNED: 'Đã phân công', IN_PROGRESS: 'Đang thực hiện', REPORT_SUBMITTED: 'Chờ duyệt báo cáo',
   OWNER_CONFIRMED: 'Khách đã xác nhận', APPROVED: 'Đã duyệt', REWORK: 'Cần bổ sung', CLOSED: 'Hoàn tất',
   SUBMITTED: 'Chờ Admin kiểm tra', RETURNED: 'Đã trả bổ sung', DRAFT: 'Chờ ngày thuê', ACTIVE: 'Đang thuê',

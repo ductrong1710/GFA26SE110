@@ -5,18 +5,11 @@ import { allPages, iso, money } from '../../services/api/workflow'
 import { Panel, Field, Button, State, useAction } from './WorkflowUi'
 import EvidenceUpload from './EvidenceUpload'
 
-export function CustomerBinding({ id, onDone }) {
-  const query = useApiQuery('customer-binding-options', async signal => ({ owners: (await allPages('/api/users', {}, signal)).filter(u => u.isActive && u.roles.includes('FarmOwner')), farms: await allPages('/api/farms', {}, signal) }))
-  const action = useAction(onDone)
-  return <Panel title="Liên kết khách hàng với nông trại" description="Chủ vườn phải có tài khoản và đã được cấp quyền vào nông trại. Đây là liên kết hồ sơ thuê, không phải phân công tư vấn."><State query={query}><form className="wf-form" onSubmit={e => { e.preventDefault(); const form = new FormData(e.currentTarget); action.run(() => api.put(`/api/consultations/${id}/customer-farm`, { ownerId: Number(form.get('ownerId')), farmId: Number(form.get('farmId')) })) }}>
-    <Field title="Chủ nông trại"><select name="ownerId" required><option value="">Chọn chủ vườn</option>{query.data?.owners.map(row => <option key={row.id} value={row.id}>{row.fullName} · {row.email}</option>)}</select></Field><Field title="Nông trại"><select name="farmId" required><option value="">Chọn nông trại</option>{query.data?.farms.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>{action.errorView}<Button type="submit" disabled={action.busy}>Liên kết hồ sơ</Button>
-  </form></State></Panel>
-}
 export function SurveyForm({ id, revision, onDone }) {
   const [images, setImages] = useState([])
   const [zones, setZones] = useState([{ name: '', crop: '' }])
   const action = useAction(onDone)
-  return <Panel title="Ghi nhận khảo sát nhu cầu" description="Không yêu cầu tuổi cây hoặc vị trí đặt cảm biến/gateway. KTV khảo sát vị trí thực tế khi đến lắp."><form className="wf-form" onSubmit={e => {
+  return <Panel title="Nhập thông tin nông trại sau tư vấn bên ngoài" description="Không yêu cầu tuổi cây hoặc vị trí đặt cảm biến/gateway. KTV khảo sát vị trí thực tế khi đến lắp."><form className="wf-form" onSubmit={e => {
     e.preventDefault(); const values = Object.fromEntries(new FormData(e.currentTarget))
     action.run(() => api.post(`/api/consultations/${id}/surveys`, { ...values, expectedRevision: revision, farmArea: values.farmArea ? Number(values.farmArea) : null, zones, images }))
   }}>
@@ -32,7 +25,7 @@ export function ProposalForm({ id, survey, revision, onDone }) {
   const action = useAction(onDone)
   const products = query.data?.filter(x => x.kind === 'DEVICE' && x.estimatedMonthlyRentVnd != null) ?? []
   const change = (i, key, value) => setLines(old => old.map((row, n) => n === i ? { ...row, [key]: value } : row))
-  return <Panel title="Lập phương án thiết bị & giá thuê"><State query={query}><form className="wf-form" onSubmit={e => {
+  return <Panel title="Nhập thiết bị và thời hạn đã chốt bên ngoài"><State query={query}><form className="wf-form" onSubmit={e => {
     e.preventDefault(); const form = new FormData(e.currentTarget)
     action.run(() => api.post(`/api/consultations/${id}/proposals`, { expectedRevision: revision, surveyId: survey.id, rentalMonths: Number(form.get('months')), requestedInstallationAt: iso(form.get('appointment')), notes: form.get('notes') || null,
       lines: lines.map(line => ({ publicContentId: Number(line.publicContentId), surveyZoneId: Number(line.surveyZoneId), quantity: Number(line.quantity), deviceType: products.find(p => p.id === Number(line.publicContentId)).title })),

@@ -17,7 +17,7 @@
     "test:operations": "node --test tests/operations.test.js",
     "preview": "vite preview",
     "test:user-management": "vitest run tests/user-management-page.test.jsx --environment jsdom",
-    "test:workflow": "vitest run tests/workflow-ui.test.jsx --environment jsdom",
+    "test:workflow": "vitest run tests/workflow-ui.test.jsx tests/installation-dossier.test.jsx --environment jsdom",
     "check:lines": "node scripts/check-lines.mjs"
   },
   "dependencies": {

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
-import { period, time } from '../../services/api/workflow'
+import { period, time, allPages } from '../../services/api/workflow'
 import { Workspace, Panel, State, JobLink } from '../../components/workflow/WorkflowUi'
 import PeriodFilter from '../../components/workflow/PeriodFilter'
 import OperationsCharts from '../../components/workflow/OperationsCharts'
@@ -10,8 +10,8 @@ import OperationsCharts from '../../components/workflow/OperationsCharts'
 export default function OperationsDashboard() {
   const [range, setRange] = useState(() => period())
   const query = useApiQuery(`operations-dashboard:${JSON.stringify(range)}`, async signal => {
-    const [operations, overview] = await Promise.all([api.get('/api/operations/dashboard', range, signal), api.get('/api/dashboard/overview', {}, signal)])
-    return { ...operations, overview }
+    const [operations, overview, dossiers] = await Promise.all([api.get('/api/operations/dashboard', range, signal), api.get('/api/dashboard/overview', {}, signal), allPages('/api/installation-dossiers', {}, signal)])
+    return { ...operations, overview, dossiers }
   })
   const data = query.data
   const cards = data && [['Nông trại', data.overview.farms], ['Thiết bị đang theo dõi', data.overview.sensorNodes.total + data.overview.gateways.total],
@@ -21,6 +21,9 @@ export default function OperationsDashboard() {
     <PeriodFilter value={range} onChange={setRange} /><State query={query}>{data && <>
       <section className="wf-metrics" aria-label="Tổng quan vận hành">{cards.map(([name, value]) => <div key={name}><span>{name}</span><strong>{value ?? '—'}</strong></div>)}</section>
       <OperationsCharts data={data} /><p className="wf-muted">Biểu đồ tiến độ và UAV nhóm theo ngày tạo, thể hiện trạng thái hiện tại. Không phải lịch sử chuyển trạng thái.</p>
+      <Panel title={`Hồ sơ chờ duyệt: ${data.dossiers.length}`} description="Kỹ sư đã gửi thông tin nông trại và bill cọc sau tư vấn bên ngoài. Danh sách này không phụ thuộc khoảng ngày biểu đồ." actions={<Link to="/app/work-orders" className="wf-link">Xem tất cả →</Link>}>
+        <ul className="wf-list">{data.dossiers.slice(0, 5).map(row => <li key={row.id}><span>{row.customerName} · {row.farmName}</span><Link to={`/app/consultations/${row.consultationId}`} className="wf-link">Kiểm tra hồ sơ và bill →</Link></li>)}</ul>{!data.dossiers.length && <p className="wf-empty">Không có hồ sơ đang chờ duyệt.</p>}
+      </Panel>
       <div className="wf-two-col"><Panel title="Yêu cầu tư vấn mới" description="Thông tin khách gửi form Homepage; người trực liên hệ bên ngoài." actions={<Link to="/app/consultations" className="wf-link">Xem tất cả →</Link>}>
         {data.recentConsultationRequests.length ? <ul className="wf-list">{data.recentConsultationRequests.map(row => <li key={row.id}><div><strong>{row.customerName}</strong><p>{row.serviceNeed}</p><small>{time(row.createdAt)}</small></div><a className="wf-link" href={`tel:${row.phone}`}>{row.phone}</a></li>)}</ul> : <p className="wf-empty">Chưa có khách gửi form trong kỳ.</p>}
       </Panel><Panel title="Cần phân công lắp đặt" actions={<Link to="/app/work-orders" className="wf-link">Xem công việc →</Link>}>
