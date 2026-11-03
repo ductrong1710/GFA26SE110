@@ -83,6 +83,15 @@ function MissionMonitor({ data }) {
         { key: 'lastError', header: 'Last Error', render: (error, row) => error ? <div><span>{error.errorCode}</span>{row.errorRecovered && <small className="monitor-cell-subtitle">Recovered on retry</small>}<button className="monitor-link monitor-cell-subtitle" onClick={() => setDetailId(row.id)}>View Error Reason</button></div> : row.status === 'FAILED' ? <button className="monitor-link" onClick={() => setDetailId(row.id)}>View Error Reason</button> : 'None recorded' },
       ]} emptyState={<EmptyState title="No sensor targets" description="Resume the draft to select sensors for this mission." />} />
     </SectionCard>
+    <SectionCard title="Collected measurements" description="Sensor readings received for this mission.">
+      <DataTable caption="Mission sensor readings" rows={operations.readings ?? []} columns={[
+        { key: 'measuredAt', header: 'Measured at', render: displayTime },
+        { key: 'sensorNodeId', header: 'Sensor', render: id => operations.sensorNodes.find(n => n.id === id)?.deviceCode ?? `#${id}` },
+        { key: 'channelCode', header: 'Channel' },
+        { key: 'value', header: 'Value', render: (value, row) => [value, row.unit].filter(v => v != null).join(' ') },
+        { key: 'isValid', header: 'Quality', render: (valid, row) => valid ? row.qualityStatus ?? 'Valid' : row.validationError ?? 'Invalid' },
+      ]} emptyState={<EmptyState title="No sensor readings received for this mission" />} />
+    </SectionCard>
     <SectionCard title="Recorded telemetry" description="Historical positions reported by the device. Missing values are unavailable.">
       <DataTable caption="Mission telemetry history" rows={operations.telemetry ?? []} columns={[
         { key: 'recordedAt', header: 'Recorded At', render: displayTime },

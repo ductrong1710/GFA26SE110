@@ -4,7 +4,7 @@ import { api } from '../services/api'
 import { useApiQuery } from '../services/api/useApiQuery'
 import ConsultationButton from './ConsultationButton'
 
-const labels = { SERVICE: 'Dịch vụ', DEVICE: 'Thiết bị', INSTALLATION: 'Lắp đặt', WARRANTY: 'Bảo hành',
+const labels = { SERVICE: 'Dịch vụ', DEVICE: 'Thiết bị', COMPONENT: 'Linh kiện', INSTALLATION: 'Lắp đặt', WARRANTY: 'Bảo hành',
   MAINTENANCE: 'Bảo trì', RETURN: 'Hoàn trả thiết bị', CONTACT: 'Liên hệ' }
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 })
 
@@ -22,6 +22,7 @@ export default function PublicInformation() {
       <div className="equipment-card-copy"><span>{labels[entry.kind]}</span><h3>{entry.title}</h3>
         <p style={{ whiteSpace: 'pre-wrap' }}>{entry.body}</p>
         {entry.estimatedMonthlyRentVnd != null && <p>Giá thuê tham khảo mỗi tháng: {money.format(entry.estimatedMonthlyRentVnd)}</p>}
+        {entry.replacementPriceVnd != null && <p>Giá thay thế mỗi đơn vị: {money.format(entry.replacementPriceVnd)}</p>}
       </div></article>)}</div>
     {(page > 1 || data?.pagination.totalPages > 1) && <nav aria-label="Trang thông tin">
       <button disabled={loading || page === 1} onClick={() => setPage(page - 1)}>Trang trước</button> Trang {page} <button

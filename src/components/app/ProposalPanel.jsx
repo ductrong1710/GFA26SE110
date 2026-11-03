@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
+import { listAll } from '../../services/api/resources'
 import ApiState from './ApiState'
 import { DataTable, SectionCard, StatusBadge } from './ui'
 import { displayTime, parseVietnamDateTime } from '../../utils/display'
 
-const emptyLine = () => ({ surveyZoneId: '', deviceType: '', quantity: 1, installationLocation: '' })
+const emptyLine = () => ({ surveyZoneId: '', publicContentId: '', deviceType: '', quantity: 1, installationLocation: '' })
+const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 })
 
 export default function ProposalPanel({ consultationId, editable = false, canConfirmDeposit = editable }) {
   const [page, setPage] = useState(1)
@@ -18,6 +20,8 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
   const path = `/api/consultations/${consultationId}/proposals`
   const query = useApiQuery(`proposals:${consultationId}:${page}`, signal => api.request(path, { query: { page }, signal }))
   const surveys = useApiQuery(`proposal-surveys:${consultationId}:${!!draft}`, signal => api.request(`/api/consultations/${consultationId}/surveys`, { signal }), !!draft)
+  const catalog = useApiQuery(`proposal-products:${!!draft}`, signal => listAll('/api/public-content', {}, signal), !!draft)
+  const products = catalog.data?.filter(entry => entry.kind === 'DEVICE' && entry.estimatedMonthlyRentVnd != null) ?? []
   const survey = useApiQuery(`proposal-survey:${consultationId}:${draft?.surveyId}`, signal => api.request(`/api/consultations/${consultationId}/surveys/${draft.surveyId}`, { signal }), !!draft?.surveyId)
   async function open(id) {
     setPending(true); setError(''); setNotice(''); setNote('')
@@ -30,7 +34,7 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     try {
       const saved = await api.request(path, { method: 'POST', body: { ...draft, surveyId: Number(draft.surveyId), rentalMonths: Number(draft.rentalMonths),
         requestedInstallationAt: parseVietnamDateTime(draft.requestedInstallationAt).toISOString(), notes: draft.notes || null,
-        lines: draft.lines.map(line => ({ ...line, surveyZoneId: Number(line.surveyZoneId), quantity: Number(line.quantity) })) } })
+        lines: draft.lines.map(line => ({ ...line, publicContentId: Number(line.publicContentId), surveyZoneId: Number(line.surveyZoneId), quantity: Number(line.quantity) })) } })
       setSelected(saved); setDraft(null); setPage(1); query.reload(); setNotice(`Proposal revision ${saved.revision} saved.`)
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
@@ -57,6 +61,8 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     }}>Prepare proposal</button>}
     {draft && <form aria-label="Device proposal" className="management-form" onSubmit={save}><fieldset disabled={pending} className="management-form"><legend>Proposal revision {draft.expectedRevision + 1}</legend>
       <ApiState {...surveys} /><ApiState {...survey} />
+      <ApiState {...catalog} />
+      {catalog.data && !products.length && <p>No published device has a monthly rental price. An administrator can publish one in Homepage content.</p>}
       <label>Survey revision<select required value={draft.surveyId} onChange={event => setDraft({ ...draft, surveyId: event.target.value, lines: [emptyLine()] })}>
         <option value="">Select latest survey</option>{surveys.data?.items.slice(0, 1).map(row => <option key={row.id} value={row.id}>Revision {row.revision}: {row.farmName}</option>)}</select></label>
       <label>Rental duration (months)<input required type="number" min="1" max="120" step="1" {...field('rentalMonths')} /></label>
@@ -65,6 +71,9 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
       {draft.lines.map((line, index) => <fieldset key={index} className="management-form"><legend>Device {index + 1}</legend>
         <label>Survey zone<select required {...lineField(index, 'surveyZoneId')}><option value="">Select zone</option>{survey.data?.zones.map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
         <label>Device type<input required maxLength={150} {...lineField(index, 'deviceType')} /></label>
+        <label>Published rental product<select required {...lineField(index, 'publicContentId')}><option value="">Select priced device</option>
+          {products.map(entry => <option key={entry.id} value={entry.id}>{entry.title} · {price.format(entry.estimatedMonthlyRentVnd)}/month</option>)}
+        </select></label>
         <label>Quantity<input required type="number" min="1" max="1000" step="1" {...lineField(index, 'quantity')} /></label>
         <label>Installation location<textarea required maxLength={1000} {...lineField(index, 'installationLocation')} /></label>
         {draft.lines.length > 1 && <button type="button" onClick={() => setDraft({ ...draft, lines: draft.lines.filter((_, i) => i !== index) })}>Remove device {index + 1}</button>}
@@ -75,7 +84,10 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     </fieldset></form>}
     {selected && <section aria-label="Proposal details"><h3>Proposal revision {selected.revision}</h3><StatusBadge status={selected.status} />
       <p>Survey #{selected.surveyId} · Rental: {selected.rentalMonths} months · Requested installation: {displayTime(selected.requestedInstallationAt)}</p><p>{selected.notes}</p>
-      <ul>{selected.lines.map((line, index) => <li key={line.id ?? index}>{line.quantity} × {line.deviceType} · Survey zone #{line.surveyZoneId} · {line.installationLocation}</li>)}</ul>
+      <ul>{selected.lines.map((line, index) => <li key={line.id ?? index}>{line.quantity} × {line.deviceType} · Survey zone #{line.surveyZoneId} · {line.installationLocation}
+        {line.productName && <p>{line.productName} · {price.format(line.monthlyRentVnd)}/month · Price revision {line.priceRevision}</p>}</li>)}</ul>
+      {selected.lines.length > 0 && selected.lines.every(line => line.monthlyRentVnd != null) &&
+        <p>Initial agreed rent: {price.format(selected.lines.reduce((sum, line) => sum + line.monthlyRentVnd * line.quantity, 0) * selected.rentalMonths)}</p>}
       {selected.planConfirmedAt && <p>Plan confirmed {displayTime(selected.planConfirmedAt)} by user #{selected.planConfirmedByUserId}: {selected.planConfirmationNote}</p>}
       {selected.depositConfirmedAt && <p>Deposit confirmed {displayTime(selected.depositConfirmedAt)} by user #{selected.depositConfirmedByUserId}: {selected.depositConfirmationNote}</p>}
       {confirmation && <form className="management-form" onSubmit={event => { event.preventDefault(); transition(confirmation) }}><fieldset disabled={pending}>

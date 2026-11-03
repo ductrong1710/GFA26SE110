@@ -1,4 +1,4 @@
-import { compareZoneAnalytics, formatMetric } from '../../services/api/analytics'
+import { compareZoneAnalytics, compareSensorAnalytics, formatMetric } from '../../services/api/analytics'
 import { ChartCard, DataTable } from './ui'
 import EnvironmentalChart from './EnvironmentalChart'
 import { useAuth } from '../../context/AuthContext'
@@ -18,6 +18,13 @@ export default function ZoneComparison({ operations, workspace, filters }) {
     <EnvironmentalChart series={data.series} zones={data.zones} type={type} label="Zone comparison chart" />
     <DataTable caption="Zone comparison summary" rows={summaries} columns={[
       { key: 'name', header: 'Zone' }, ...['min', 'max', 'average'].map((key) => ({ key, header: `${key === 'average' ? 'Average' : key === 'min' ? 'Min' : 'Max'} (${type?.unit})`, render: (value) => formatMetric(value, type) })), { key: 'count', header: 'Readings' },
+    ]} />
+    <h3>Sensor comparison</h3>
+    <p>Individual sensors in the selected zone or farm, using the same sensor type and time range.</p>
+    <DataTable caption="Sensor comparison summary" rows={compareSensorAnalytics(operations, workspace, filters)} columns={[
+      { key: 'name', header: 'Sensor' }, { key: 'code', header: 'Device code' },
+      ...['min', 'max', 'average'].map(key => ({ key, header: `${key} (${type?.unit ?? ''})`, render: value => formatMetric(value, type) })),
+      { key: 'count', header: 'Readings' },
     ]} />
   </ChartCard>
 }

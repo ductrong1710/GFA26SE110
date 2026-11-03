@@ -3,6 +3,7 @@ import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import { DataTable, SectionCard } from './ui'
 import ApiState from './ApiState'
+import { PaperGroup, readPaper } from './PaperEvidence'
 import EvidenceImages from './EvidenceImages'
 import { displayTime } from '../../utils/display'
 
@@ -41,6 +42,7 @@ export default function ServiceReports({ job, canConfirm, canReview, onUpdated }
         <div key={name}><strong>{label}</strong><p style={{ whiteSpace: 'pre-wrap' }}>{selected[name]}</p></div>)}
       <p>Connectivity: {selected.connectivityPassed ? 'Passed' : 'Failed'} · Operation: {selected.operationPassed ? 'Passed' : 'Failed'}</p>
       <EvidenceImages images={selected.images} />
+      {selected.paperworkJson && <PaperGroup label="Signed service handover" images={readPaper(selected.paperworkJson)} />}
       {selected.replacement && <section aria-label="Reported replacement"><h4>Replacement recorded with this report</h4>
         <p>{selected.replacement.oldDeviceCode} → {selected.replacement.newDeviceCode}</p>
         <p>{displayTime(selected.replacement.createdAt)} · Technician #{selected.replacement.technicianId}</p><p>{selected.replacement.note}</p>

@@ -3,6 +3,7 @@ import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import { DataTable, SectionCard } from './ui'
 import ApiState from './ApiState'
+import { PaperGroup, readPaper } from './PaperEvidence'
 import EvidenceImages from './EvidenceImages'
 import { displayTime } from '../../utils/display'
 
@@ -41,6 +42,7 @@ export default function InstallationReports({ job, canConfirm, canReview, onUpda
         <p>Accessories: {device.accessoriesChecked ? 'Checked' : 'Failed'} · Connectivity: {device.connectivityPassed ? 'Passed' : 'Failed'} · Operation: {device.operationPassed ? 'Passed' : 'Failed'}</p>
         <p>{device.testResults}</p></li>)}</ul>
       <EvidenceImages images={selected.images} />
+      {selected.paperworkJson && Object.entries({ contract: 'Signed contract', handover: 'Signed installation handover', bills: 'Payment evidence' }).map(([key, label]) => <PaperGroup key={key} label={label} images={readPaper(selected.paperworkJson)?.[key]} />)}
       {selected.confirmedAt && <p>Handover confirmed {displayTime(selected.confirmedAt)}: {selected.confirmationNote}</p>}
       {selected.reviewedAt && <p>{selected.approved ? 'Approved' : 'Returned'} {displayTime(selected.reviewedAt)}: {selected.reviewNote}</p>}
       {(confirm || review) && <form className="management-form" onSubmit={decide}><fieldset disabled={pending}>

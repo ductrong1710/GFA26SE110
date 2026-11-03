@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import InstallationReportForm from '../src/components/app/InstallationReportForm'
 import { api } from '../src/services/api'
 
@@ -15,12 +15,18 @@ it('reports only allocated devices with explicit checks and current revision', a
   for (const label of ['Accessories for SN-42', 'Connectivity for SN-42', 'Operation for SN-42']) fireEvent.change(screen.getByLabelText(label), { target: { value: 'true' } })
   fireEvent.change(screen.getByLabelText('Test evidence for SN-42'), { target: { value: 'Live reading received' } })
   fireEvent.change(screen.getByLabelText('Handover and installation notes'), { target: { value: 'Operation demonstrated' } })
-  fireEvent.change(screen.getByLabelText('Add evidence images'), { target: { files: [new File(['installation'], 'result.jpg', { type: 'image/jpeg' })] } })
+  fireEvent.change(screen.getAllByLabelText('Add evidence images')[0], { target: { files: [new File(['installation'], 'result.jpg', { type: 'image/jpeg' })] } })
   expect(screen.getByRole('button', { name: 'Submit installation report' }).closest('fieldset').disabled).toBe(true)
   await screen.findByAltText('Evidence image 1')
+  for (const label of ['Signed contract', 'Signed installation handover']) {
+    const group = within(screen.getByRole('group', { name: label }))
+    fireEvent.change(group.getByLabelText('Add evidence images'), { target: { files: [new File(['signed'], 'signed.jpg', { type: 'image/jpeg' })] } })
+    await group.findByAltText('Evidence image 1')
+  }
   fireEvent.click(screen.getByRole('button', { name: 'Submit installation report' }))
   await vi.waitFor(() => expect(saved).toHaveBeenCalledWith({ id: 7 }))
   expect(request).toHaveBeenCalledWith('/api/installation-jobs/3/reports', expect.objectContaining({ method: 'POST', body: {
+    completedAt: undefined, paperwork: { contract: [{ contentType: 'image/jpeg', dataBase64: btoa('signed') }], handover: [{ contentType: 'image/jpeg', dataBase64: btoa('signed') }], bills: [], paperContractNumber: '' },
     expectedRevision: 5, notes: 'Operation demonstrated', issues: null, images: [{ contentType: 'image/jpeg', dataBase64: btoa('installation') }], devices: [{ proposalLineId: 8, sensorNodeId: 2, uavId: null, gatewayId: null,
       installationLocation: 'Canal edge', accessoriesChecked: true, connectivityPassed: true, operationPassed: true, testResults: 'Live reading received' }],
   } }))

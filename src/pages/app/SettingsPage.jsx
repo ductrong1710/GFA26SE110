@@ -6,7 +6,7 @@ import EvidenceImages from '../../components/app/EvidenceImages'
 import { PageHeader } from '../../components/app/ui'
 
 const path = '/api/admin/public-content'
-const categories = { SERVICE: 'Dịch vụ', DEVICE: 'Thiết bị', INSTALLATION: 'Lắp đặt', WARRANTY: 'Bảo hành', MAINTENANCE: 'Bảo trì', RETURN: 'Hoàn trả', CONTACT: 'Liên hệ' }
+const categories = { SERVICE: 'Dịch vụ', DEVICE: 'Thiết bị', COMPONENT: 'Linh kiện', INSTALLATION: 'Lắp đặt', WARRANTY: 'Bảo hành', MAINTENANCE: 'Bảo trì', RETURN: 'Hoàn trả', CONTACT: 'Liên hệ' }
 
 function EntryForm({ entry, onSaved, onCancel }) {
   const [kind, setKind] = useState(entry?.kind ?? 'SERVICE')
@@ -19,8 +19,10 @@ function EntryForm({ entry, onSaved, onCancel }) {
     if (reading || saving) return
     const data = new FormData(event.currentTarget)
     const rent = data.get('rent')
+    const replacement = data.get('replacement')
     const body = { expectedRevision: entry?.revision ?? 0, kind, title: data.get('title'), body: data.get('body'),
-      estimatedMonthlyRentVnd: rent ? Number(rent) : null, image: images[0] ?? null, removeImage: !images.length && data.has('remove') }
+      estimatedMonthlyRentVnd: rent ? Number(rent) : null, replacementPriceVnd: replacement ? Number(replacement) : null,
+      image: images[0] ?? null, removeImage: !images.length && data.has('remove') }
     setSaving(true)
     setError('')
     try {
@@ -36,6 +38,7 @@ function EntryForm({ entry, onSaved, onCancel }) {
     <label>Tiêu đề<input name="title" required maxLength={200} defaultValue={entry?.title} /></label>
     <label>Nội dung<textarea name="body" required maxLength={4000} defaultValue={entry?.body} /></label>
     {kind === 'DEVICE' && <label>Giá thuê tham khảo mỗi tháng (VND)<input type="number" name="rent" min="0" step="0.01" defaultValue={entry?.estimatedMonthlyRentVnd} /></label>}
+    {['DEVICE', 'COMPONENT'].includes(kind) && <label>Giá thay thế mỗi đơn vị (VND)<input type="number" name="replacement" min="0" step="0.01" defaultValue={entry?.replacementPriceVnd} /></label>}
     {entry?.hasImage && <label><input type="checkbox" name="remove" disabled={Boolean(images.length)} />Xóa ảnh hiện tại</label>}
     <EvidenceImages images={images} maxImages={1} onChange={setImages} onBusyChange={setReading} />
     {error && <p role="alert">{error}</p>}

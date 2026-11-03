@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { api } from '../../services/api'
+import { PaperGroup } from './PaperEvidence'
 import EvidenceImages from './EvidenceImages'
 
 export default function ServiceReportForm({ job, onSaved }) {
-  const [draft, setDraft] = useState({ cause: '', work: '', components: '', testResults: '', notes: '', connectivityPassed: '', operationPassed: '', images: [] })
+  const [draft, setDraft] = useState({ cause: '', work: '', components: '', testResults: '', notes: '', connectivityPassed: '', operationPassed: '', images: [], signedHandover: [] })
   const [pending, setPending] = useState(false)
   const [readingImages, setReadingImages] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +29,8 @@ export default function ServiceReportForm({ job, onSaved }) {
         {[['connectivityPassed', 'Connectivity'], ['operationPassed', 'Operation']].map(([name, label]) =>
           <label key={name}>{label}<select required {...field(name)}><option value="">Record result</option><option value="true">Passed</option><option value="false">Failed</option></select></label>)}
         <EvidenceImages images={draft.images} onChange={images => setDraft(value => ({ ...value, images }))} onBusyChange={setReadingImages} />
-        <button type="submit">Submit service report</button>
+        <PaperGroup label="Signed service handover" images={draft.signedHandover} onBusyChange={setReadingImages} onChange={signedHandover => setDraft(value => ({ ...value, signedHandover }))} />
+        <button type="submit" disabled={!draft.signedHandover.length}>Submit service report</button>
       </fieldset></form>}
   </section>
 }

@@ -1,6 +1,7 @@
 import { useDashboard } from '../../services/api/useDashboard'
 import ApiState from '../../components/app/ApiState'
 import DashboardOperations from '../../components/app/DashboardOperations'
+import AdminHistory from '../../components/app/AdminHistory'
 import { Link, useOutletContext } from 'react-router-dom'
 import { getAdminDashboard } from '../../services/api/dashboard'
 import { useManagement } from '../../context/ManagementContext'
@@ -29,6 +30,7 @@ export default function AdminDashboard() {
     <section className="admin-kpis" aria-label="Administration indicators">{kpis.map(([label, value, icon]) => <StatCard key={label} label={label} value={value} icon={<AppIcon name={icon} />} />)}</section>
     <div className="admin-grid">
       <DashboardOperations data={server?.operations} admin />
+      <AdminHistory history={server?.history} />
       <SectionCard title="System Status" description="Monitoring coverage and outstanding work">
         <dl className="admin-status-list">
           <div><dt>Application environment</dt><dd><StatusBadge status="INFO" label="Backend records" /></dd></div>

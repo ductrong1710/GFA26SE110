@@ -87,6 +87,12 @@ export function engineerOverview(operations, workspace, alerts, farmId, zoneId =
     environmentalAlerts: alerts.filter((alert) => alert.type === 'SENSOR_THRESHOLD' && alert.status !== 'CLOSED' && alert.farmId === Number(farmId) && base.nodes.some(({ id }) => id === alert.sensorNodeId)) }
 }
 
+export function compareSensorAnalytics(operations, workspace, filters) {
+  const { nodes } = selectAnalytics(operations, workspace, filters)
+  return nodes.map(node => ({ id: node.id, name: node.name, code: node.deviceCode,
+    ...selectAnalytics(operations, workspace, { ...filters, sensorId: node.id }).stats }))
+}
+
 export function compareZoneAnalytics(operations, workspace, filters) {
   const zones = workspace.zones.filter(({ farmId }) => farmId === Number(filters.farmId))
   const data = zones.map((zone) => ({ zone, ...selectAnalytics(operations, workspace, { ...filters, zoneId: zone.id, sensorId: '' }) }))

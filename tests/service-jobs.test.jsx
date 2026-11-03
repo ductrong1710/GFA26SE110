@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom'
-import { cleanup, fireEvent, render as renderComponent, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen, within } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import ServiceJobAssignmentForm from '../src/components/app/ServiceJobAssignmentForm'
 import { api } from '../src/services/api'
@@ -46,6 +46,9 @@ test('service report submission refreshes the selected job and removes the submi
   for (const label of ['Cause', 'Work performed', 'Components used', 'Test results', 'Notes'])
     fireEvent.change(screen.getByLabelText(label), { target: { value: 'Recorded work' } })
   for (const label of ['Connectivity', 'Operation']) fireEvent.change(screen.getByLabelText(label), { target: { value: 'true' } })
+  const handover = within(screen.getByRole('group', { name: 'Signed service handover' }))
+  fireEvent.change(handover.getByLabelText('Add evidence images'), { target: { files: [new File(['signed'], 'signed.jpg', { type: 'image/jpeg' })] } })
+  await handover.findByAltText('Evidence image 1')
   fireEvent.click(screen.getByRole('button', { name: 'Submit service report' }))
   await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/api/service-jobs/8/reports', expect.objectContaining({ method: 'POST' })))
   await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Submit service report' })).toBeNull())

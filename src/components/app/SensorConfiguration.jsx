@@ -4,12 +4,14 @@ import { nullableNumber } from '../../services/api/adapters'
 import { useAuth } from '../../context/AuthContext'
 import { PERMISSIONS } from '../../config/permissions'
 import { SectionCard } from './ui'
+import ThresholdHistory from './ThresholdHistory'
 
 export default function SensorConfiguration({ node, types, reload }) {
   const { can } = useAuth()
   const manage = can(PERMISSIONS.SENSORS_MANAGE)
   const configure = can(PERMISSIONS.THRESHOLDS_MANAGE)
   const [edit, setEdit] = useState(null)
+  const [historyChannel, setHistoryChannel] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
@@ -27,14 +29,18 @@ export default function SensorConfiguration({ node, types, reload }) {
         if (edit.id) await api.put(`/api/sensor-channels/${edit.id}`, body)
         else await api.post(`/api/sensor-nodes/${node.id}/channels`, body)
       } else await api.put(`/api/sensor-channels/${edit.id}/threshold`, { minValue: nullableNumber(edit.minValue), maxValue: nullableNumber(edit.maxValue), dataTimeoutMinutes: nullableNumber(edit.dataTimeoutMinutes), lowBatteryPercent: nullableNumber(edit.lowBatteryPercent), isEnabled: edit.isEnabled })
-      setNotice('Configuration saved.'); setEdit(null); reload()
+      setNotice('Configuration saved.'); setHistoryChannel(null); setEdit(null); reload()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
   const field = (key, label, type = 'text', required = false) => <label>{label}<input type={type} step={type === 'number' ? 'any' : undefined} required={required} value={edit[key] ?? ''} onChange={e => setEdit({ ...edit, [key]: e.target.value })} /></label>
   return <SectionCard title="Channel configuration" description="Sensor types and channel limits are stored in the backend.">
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {manage && <div className="operations-actions"><button className="app-ui-button" disabled={busy} onClick={() => setEdit({ kind: 'channel', sensorTypeId: types[0]?.id ?? '', isActive: true })}>Add Channel</button><button className="app-ui-button" disabled={busy} onClick={() => setEdit({ kind: 'type' })}>Create Sensor Type</button></div>}
-    <ul>{node.channels.map(c => <li key={c.id}>{c.channelCode} · {c.type.name} {manage && <button className="app-ui-button" disabled={busy} onClick={() => setEdit({ ...c, kind: 'channel' })}>Edit Channel</button>} {configure && <button className="app-ui-button" disabled={busy} onClick={() => openThreshold(c)}>Configure Threshold</button>}</li>)}</ul>
+    <ul>{node.channels.map(c => <li key={c.id}>{c.channelCode} · {c.type.name} {manage && <button className="app-ui-button" disabled={busy} onClick={() => setEdit({ ...c, kind: 'channel' })}>Edit Channel</button>} {configure && <>
+      <button className="app-ui-button" disabled={busy} onClick={() => openThreshold(c)}>Configure Threshold</button>
+      <button className="app-ui-button" aria-expanded={historyChannel?.id === c.id} onClick={() => setHistoryChannel(historyChannel?.id === c.id ? null : c)}>Threshold history</button>
+    </>}</li>)}</ul>
+    {configure && historyChannel && node.channels.some(c => c.id === historyChannel.id) && <ThresholdHistory key={historyChannel.id} channel={historyChannel} />}
     {edit && <form onSubmit={save} className="management-form">
       {edit.kind === 'type' && <>{field('code', 'Type Code', 'text', true)}{field('name', 'Type Name', 'text', true)}{field('unit', 'Unit')}{field('description', 'Description')}</>}
       {edit.kind === 'channel' && <><label>Sensor Type<select required value={edit.sensorTypeId} onChange={e => setEdit({ ...edit, sensorTypeId: e.target.value })}><option value="">Choose a type</option>{types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>{field('channelCode', 'Channel Code', 'text', true)}{field('name', 'Channel Name')}<label><input type="checkbox" checked={edit.isActive} onChange={e => setEdit({ ...edit, isActive: e.target.checked })} />Active channel</label></>}

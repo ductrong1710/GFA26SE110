@@ -2,8 +2,19 @@ import { afterEach, expect, test } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import DashboardOperations from '../src/components/app/DashboardOperations'
+import AdminHistory from '../src/components/app/AdminHistory'
 
 afterEach(cleanup)
+
+test('admin history distinguishes days and outcomes and exposes recorded counts', () => {
+  render(<AdminHistory history={[
+    { date: '2026-11-01', category: 'MISSION_COMPLETED', count: 2 },
+    { date: '2026-11-02', category: 'MISSION_FAILED', count: 1 },
+  ]} />)
+  expect(screen.getByRole('meter', { name: '2026-11-01 · Completed' }).getAttribute('value')).toBe('2')
+  expect(screen.getByRole('meter', { name: '2026-11-02 · Failed' }).getAttribute('value')).toBe('1')
+  expect(screen.getByText('No alerts recorded in this period.')).toBeTruthy()
+})
 
 test('operational dashboard renders persisted counts and cultivation without inventing outcomes', () => {
   render(<MemoryRouter><DashboardOperations data={{ openInstallations: 2, openMaintenance: 0, openRepairs: 3,

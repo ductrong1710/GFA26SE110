@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import ServiceReportForm from '../src/components/app/ServiceReportForm'
 import ServiceReports from '../src/components/app/ServiceReports'
 import { api } from '../src/services/api'
@@ -13,12 +13,15 @@ test('submits explicit checks with the job revision and retains the draft on fai
     fireEvent.change(screen.getByLabelText(label), { target: { value } })
   fireEvent.change(screen.getByLabelText('Connectivity'), { target: { value: 'true' } })
   fireEvent.change(screen.getByLabelText('Operation'), { target: { value: 'false' } })
+  const handover = within(screen.getByRole('group', { name: 'Signed service handover' }))
+  fireEvent.change(handover.getByLabelText('Add evidence images'), { target: { files: [new File(['signed'], 'signed.jpg', { type: 'image/jpeg' })] } })
+  await handover.findByAltText('Evidence image 1')
   fireEvent.click(screen.getByRole('button', { name: 'Submit service report' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('Job changed'))
   expect(screen.getByLabelText('Cause').value).toBe('Loose connector')
   expect(request).toHaveBeenCalledWith('/api/service-jobs/8/reports', { method: 'POST', body: {
     expectedRevision: 4, cause: 'Loose connector', work: 'Reconnected cable', components: 'None', testResults: 'Power restored',
-    notes: 'Operation still fails', connectivityPassed: true, operationPassed: false, images: [],
+    notes: 'Operation still fails', connectivityPassed: true, operationPassed: false, images: [], signedHandover: [{ contentType: 'image/jpeg', dataBase64: btoa('signed') }],
   } })
 })
 

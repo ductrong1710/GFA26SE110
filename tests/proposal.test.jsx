@@ -6,6 +6,11 @@ import { api } from '../src/services/api'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 it('creates a proposal against the selected survey and its zone', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ items: [
+    { id: 12, kind: 'DEVICE', title: 'Soil probe', estimatedMonthlyRentVnd: 0 },
+    { id: 13, kind: 'DEVICE', title: 'Unpriced device', estimatedMonthlyRentVnd: null },
+    { id: 14, kind: 'COMPONENT', title: 'Spare board', replacementPriceVnd: 50 },
+  ], pagination: { totalPages: 1 } })
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
     if (options.method === 'POST') return { id: 7, revision: 1, status: 'DRAFT', ...options.body }
     if (path.endsWith('/surveys/3')) return { id: 3, revision: 1, zones: [{ id: 5, name: 'North' }] }
@@ -19,13 +24,16 @@ it('creates a proposal against the selected survey and its zone', async () => {
   await screen.findByRole('option', { name: 'North' })
   fireEvent.change(screen.getByLabelText('Survey zone'), { target: { value: '5' } })
   fireEvent.change(screen.getByLabelText('Device type'), { target: { value: 'Soil moisture sensor' } })
+  await screen.findByRole('option', { name: /Soil probe/ })
+  expect(screen.queryByRole('option', { name: /Unpriced device|Spare board/ })).toBeNull()
+  fireEvent.change(screen.getByLabelText('Published rental product'), { target: { value: '12' } })
   fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '3' } })
   fireEvent.change(screen.getByLabelText('Installation location'), { target: { value: 'Canal edge' } })
   fireEvent.change(screen.getByLabelText('Rental duration (months)'), { target: { value: '6' } })
   fireEvent.change(screen.getByLabelText('Requested installation time'), { target: { value: '2030-01-15T09:00' } })
   fireEvent.submit(screen.getByRole('form', { name: 'Device proposal' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations/42/proposals', expect.objectContaining({ method: 'POST', body: expect.objectContaining({
-    expectedRevision: 0, surveyId: 3, rentalMonths: 6, requestedInstallationAt: '2030-01-15T02:00:00.000Z', lines: [{ surveyZoneId: 5, deviceType: 'Soil moisture sensor', quantity: 3, installationLocation: 'Canal edge' }],
+    expectedRevision: 0, surveyId: 3, rentalMonths: 6, requestedInstallationAt: '2030-01-15T02:00:00.000Z', lines: [{ surveyZoneId: 5, publicContentId: 12, deviceType: 'Soil moisture sensor', quantity: 3, installationLocation: 'Canal edge' }],
   }) })))
   expect(await screen.findByText('Proposal revision 1 saved.')).toBeTruthy()
 })

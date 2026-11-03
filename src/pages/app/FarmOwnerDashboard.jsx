@@ -67,7 +67,7 @@ export default function FarmOwnerDashboard() {
     <div className="owner-main-grid">
       <DashboardOperations data={query.data?.overview.operations} />
       <SectionCard title="Farm Overview Map" description="A connected view of your land" className="owner-map-card"
-        actions={<span className="owner-subtle-label">{zones.length} monitored zones</span>}>
+        actions={<Link className="owner-text-link" to="/app/sensor-data/compare-zones">Compare zones in {farm.name}</Link>}>
         <FarmOverviewMap farm={farm} zones={zones} nodes={nodes} mission={mission} />
       </SectionCard>
 
