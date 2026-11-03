@@ -1,4 +1,5 @@
 import Icon from './Icon'
+import ConsultationButton from './ConsultationButton'
 
 export default function HeroSection() {
   return (
@@ -13,7 +14,7 @@ export default function HeroSection() {
         <h1>Nông trại khỏe,<br /><em>tương lai xanh.</em></h1>
         <p>Kết nối cảm biến, dữ liệu và những chuyến bay UAV để chăm sóc từng tấc đất tốt hơn.</p>
         <div className="hero-actions">
-          <a className="hero-pill hero-pill-primary" href="#platform">Khám phá nền tảng <Icon name="arrow" size={15} /></a>
+          <ConsultationButton className="hero-pill hero-pill-primary" />
           <a className="hero-pill hero-pill-secondary" href="#how-it-works">Xem cách hoạt động <Icon name="arrow" size={15} /></a>
         </div>
       </div>

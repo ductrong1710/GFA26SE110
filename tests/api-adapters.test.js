@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { missionRequest, equipmentRequest, farmView, farmRecordRequest, zoneView, nodeView } from '../src/services/api/adapters.js'
-import { availableUavs, planFromMission } from '../src/services/api/planning.js'
+import { availableUavs, availableGateways, planFromMission } from '../src/services/api/planning.js'
 import { readingThreshold } from '../src/services/api/analytics.js'
 
 test('farm and zone adapters preserve GeoJSON and nullable legacy centers', () => {
@@ -31,8 +31,16 @@ test('sensor adapter preserves null coordinates and explicitly serializes suppor
   assert.equal(request.zoneId, 3)
   assert.equal(Object.hasOwn(request, 'protocol'), false)
 })
-test('equipment is available without inventing farm ownership or GPS capabilities', () => {
-  assert.equal(availableUavs({ uavs: [{ id: 5, isActive: true }], missions: [] }, 1).length, 1)
+test('equipment selection requires active rental on the chosen farm', () => {
+  const rental = { farmId: 1, status: 'ACTIVE', startAt: '2020-01-01T00:00:00Z', endAt: '2099-01-01T00:00:00Z' }
+  const state = { uavs: [{ id: 5, isActive: true, rental }], gateways: [{ id: 8, isActive: true, uavId: 5, rental }], missions: [] }
+  assert.equal(availableUavs(state, 1).length, 1)
+  assert.equal(availableUavs(state, 2).length, 0)
+  assert.equal(availableUavs({ ...state, uavs: [{ id: 5, isActive: true }] }, 1).length, 0)
+  assert.equal(availableGateways(state, 1, 5).length, 1)
+  assert.equal(availableGateways(state, 2, 5).length, 0)
+  rental.endAt = '2021-01-01T00:00:00Z'
+  assert.equal(availableUavs(state, 1).length, 0)
   const request = equipmentRequest('uav', { name: 'UAV', code: 'U', farmId: 99, gpsSupport: true })
   assert.equal(Object.hasOwn(request, 'farmId'), false)
   assert.equal(Object.hasOwn(request, 'gpsSupport'), false)

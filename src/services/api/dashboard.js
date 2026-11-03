@@ -1,3 +1,5 @@
+import { hourlySeries, recentAnalyticsRange } from './analytics.js'
+
 export function getAdminDashboard(workspace, management, operations) {
   const directory = management?.users ?? []
   const currentAlerts = management?.alerts ?? []
@@ -66,10 +68,8 @@ export function getFarmOwnerDashboard(farmId, workspace, alertRecords, nodeRecor
       && nodes.some((node) => node.id === channel.sensorNodeId && node.status === 'ONLINE' && node.isActive))
     const readings = matching.map((channel) => latestReading(channel.id)).filter(Boolean)
     const average = (values) => values.length ? Number((values.reduce((sum, reading) => sum + reading.value, 0) / values.length).toFixed(type.precision ?? 1)) : null
-    const series = Array.from({ length: 13 }, (_, index) => {
-      const to = new Date(Date.now() - (12 - index) * 3600000).toISOString()
-      return { at: to, value: average(matching.map((channel) => latestReading(channel.id, to)).filter(Boolean)) }
-    })
+    const channelIds = new Set(matching.map(channel => channel.id))
+    const series = hourlySeries(received.filter(row => channelIds.has(row.sensorChannelId)), operations.range ?? recentAnalyticsRange())
     return { ...type, name: type.name, value: average(readings), series,
       sensorCount: readings.length, attentionCount: importantAlerts.filter((alert) => matching.some(({ id }) => id === alert.sensorChannelId)).length }
   })

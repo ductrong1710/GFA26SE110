@@ -190,8 +190,8 @@ test('validation messages displayed by forms include the backend field guidance'
 })
 
 test('role normalization never maps unsupported operator into a human backend role', () => {
-  assert.deepEqual(normalizeUser({ roles: ['FarmAdministrator', 'FarmEngineer', 'UavDeviceOperator'] }).roles, ['ADMINISTRATOR', 'AGRICULTURAL_ENGINEER', 'UAV_DEVICE_OPERATOR'])
-  assert.deepEqual(normalizeUser({ roles: ['UavDeviceOperator'] }).roles, ['UAV_DEVICE_OPERATOR'])
+  assert.deepEqual(normalizeUser({ roles: ['FarmAdministrator', 'FarmEngineer', 'UavDeviceOperator'] }).roles, ['ADMINISTRATOR', 'AGRICULTURAL_ENGINEER'])
+  assert.deepEqual(normalizeUser({ roles: ['UavDeviceOperator'] }).roles, [])
 })
 
 test('refresh preserves a selected assigned role and drops revoked roles', () => {

@@ -43,10 +43,11 @@ export default function AccountPage({ register = false }) {
         {!isRegister && <section className="account-form-content account-login-form">
           <h1>Chào mừng trở lại</h1>
           <p className="account-intro">Đăng nhập để quản lý cảm biến, thiết bị thuê và dữ liệu nông trại.</p>
+          {location.state?.passwordUpdated && <p role="status">Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.</p>}
           <form onSubmit={handleLogin}>
             <label>Email<input required name="email" type="email" autoComplete="email" placeholder="ban@email.com" /></label>
             <label>Mật khẩu<PasswordField required name="password" autoComplete="current-password" placeholder="Nhập mật khẩu" /></label>
-            <a className="account-forgot" href="mailto:smartfarm@example.com">Quên mật khẩu?</a>
+            <Link className="account-forgot" to="/quen-mat-khau">Quên mật khẩu?</Link>
             {loginError && <p className="account-message account-message--error" role="alert">{loginError}</p>}
             <button className="account-submit" type="submit" disabled={pending}>{pending ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
           </form>

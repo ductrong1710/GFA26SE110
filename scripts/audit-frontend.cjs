@@ -170,7 +170,7 @@ async function main() {
       await context.close()
     }
     const page = await browser.newPage()
-    for (const route of ['/', '/thiet-bi', '/thiet-bi/soil-moisture', '/gio-hang', '/dang-nhap', '/dang-ky']) {
+    for (const route of ['/', '/#rental', '/tu-van', '/quen-mat-khau', '/dat-lai-mat-khau', '/dang-nhap', '/dang-ky']) {
       await page.goto(base + route)
       check(await page.locator('main').count() > 0 && await page.locator('.app-shell').count() === 0, `Public route ${route}`)
       for (const width of [1440, 1280, 1024]) {

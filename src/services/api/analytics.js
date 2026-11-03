@@ -1,5 +1,8 @@
 const localTime = at => new Date(at + 7 * 3600000).toISOString().slice(0, 16)
-export const ANALYTICS_DEFAULT_RANGE = { from: localTime(Date.now() - 12 * 3600000), to: localTime(Date.now()) }
+export function recentAnalyticsRange(now = Date.now()) {
+  return { from: localTime(now - 12 * 3600000), to: localTime(now) }
+}
+export const ANALYTICS_DEFAULT_RANGE = recentAnalyticsRange()
 
 export const parseAnalyticsTime = (value) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? Date.parse(`${value}:00+07:00`) : NaN
 export function validateAnalyticsRange({ from, to }) {

@@ -61,8 +61,9 @@ export default function ApiOperationsProvider({ children }) {
   }
   const reportMission = async change => {
     const id = change.id ?? change.missionId
-    const suffix = { RUNNING: 'start', COMPLETED: 'complete', FAILED: 'fail', CANCELLED: 'cancel' }[change.status]
-    if (suffix) await api.post(`/api/missions/${id}/${suffix}`, { operatorNotes: change.notes ?? change.note, note: change.note, failureReason: change.failureReason ?? change.reason ?? change.note, reason: change.reason ?? change.note })
+    const suffix = { COMPLETED: 'complete', FAILED: 'fail', CANCELLED: 'cancel' }[change.status]
+    if (!change.status) await api.post(`/api/missions/${id}/notes`, { note: change.note, images: change.images })
+    else if (suffix) await api.post(`/api/missions/${id}/${suffix}`, { ...(change.manualCompletion ? { manualCompletion: true } : {}), operatorNotes: change.notes ?? change.note, note: change.note, failureReason: change.failureReason ?? change.reason ?? change.note, reason: change.reason ?? change.note })
     else await api.patch(`/api/missions/${id}/status`, { status: change.status, note: change.note })
     query.reload()
   }

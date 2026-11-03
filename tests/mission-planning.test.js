@@ -7,7 +7,7 @@ import { getOperatorDashboard } from '../src/data/mock/operationsSelectors.js'
 import { getAdminDashboard } from '../src/data/mock/adminDashboard.js'
 
 const workspace = createFarmWorkspace()
-const actor = { id: 2, activeRole: 'UAV_DEVICE_OPERATOR' }
+const actor = { id: 3, activeRole: 'FARM_OWNER' }
 function validPlan(state) {
   const sensorIds = [5, 6, 7, 8]
   const points = groupCollectionPoints(state.sensorNodes.filter(({ id }) => sensorIds.includes(id)))
@@ -93,7 +93,7 @@ test('draft can be resumed and finalized once, preserving IDs and normalizing re
 })
 
 test('other roles cannot save even a draft', () => {
-  for (const activeRole of ['ADMINISTRATOR', 'FARM_OWNER', 'AGRICULTURAL_ENGINEER']) {
+  for (const activeRole of ['ADMINISTRATOR', 'TECHNICIAN', 'AGRICULTURAL_ENGINEER', 'UAV_DEVICE_OPERATOR']) {
     assert.throws(() => saveMissionPlan(createOperationsState(), emptyMissionPlan(), workspace, { id: 1, activeRole }, true), /cannot create/)
   }
 })

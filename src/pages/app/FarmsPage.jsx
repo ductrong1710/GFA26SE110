@@ -1,4 +1,5 @@
 import FarmAccess from '../../components/app/FarmAccess'
+import FarmSurveys from '../../components/app/FarmSurveys'
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -53,6 +54,7 @@ export default function FarmsPage() {
             <FarmZoneMap farm={farm} zones={farmZones} selectedZoneId={zone?.id} onSelect={setSelectedZoneId} nodes={sensorNodes} />
           </SectionCard>
           <FarmAccess farm={farm} onChanged={() => changeFarmRecord({ kind: 'reload' })} />
+          <FarmSurveys key={farm.id} farmId={farm.id} />
           <SectionCard title="Selected zone details" description={zone ? 'Coverage and boundary information' : 'Choose or add a growing area'} actions={canManage && zone && <button className="app-ui-button" onClick={() => openDialog('zone', zone)}>Edit Zone</button>}>
             {zone ? <dl className="farm-detail-grid">
               <div><dt>Name</dt><dd>{zone.name}</dd></div><div><dt>Description</dt><dd>{zone.description || 'No description provided'}</dd></div>

@@ -9,7 +9,7 @@ import { getFarmOwnerDashboard } from '../src/data/mock/farmOwnerDashboard.js'
 import { collectionAttempts } from '../src/data/mock/collectionAttempts.js'
 
 const workspace = createFarmWorkspace()
-const actor = { id: 2, fullName: 'Minh Tran', activeRole: 'UAV_DEVICE_OPERATOR' }
+const actor = { id: 3, fullName: 'Linh Pham', activeRole: 'FARM_OWNER' }
 const report = (state, missionId, status, note = 'Observed outcome from the field operator.') => updateMissionMonitoring(state, { missionId, status, note }, actor, workspace)
 
 test('active mission progress, success rate, retry history and telemetry reconcile', () => {
@@ -51,7 +51,7 @@ test('notes append without changing mission or attempts and preserve authorship'
   const state = createOperationsState()
   const next = report(state, 1, undefined, 'Inspect the irrigation sensor after collection.')
   assert.deepEqual(next.missions, state.missions)
-  assert.equal(next.missionEvents[0].actorName, 'Minh Tran')
+  assert.equal(next.missionEvents[0].actorName, actor.fullName)
   assert.equal(state.missionEvents.length, 0)
   assert.equal(getMissionMonitoring(1, next, workspace).notes.length, 1)
   assert.throws(() => report(state, 1, undefined, '  '), /operational note/)
@@ -86,14 +86,14 @@ test('observed start requires due schedule and available equipment; active assig
   assert.equal(getOperatorDashboard(1, running, workspace).activeMissions, 2)
   assert.equal(getOperatorDashboard(1, running, workspace).availableUavs, 0)
   assert.equal(getMissionMonitoring(missionId, running, workspace).telemetry, null)
-  assert.throws(() => changeOperationsState(running, { kind: 'gateway', id: 2, action: 'assign', values: { uavId: null } }, workspace, actor), /locked/)
+  assert.throws(() => changeOperationsState(running, { kind: 'gateway', id: 2, action: 'assign', values: { uavId: null } }, workspace, { id: 1, activeRole: 'ADMINISTRATOR' }), /locked/)
   assert.throws(() => report(running, missionId, 'PARTIAL'), /transition/)
   const completedEvidence = { ...running, missionTargets: running.missionTargets.map((target) => target.missionId === missionId ? { ...target, status: 'COLLECTED' } : target), missionWaypoints: running.missionWaypoints.map((waypoint) => waypoint.missionId === missionId ? { ...waypoint, status: 'COMPLETED' } : waypoint) }
   assert.equal(report(completedEvidence, missionId, 'COMPLETED').missions.at(-1).status, 'COMPLETED')
 })
 
 test('all other roles cannot report status or append notes', () => {
-  for (const activeRole of ['ADMINISTRATOR', 'FARM_OWNER', 'AGRICULTURAL_ENGINEER']) {
-    for (const status of [undefined, 'FAILED']) assert.throws(() => updateMissionMonitoring(createOperationsState(), { missionId: 1, note: 'Test', status }, { ...actor, activeRole }, workspace), /Only operators/)
+  for (const activeRole of ['ADMINISTRATOR', 'TECHNICIAN', 'AGRICULTURAL_ENGINEER', 'UAV_DEVICE_OPERATOR']) {
+    for (const status of [undefined, 'FAILED']) assert.throws(() => updateMissionMonitoring(createOperationsState(), { missionId: 1, note: 'Test', status }, { ...actor, activeRole }, workspace), /Only farm owners/)
   }
 })

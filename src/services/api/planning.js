@@ -18,11 +18,15 @@ export function waypointPosition(w, farm) {
   if (!farm || !finite(farm.latitude) || !finite(farm.longitude)) return null
   return { latitude: Number(farm.latitude) + Number(w.y) / 111320, longitude: Number(farm.longitude) + Number(w.x) / (111320 * Math.cos(farm.latitude * Math.PI / 180)) }
 }
-export function availableUavs(state, _farm, missionId) {
-  return state.uavs.filter(u => u.isActive && !state.missions.some(m => m.id !== missionId && ['RUNNING', 'SCHEDULED'].includes(m.status) && m.uavId === u.id))
+function rentedForFarm(device, farm) {
+  const rental = device.rental, now = Date.now()
+  return rental?.farmId === Number(farm) && rental.status === 'ACTIVE' && Date.parse(rental.startAt) <= now && Date.parse(rental.endAt) > now
 }
-export function availableGateways(state, _farm, uavId, missionId) {
-  return state.gateways.filter(g => g.isActive && (g.uavId === null || g.uavId === Number(uavId)) && !state.missions.some(m => m.id !== missionId && ['RUNNING', 'SCHEDULED'].includes(m.status) && m.gatewayId === g.id))
+export function availableUavs(state, farm, missionId) {
+  return state.uavs.filter(u => u.isActive && rentedForFarm(u, farm) && !state.missions.some(m => m.id !== missionId && ['RUNNING', 'SCHEDULED'].includes(m.status) && m.uavId === u.id))
+}
+export function availableGateways(state, farm, uavId, missionId) {
+  return state.gateways.filter(g => g.isActive && rentedForFarm(g, farm) && (g.uavId === null || g.uavId === Number(uavId)) && !state.missions.some(m => m.id !== missionId && ['RUNNING', 'SCHEDULED'].includes(m.status) && m.gatewayId === g.id))
 }
 export function validateMissionPlan(plan, state, workspace) {
   const errors = Array.from({ length: 8 }, () => [])
@@ -40,7 +44,7 @@ export function validateMissionPlan(plan, state, workspace) {
     if (w.coordinateType === 'GPS' && (Math.abs(Number(w.x)) > 90 || Math.abs(Number(w.y)) > 180)) errors[3].push('GPS coordinates are out of range.')
   }
   if (plan.points.some(p => !plan.waypoints.some(w => ['COLLECT_SENSOR', 'COLLECT'].includes(w.action) && Number(w.pointId) === p.id))) errors[4].push('Each collection point needs a collection waypoint.')
-  if (!state.uavs.some(u => u.id === Number(plan.uavId) && u.isActive)) errors[5].push('Select an active UAV.')
+  if (!availableUavs(state, plan.farmId, plan.missionId).some(u => u.id === Number(plan.uavId))) errors[5].push('Select an available UAV rented to this farm.')
   if (!availableGateways(state, plan.farmId, plan.uavId, plan.missionId).some(g => g.id === Number(plan.gatewayId))) errors[6].push('Select an active compatible gateway.')
   if (!plan.name.trim() || plan.name.length > 150) errors[7].push('Enter a name of at most 150 characters.')
   if (Boolean(plan.scheduledLocal) !== Boolean(plan.scheduledEndLocal)) errors[7].push('Enter both scheduled start and end times.')

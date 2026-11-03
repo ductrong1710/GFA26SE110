@@ -2,105 +2,62 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { getActiveRole, HUMAN_ROLES, ROLES, USER_ASSIGNABLE_ROLES, isHumanRole } from '../src/config/roles.js'
 import { getAlertScope, hasAnyPermission, hasPermission, PERMISSIONS as P } from '../src/config/permissions.js'
+import { hasBackendPermission } from '../src/config/backendPermissions.js'
 import { getNavigationForRole, navigation } from '../src/config/navigation.js'
 import { appRoutes } from '../src/config/appRoutes.js'
-import { mockAccounts } from '../src/data/mock/accounts.js'
 
 const expectedModules = {
-  FARM_OWNER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'missions', 'alerts', 'reports'],
-  ADMINISTRATOR: ['dashboard', 'farms', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users'],
-  UAV_DEVICE_OPERATOR: ['dashboard', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports'],
-  AGRICULTURAL_ENGINEER: ['dashboard', 'farms', 'sensors', 'sensor-data', 'alerts', 'reports'],
+  FARM_OWNER: ['dashboard', 'installation-requests', 'installation-jobs', 'rental-contracts', 'service-jobs', 'device-incidents', 'crop-seasons', 'crop-support', 'farms', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports'],
+  ADMINISTRATOR: ['dashboard', 'consultations', 'installation-requests', 'installation-jobs', 'rental-contracts', 'service-jobs', 'maintenance-schedules', 'device-incidents', 'crop-seasons', 'crop-support', 'farms', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users'],
+  TECHNICIAN: ['dashboard', 'installation-jobs', 'service-jobs'],
+  AGRICULTURAL_ENGINEER: ['dashboard', 'consultations', 'installation-requests', 'installation-jobs', 'rental-contracts', 'crop-support'],
 }
-
 for (const [role, modules] of Object.entries(expectedModules)) {
-  test(`${role}: exact modules in sidebar and direct routes`, () => {
+  test(`${role}: navigation and route access match the operational role`, () => {
     assert.deepEqual(getNavigationForRole(role).map(({ path }) => path.slice('/app/'.length)), modules)
     for (const route of appRoutes) {
-      const expected = route.path === 'missions/create' ? role === ROLES.UAV_DEVICE_OPERATOR
-        : route.path === 'sensor-data/compare-zones' ? role === ROLES.AGRICULTURAL_ENGINEER
-          : modules.includes(route.path.split('/')[0]) || (
-            (role === ROLES.ADMINISTRATOR && route.path === 'settings') ||
-            (role === ROLES.UAV_DEVICE_OPERATOR && route.path === 'sync')
-          )
+      const expected = route.path === 'missions/create' ? role === ROLES.FARM_OWNER
+        : route.path === 'sensor-data/compare-zones' ? [ROLES.FARM_OWNER, ROLES.ADMINISTRATOR].includes(role)
+          : modules.includes(route.path.split('/')[0]) || (role === ROLES.ADMINISTRATOR && route.path === 'settings')
       assert.equal(hasAnyPermission(role, route.permissions), expected, `${role}: ${route.path}`)
     }
   })
 }
-
-test('read-only roles cannot acquire management permissions', () => {
-  const writes = [P.FARMS_MANAGE, P.SENSORS_MANAGE, P.DEVICES_MANAGE, P.MISSIONS_CREATE,
-    P.MISSIONS_MANAGE, P.MISSIONS_MONITOR, P.SYNC_MANAGE, P.ALERTS_MANAGE, P.USERS_MANAGE, P.SETTINGS_MANAGE]
-  for (const role of [ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER]) {
-    for (const permission of writes) assert.equal(hasPermission(role, permission), false, `${role}: ${permission}`)
-  }
-  assert.equal(hasPermission(ROLES.AGRICULTURAL_ENGINEER, P.REPORTS_GENERATE), false)
-  assert.equal(hasPermission(ROLES.FARM_OWNER, P.REPORTS_GENERATE), true)
+test('one permission source drives production and navigation', () => {
+  for (const role of HUMAN_ROLES) for (const permission of Object.values(P))
+    assert.equal(hasBackendPermission(role, permission), hasPermission(role, permission))
 })
-
-test('administration and operational management remain separate', () => {
-  for (const permission of [P.FARMS_MANAGE, P.ALERTS_MANAGE, P.USERS_MANAGE, P.SETTINGS_MANAGE]) {
-    assert.equal(hasPermission(ROLES.ADMINISTRATOR, permission), true)
-    assert.equal(hasPermission(ROLES.UAV_DEVICE_OPERATOR, permission), false)
-  }
-  for (const permission of [P.SENSORS_MANAGE, P.DEVICES_MANAGE, P.MISSIONS_CREATE, P.MISSIONS_MANAGE, P.MISSIONS_MONITOR, P.SYNC_MANAGE]) {
-    assert.equal(hasPermission(ROLES.UAV_DEVICE_OPERATOR, permission), true)
-    assert.equal(hasPermission(ROLES.ADMINISTRATOR, permission), false)
-  }
+test('only administrators manage farms, devices, thresholds and alert resolution', () => {
+  for (const permission of [P.MAINTENANCE_MANAGE, P.SERVICE_JOBS_MANAGE, P.RENTALS_MANAGE, P.INSTALLATIONS_REVIEW, P.FARMS_MANAGE, P.SENSORS_CREATE, P.SENSORS_MANAGE, P.DEVICES_CREATE, P.DEVICES_MANAGE, P.THRESHOLDS_MANAGE, P.ALERTS_MANAGE, P.USERS_MANAGE])
+    for (const role of HUMAN_ROLES) assert.equal(hasPermission(role, permission), role === ROLES.ADMINISTRATOR)
 })
-
-test('user management cannot assign additional administrator accounts', () => {
-  assert.deepEqual(USER_ASSIGNABLE_ROLES, [ROLES.FARM_OWNER, ROLES.UAV_DEVICE_OPERATOR, ROLES.AGRICULTURAL_ENGINEER])
+test('owner operates routine missions; technician and engineer need assigned context', () => {
+  for (const permission of [P.CROP_SUPPORT_CREATE, P.SERVICE_JOBS_CONFIRM, P.INCIDENTS_CREATE, P.MISSIONS_CREATE, P.MISSIONS_MANAGE])
+    for (const role of HUMAN_ROLES) assert.equal(hasPermission(role, permission), role === ROLES.FARM_OWNER)
+  for (const role of [ROLES.TECHNICIAN, ROLES.AGRICULTURAL_ENGINEER])
+    for (const permission of [P.FARMS_VIEW, P.DEVICES_VIEW, P.MISSIONS_VIEW, P.ALERTS_VIEW]) assert.equal(hasPermission(role, permission), false)
+  for (const role of HUMAN_ROLES) assert.equal(hasPermission(role, P.SYNC_MANAGE), false)
 })
-
-test('operator alerts are related-only; engineer reports and alerts are read-only', () => {
-  assert.equal(getAlertScope(ROLES.UAV_DEVICE_OPERATOR), 'related')
-  assert.equal(hasPermission(ROLES.UAV_DEVICE_OPERATOR, P.ALERTS_VIEW), false)
-  for (const role of [ROLES.FARM_OWNER, ROLES.ADMINISTRATOR, ROLES.AGRICULTURAL_ENGINEER]) {
-    assert.equal(getAlertScope(role), 'all')
-  }
-  assert.equal(hasPermission(ROLES.AGRICULTURAL_ENGINEER, P.ALERTS_MANAGE), false)
-})
-
-test('multiple assigned roles do not merge permissions', () => {
-  const user = { roles: [ROLES.ADMINISTRATOR, ROLES.UAV_DEVICE_OPERATOR], activeRole: ROLES.UAV_DEVICE_OPERATOR }
+test('role assignment and active-role switching never grant unassigned privileges', () => {
+  assert.deepEqual(USER_ASSIGNABLE_ROLES, [ROLES.FARM_OWNER, ROLES.TECHNICIAN, ROLES.AGRICULTURAL_ENGINEER])
+  const user = { roles: [ROLES.ADMINISTRATOR, ROLES.FARM_OWNER], activeRole: ROLES.FARM_OWNER }
   assert.equal(hasPermission(getActiveRole(user), P.USERS_MANAGE), false)
   assert.equal(hasPermission(getActiveRole(user), P.MISSIONS_CREATE), true)
-  assert.equal(hasPermission(getActiveRole({ ...user, activeRole: ROLES.ADMINISTRATOR }), P.USERS_MANAGE), true)
-  assert.equal(getActiveRole({ ...user, activeRole: ROLES.FARM_OWNER }), null)
+  assert.equal(getActiveRole({ ...user, activeRole: ROLES.TECHNICIAN }), null)
+  assert.equal(hasPermission(getActiveRole({ ...user, activeRole: ROLES.ADMINISTRATOR }), P.MISSIONS_CREATE), false)
 })
-
-test('unassigned roles are never activated', () => {
-  const user = { roles: [ROLES.ADMINISTRATOR], activeRole: ROLES.FARM_OWNER, isMock: true }
-  assert.equal(getActiveRole(user), null)
-  assert.equal(getActiveRole({ ...user, isMock: false }), null)
-  assert.deepEqual(user.roles, [ROLES.ADMINISTRATOR])
-})
-
-test('unknown actors and Sensor Collection Engine have no dashboard or permissions', () => {
-  for (const role of ['SENSOR_COLLECTION_ENGINE', 'Sensor Collection Engine', 'UNKNOWN', 'toString', '__proto__', null, undefined]) {
+test('unsupported and retired actors cannot access routes', () => {
+  for (const role of ['UAV_DEVICE_OPERATOR', 'SENSOR_COLLECTION_ENGINE', 'UNKNOWN', 'toString', '__proto__', null, undefined]) {
     assert.equal(isHumanRole(role), false)
-    assert.equal(getActiveRole({ roles: [role], activeRole: role, isMock: true }), null)
+    assert.equal(hasPermission(role, P.DASHBOARD_VIEW), false)
     assert.deepEqual(getNavigationForRole(role), [])
-    assert.equal(getAlertScope(role), null)
-    for (const permission of Object.values(P)) assert.equal(hasPermission(role, permission), false)
   }
-  assert.equal(hasPermission(ROLES.ADMINISTRATOR, 'unknown.permission'), false)
+  assert.equal(getAlertScope(ROLES.TECHNICIAN), null)
+  assert.equal(getAlertScope(ROLES.AGRICULTURAL_ENGINEER), null)
 })
-
-test('every menu entry matches its protected route and no route has empty permissions', () => {
-  for (const item of navigation) {
-    const route = appRoutes.find(({ path }) => `/app/${path}` === item.path)
-    assert.ok(route, item.path)
-    assert.deepEqual(route.permissions, item.permissions)
-  }
-  for (const { permissions, path } of appRoutes) {
+test('every protected navigation and route entry declares known permissions', () => {
+  for (const { path, permissions } of [...navigation, ...appRoutes]) {
     assert.ok(permissions.length > 0, path)
     for (const permission of permissions) assert.ok(Object.values(P).includes(permission), path)
   }
-})
-
-test('fixtures cover exactly the human UI roles and have valid active-role assignments', () => {
-  assert.deepEqual(mockAccounts.map(({ activeRole }) => activeRole).sort(), [...HUMAN_ROLES].sort())
-  for (const user of mockAccounts) assert.equal(getActiveRole(user), user.activeRole)
 })

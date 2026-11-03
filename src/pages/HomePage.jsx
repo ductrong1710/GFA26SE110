@@ -1,3 +1,4 @@
+import PublicInformation from '../components/PublicInformation'
 import FeatureSection from '../components/FeatureSection'
 import HeroSection from '../components/HeroSection'
 import ResourceSection from '../components/ResourceSection'
@@ -14,6 +15,7 @@ export default function HomePage() {
         <HeroSection />
         <SensorBand />
         <FeatureSection />
+        <PublicInformation />
         <WorkflowSection />
         <ResourceSection />
       </main>

@@ -1,7 +1,17 @@
 import { PERMISSIONS as P } from './permissions.js'
 
 export const appRoutes = [
+  { path: 'crop-seasons', title: 'Mùa vụ', permissions: [P.CROP_SEASONS_VIEW] },
+  { path: 'crop-support', title: 'Hỗ trợ cây trồng', permissions: [P.CROP_SUPPORT_VIEW] },
+  { path: 'maintenance-schedules', title: 'Lịch bảo trì', permissions: [P.MAINTENANCE_MANAGE] },
+  { path: 'service-jobs', title: 'Công việc dịch vụ', permissions: [P.SERVICE_JOBS_VIEW] },
+  { path: 'device-incidents', title: 'Sự cố thiết bị', permissions: [P.INCIDENTS_VIEW] },
+  { path: 'rental-contracts', title: 'Hợp đồng thuê', permissions: [P.RENTALS_VIEW] },
+  { path: 'installation-jobs', title: 'Công việc lắp đặt', permissions: [P.INSTALLATION_JOBS_VIEW] },
+  { path: 'installation-requests', title: 'Yêu cầu lắp đặt', permissions: [P.INSTALLATIONS_VIEW] },
   { path: 'dashboard', title: 'Tổng quan', permissions: [P.DASHBOARD_VIEW] },
+  { path: 'consultations', title: 'Tư vấn', permissions: [P.CONSULTATIONS_VIEW] },
+  { path: 'consultations/:id', title: 'Chi tiết tư vấn', permissions: [P.CONSULTATIONS_VIEW] },
   { path: 'farms', title: 'Nông trại', permissions: [P.FARMS_VIEW] },
   { path: 'sensors', title: 'Cảm biến', permissions: [P.SENSORS_VIEW] },
   { path: 'sensors/:id', title: 'Chi tiết cảm biến', permissions: [P.SENSORS_VIEW] },

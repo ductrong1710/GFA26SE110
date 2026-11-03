@@ -69,3 +69,17 @@ npm run build
 ```
 
 Use `npm run test:mock-data` to validate the isolated fixture selectors.
+
+### Maintenance schedules
+Administrators can manage `/app/maintenance-schedules`: create/edit/disable recurring service policy, choose a device type or an unreturned rental device, set a responsible technician and inspect generated work. List/search and rental selection are paginated. Conflicts preserve the draft until explicit reload; disabling overdue work does not require a new date. Occurrence history shows the policy/device recorded for each visit and links to its service job. All writes use the backend and its current revision; server authorization remains authoritative. Actual browser end-to-end verification is still pending.
+
+### Crop condition support
+`/app/crop-support` is available to Owner, Agricultural Engineer and Admin. Owner submits farm/optional zone/crop/symptoms, bounded evidence images and up to50 attached sensor channels. Catalog loading follows all API pages; changing farm/zone clears incompatible sensor selections. Detail shows original evidence, communication history, status and paged live sensor context. Assigned Engineer can claim/request information/recommend/resolve; reporter Owner can reply while awaiting information; Admin monitors without processing controls. API checks remain authoritative. Failed writes preserve notes/images with explicit reload, and mutation/image-reading state disables competing controls. Uses real crop-support endpoints; no AI diagnosis or fabricated survey/job. Actual browser end-to-end verification remains pending.
+
+### Browser verification with a disposable database
+On Windows with PostgreSQL binaries, .NET EF tooling and Microsoft Edge installed, run from `Code/backend`:
+
+```powershell
+./scripts/Test-Postgres.ps1 -PostgresBin 'D:/IDECode/PostgreSQL/18/bin' -Configuration Release -NoRestore -BrowserTests
+```
+The existing PostgreSQL harness creates a fresh loopback cluster and builds the backend. The browser runner migrates only that disposable database, starts the actual API on5189 and Vite on5179, disables email delivery, and runs Playwright using Edge. Both ports must be free. Fixture accounts/farm are prepared through API using the retained sample-admin migration; the actual Owner/Engineer business actions use browser forms and separate sessions. Cleanup stops API/Vite/PostgreSQL; application databases are untouched. Failure screenshots/traces stay in ignored `test-results/`. Current browser coverage: Flow5 crop report -> information request -> reply -> recommendation -> resolution/history. Other business chains and image-upload/browser variants remain pending.

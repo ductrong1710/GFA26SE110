@@ -38,5 +38,6 @@ export function useApiQuery(key, load, enabled = true, pollInterval = 0) {
     return () => { controller.abort(); clearTimeout(timer) }
     // The serialized key describes the request; caller closures are deliberately not dependencies.
   }, [requestKey, enabled, pollInterval])
-  return { ...(enabled && result.key === requestKey ? result : { data: null, loading: enabled, error: null }), reload, replaceData }
+  const { data, loading, error } = enabled && result.key === requestKey ? result : { data: null, loading: enabled, error: null }
+  return { data, loading, error, reload, replaceData }
 }

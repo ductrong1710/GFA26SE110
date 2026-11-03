@@ -4,7 +4,7 @@ import { getStatusMeta, getBatteryState, getProgress } from '../src/components/a
 
 test('every agreed status has the correct semantic color', () => {
   const groups = {
-    success: 'ACTIVE ONLINE SUCCESS COMPLETED CLOSED COLLECTED',
+    success: 'ACTIVE ONLINE SUCCESS COMPLETED CLOSED COLLECTED RESOLVED',
     info: 'READY SCHEDULED IN_PROGRESS SYNCING INFO ACKNOWLEDGED',
     warning: 'PENDING PARTIAL WARNING LOW_BATTERY MAINTENANCE OPEN',
     danger: 'FAILED ERROR CRITICAL OFFLINE TIMEOUT',

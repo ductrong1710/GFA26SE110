@@ -1,5 +1,6 @@
 import { useDashboard } from '../../services/api/useDashboard'
 import ApiState from '../../components/app/ApiState'
+import DashboardOperations from '../../components/app/DashboardOperations'
 import { useMemo } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -18,12 +19,16 @@ function EnvironmentTrend({ metric }) {
   const min = Math.min(...values.map(({ value }) => value))
   const max = Math.max(...values.map(({ value }) => value))
   const span = Math.max(max - min, 1)
-  const points = values.map(({ value }, index) => `${8 + index / Math.max(values.length - 1, 1) * 184},${45 - (value - min) / span * 32}`).join(' ')
+  const points = metric.series.map(({ value }, index) => value === null ? null : {
+    x: 8 + index / Math.max(metric.series.length - 1, 1) * 184, y: 45 - (value - min) / span * 32,
+  })
   return <figure className="owner-trend">
     <svg viewBox="0 0 200 56" role="img" aria-label={`${metric.name} over the last 12 hours: ${min} to ${max} ${metric.unit}. Latest average ${metric.value} ${metric.unit}.`}>
       <path d="M8 46H192" stroke="#e5ebe7" strokeDasharray="3 4" />
-      <polygon points={`8,52 ${points} 192,52`} fill="currentColor" opacity=".07" />
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {points.map((point, i) => point && <g key={metric.series[i].at}>
+        {points[i - 1] && <line x1={points[i - 1].x} y1={points[i - 1].y} x2={point.x} y2={point.y} stroke="currentColor" strokeWidth="2.5" />}
+        <circle cx={point.x} cy={point.y} r="2" fill="currentColor" />
+      </g>)}
     </svg>
     <figcaption><span>12 hours ago</span><span>Now</span></figcaption>
   </figure>
@@ -60,6 +65,7 @@ export default function FarmOwnerDashboard() {
     </section>
 
     <div className="owner-main-grid">
+      <DashboardOperations data={query.data?.overview.operations} />
       <SectionCard title="Farm Overview Map" description="A connected view of your land" className="owner-map-card"
         actions={<span className="owner-subtle-label">{zones.length} monitored zones</span>}>
         <FarmOverviewMap farm={farm} zones={zones} nodes={nodes} mission={mission} />

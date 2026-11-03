@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test'
+
+test('owner records cultivation and compares completed harvest results', async ({ page, request }) => {
+  const api = process.env.E2E_API_URL
+  if (api !== 'http://127.0.0.1:5189' || !process.env.TEST_POSTGRES_CONNECTION) throw new Error('Use the disposable PostgreSQL browser harness.')
+  async function post(path, body, token) {
+    const response = await request.post(api + path, { data: body, headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    expect(response.ok(), `${path}: ${response.status()}`).toBeTruthy()
+    return (await response.json()).data
+  }
+  const admin = await post('/api/auth/login', { email: 'admin@sep.local', password: '123456' })
+  const password = process.env.SEED_ADMIN_PASSWORD
+  const owner = await post('/api/users', { email: 'season-owner@example.com', password, fullName: 'Season Owner', roles: ['FarmOwner'] }, admin.accessToken)
+  const farm = await post('/api/farms', { name: 'Season farm' }, admin.accessToken)
+  await post(`/api/farms/${farm.id}/members`, { userId: owner.id }, admin.accessToken)
+  await page.goto('/dang-nhap')
+  await page.getByLabel('Email', { exact: true }).fill(owner.email)
+  await page.locator('input[name="password"]').fill(password)
+  await page.locator('button[type="submit"]').click()
+  await page.getByRole('link', { name: 'Crop seasons', exact: true }).click()
+  async function create(name) {
+    await page.getByRole('button', { name: 'Create season' }).click()
+    await page.getByRole('combobox', { name: 'Farm', exact: true }).selectOption(String(farm.id))
+    await page.getByLabel('Season name').fill(name)
+    await page.getByLabel('Crop', { exact: true }).fill('Rice')
+    await page.getByRole('button', { name: 'Save season' }).click()
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+  }
+  await create('Spring')
+  await page.getByRole('button', { name: 'Record activity' }).click()
+  await page.getByLabel('Activity date').fill('2026-03-03')
+  await page.getByRole('combobox', { name: 'Activity type', exact: true }).selectOption('WATERING')
+  await page.getByLabel('Description', { exact: true }).fill('Watered seedlings')
+  await page.getByRole('button', { name: 'Save activity' }).click()
+  await expect(page.getByText('Watered seedlings')).toBeVisible()
+  await page.getByRole('button', { name: 'Complete season' }).click()
+  await page.getByLabel('Yield (kg)').fill('120')
+  await page.getByLabel('Revenue (VND)').fill('1500000')
+  await page.getByLabel('Total cost (VND)').fill('400000')
+  await page.getByRole('button', { name: 'Confirm completion' }).click()
+  await expect(page.getByRole('button', { name: 'Record activity' })).toHaveCount(0)
+  await expect(page.getByText('COMPLETED', { exact: true }).first()).toBeVisible()
+  await create('Autumn')
+  const choices = page.getByRole('checkbox', { name: /Compare season/ })
+  await choices.nth(0).check()
+  await choices.nth(1).check()
+  const comparison = page.getByRole('table', { name: 'Selected season results' })
+  await expect(comparison.getByText('1100000')).toBeVisible()
+  await expect(comparison.getByText('WATERING (1)')).toBeVisible()
+  await page.goto('/app/dashboard')
+  const cultivation = page.getByRole('region', { name: 'Recent cultivation' })
+  await expect(cultivation.getByText('Watered seedlings')).toBeVisible()
+  await expect(cultivation.getByText('1 active seasons')).toBeVisible()
+  await cultivation.getByRole('link', { name: 'View seasons and compare' }).click()
+  await expect(page).toHaveURL(/\/app\/crop-seasons$/)
+})

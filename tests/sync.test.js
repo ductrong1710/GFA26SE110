@@ -9,7 +9,7 @@ import { getFarmOwnerDashboard } from '../src/data/mock/farmOwnerDashboard.js'
 import { sensorReadings } from '../src/data/mock/sensorReadings.js'
 import { MOCK_NOW } from '../src/data/mock/scenario.js'
 
-const actor = { id: 2, activeRole: 'UAV_DEVICE_OPERATOR', fullName: 'Minh Tran' }
+const actor = { kind: 'gateway', gatewayId: 1, name: 'Gateway 1' }
 const workspace = createFarmWorkspace()
 
 test('sync view reconciles all statuses, record outcomes, and unique offline queue', () => {
@@ -40,7 +40,7 @@ test('transport failure retries through syncing to success and persists receipt/
   assert.equal(batch.retryCount, 1)
   assert.equal(batch.history.length, 2)
   assert.equal(batch.history[0].status, 'FAILED')
-  assert.equal(batch.history[1].actorName, 'Minh Tran')
+  assert.equal(batch.history[1].actorName, 'Gateway 1')
   assert.equal(batch.history[1].status, 'SUCCESS')
   assert.equal(complete.syncReceipts.length, 3)
   assert.equal(finishSyncRetry(complete, 6, 1), complete)
@@ -52,7 +52,7 @@ test('transport failure retries through syncing to success and persists receipt/
 })
 
 test('invalid signature records stay rejected after a retry, without database receipts', () => {
-  const state = finishSyncRetry(beginSyncRetry(createOperationsState(), 5, actor), 5, 1)
+  const state = finishSyncRetry(beginSyncRetry(createOperationsState(), 5, { ...actor, gatewayId: 2 }), 5, 1)
   const batch = state.syncBatches[4]
   assert.equal(batch.status, 'FAILED')
   assert.equal(batch.acceptedCount, 0)
@@ -78,7 +78,8 @@ test('queued retransmissions deduplicate on stable source keys; mixed invalid da
 
 test('authorization, offline protection, invalid payloads and stale callbacks are enforced', () => {
   const state = createOperationsState()
-  for (const activeRole of ['ADMINISTRATOR', 'FARM_OWNER', 'AGRICULTURAL_ENGINEER']) assert.throws(() => beginSyncRetry(state, 6, { ...actor, activeRole }), /Only operators/)
+  for (const activeRole of ['ADMINISTRATOR', 'FARM_OWNER', 'AGRICULTURAL_ENGINEER', 'TECHNICIAN', 'UAV_DEVICE_OPERATOR']) assert.throws(() => beginSyncRetry(state, 6, { ...actor, activeRole }), /Only the owning gateway/)
+  assert.throws(() => beginSyncRetry(state, 6, { ...actor, gatewayId: 2 }), /Only the owning gateway/)
   assert.throws(() => beginSyncRetry(state, 999, actor), /Only failed/)
   assert.throws(() => beginSyncRetry(state, 3, actor), /Only failed/)
   state.gateways[0].status = 'OFFLINE'

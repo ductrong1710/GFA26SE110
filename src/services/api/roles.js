@@ -1,4 +1,4 @@
-const backendRoles = Object.freeze({ FarmAdministrator: 'ADMINISTRATOR', FarmOwner: 'FARM_OWNER', FarmEngineer: 'AGRICULTURAL_ENGINEER', UavDeviceOperator: 'UAV_DEVICE_OPERATOR' })
+const backendRoles = Object.freeze({ FarmAdministrator: 'ADMINISTRATOR', FarmOwner: 'FARM_OWNER', FarmEngineer: 'AGRICULTURAL_ENGINEER', Technician: 'TECHNICIAN' })
 export function normalizeUser(user, preferredRole) {
   const roles = [...new Set((user.roles ?? []).map(role => backendRoles[role]).filter(Boolean))]
   return { ...user, backendRoles: user.roles ?? [], roles, activeRole: roles.includes(preferredRole) ? preferredRole : roles[0] ?? null }

@@ -6,9 +6,9 @@ import { PERMISSIONS } from '../../config/permissions'
 import { SectionCard } from './ui'
 
 export default function SensorConfiguration({ node, types, reload }) {
-  const { can, user } = useAuth()
+  const { can } = useAuth()
   const manage = can(PERMISSIONS.SENSORS_MANAGE)
-  const configure = user?.backendRoles?.some(role => ['FarmAdministrator', 'FarmEngineer'].includes(role))
+  const configure = can(PERMISSIONS.THRESHOLDS_MANAGE)
   const [edit, setEdit] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)

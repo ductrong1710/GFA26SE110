@@ -6,9 +6,9 @@ import { getOperationalSensorDetails, getOperatorDashboard } from '../src/data/m
 import { getAdminDashboard } from '../src/data/mock/adminDashboard.js'
 import { ROLES } from '../src/config/roles.js'
 
-const operator = { id: 2, activeRole: ROLES.UAV_DEVICE_OPERATOR }
+const administrator = { id: 2, activeRole: ROLES.ADMINISTRATOR }
 const workspace = createFarmWorkspace()
-const update = (state, change, actor = operator, farms = workspace) => changeOperationsState(state, change, farms, actor)
+const update = (state, change, actor = administrator, farms = workspace) => changeOperationsState(state, change, farms, actor)
 const sensor = { deviceCode: 'NODE_TEST', name: 'Test field sensor', zoneId: 1, protocol: 'LORA', serialNumber: 'SERIAL_TEST', macAddress: '', isActive: true }
 
 test('sensor register/edit/assign/disable preserve unknown telemetry and immutable history', () => {
@@ -56,7 +56,7 @@ test('gateway assignments enforce existing, same-farm, available UAV relationshi
 test('new sensor registrations participate in farm deletion safeguards', () => {
   const farms = updateFarmWorkspace(workspace, { kind: 'zone', values: { farmId: 1, name: 'New zone', latitude: 10, longitude: 105, areaHectares: 1 }, userId: 1 }, true)
   const zoneId = farms.zones.at(-1).id
-  const state = update(createOperationsState(), { kind: 'sensor', values: { ...sensor, zoneId } }, operator, farms)
+  const state = update(createOperationsState(), { kind: 'sensor', values: { ...sensor, zoneId } }, administrator, farms)
   assert.match(getDeletionBlock(farms, 'zone', zoneId, state), /linked sensors/)
   assert.throws(() => updateFarmWorkspace(farms, { kind: 'zone', id: zoneId, remove: true }, true, state), /linked sensors/)
 })
@@ -77,8 +77,8 @@ test('operator dashboard derives readiness, failed targets, buffered data and fa
   assert.equal(getOperatorDashboard(2, state, workspace).activeMissions, 0)
 })
 
-test('all non-operator roles are read-only for inventory mutations', () => {
-  for (const role of [ROLES.ADMINISTRATOR, ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER]) {
+test('all non-administrator roles are read-only for inventory mutations', () => {
+  for (const role of [ROLES.TECHNICIAN, ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER]) {
     assert.throws(() => update(createOperationsState(), { kind: 'sensor', values: sensor }, { id: 1, activeRole: role }), /cannot manage/)
     assert.throws(() => update(createOperationsState(), { kind: 'gateway', id: 2, action: 'assign', values: { uavId: null } }, { id: 1, activeRole: role }), /cannot manage/)
   }

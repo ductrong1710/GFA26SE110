@@ -8,7 +8,7 @@ import '../../styles/management.css'
 
 function UserDialog({ mode, record, onSave, onClose }) {
   const [pending, setPending] = useState(false)
-  const [values, setValues] = useState(() => ({ fullName: record?.fullName ?? '', email: record?.email ?? '', roles: [record?.roles?.find(role => USER_ASSIGNABLE_ROLES.includes(role)) ?? ROLES.FARM_OWNER], status: mode === 'status' ? record.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' : record?.status ?? 'ACTIVE' }))
+  const [values, setValues] = useState(() => ({ fullName: record?.fullName ?? '', email: record?.email ?? '', roles: record?.roles?.filter(role => USER_ASSIGNABLE_ROLES.includes(role)) ?? [ROLES.FARM_OWNER], status: mode === 'status' ? record.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' : record?.status ?? 'ACTIVE' }))
   const [error, setError] = useState('')
   const statusAction = values.status === 'ACTIVE' ? 'Activate' : 'Deactivate'
   const title = mode === 'status' ? `${statusAction} User` : mode === 'roles' ? 'Assign Role' : mode === 'edit' ? 'Edit User' : 'Add User'
@@ -20,7 +20,7 @@ function UserDialog({ mode, record, onSave, onClose }) {
             <label>Email<input type="email" value={values.email} required maxLength={254} onChange={(event) => setValues({ ...values, email: event.target.value })} /></label></>}
           {mode === 'roles' && <p>Assign one or more roles to <strong>{record.fullName}</strong>.</p>}
           {mode === 'add' && <label>Initial password<input type="password" required minLength={12} autoComplete="new-password" value={values.password ?? ''} onChange={event => setValues({ ...values, password: event.target.value })} /></label>}
-          {(mode === 'roles' || mode === 'add') && <fieldset><legend>Available roles</legend>{USER_ASSIGNABLE_ROLES.map((role) => <label key={role} className="management-check"><input type="radio" name="user-role" checked={values.roles[0] === role} onChange={() => setValues({ ...values, roles: [role] })} />{ROLE_LABELS[role]}</label>)}</fieldset>}
+          {(mode === 'roles' || mode === 'add') && <fieldset><legend>Available roles</legend>{USER_ASSIGNABLE_ROLES.map((role) => <label key={role} className="management-check"><input type="checkbox" checked={values.roles.includes(role)} onChange={() => setValues({ ...values, roles: values.roles.includes(role) ? values.roles.filter(value => value !== role) : [...values.roles, role] })} />{ROLE_LABELS[role]}</label>)}</fieldset>}
         </>}
         {error && <p className="management-error" role="alert">{error}</p>}
       </div>
@@ -45,7 +45,7 @@ export default function UsersPage() {
     <FilterBar label="Search users"><label>Search users<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name or email" /></label></FilterBar>
     <DataTable caption="Users and roles" rows={rows} columns={[
       { key: 'fullName', header: 'Name' }, { key: 'email', header: 'Email' },
-      { key: 'roles', header: 'Role', render: (roles) => <div className="management-role-list">{roles.map((role) => <span key={role}>{role === ROLES.UAV_DEVICE_OPERATOR ? 'UAV & Device Operator' : ROLE_LABELS[role]}</span>)}</div> },
+      { key: 'roles', header: 'Role', render: (roles) => <div className="management-role-list">{roles.map((role) => <span key={role}>{role === ROLES.TECHNICIAN ? 'Technician' : ROLE_LABELS[role]}</span>)}</div> },
       { key: 'status', header: 'Status', render: (status) => <StatusBadge status={status} /> },
       { key: 'createdAt', header: 'Created', render: (at) => at ? <time dateTime={at}>{displayTime(at)}</time> : 'Not recorded' },
       { key: 'actions', header: 'Actions', render: (_, record) => {

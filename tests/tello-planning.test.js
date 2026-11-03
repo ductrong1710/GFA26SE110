@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as planning from '../src/services/api/planning.js'
 import { missionRequest } from '../src/services/api/adapters.js'
-const uav = { id: 1, model: 'DJI TeLLo EDU', isActive: true }
-const state = { uavs: [uav], missions: [], gateways: [{ id: 1, isActive: true, uavId: 1 }], sensorNodes: [{ id: 1, zoneId: 1, isActive: true }] }
+const rental = { farmId: 1, status: 'ACTIVE', startAt: '2020-01-01T00:00:00Z', endAt: '2099-01-01T00:00:00Z' }
+const uav = { id: 1, model: 'DJI TeLLo EDU', isActive: true, rental }
+const state = { uavs: [uav], missions: [], gateways: [{ id: 1, isActive: true, uavId: 1, rental }], sensorNodes: [{ id: 1, zoneId: 1, isActive: true }] }
 const workspace = { farms: [{ id: 1 }], zones: [{ id: 1, farmId: 1 }] }
 function plan() { return { ...planning.emptyMissionPlan(), name: 'Indoor', farmId: 1, uavId: 1, gatewayId: 1, flightAltitude: 1, sensorIds: [1], points: [{ id: 1, name: 'Point', x: 1, y: 0, sensorIds: [1] }], waypoints: [{ id: 1, coordinateType: 'RELATIVE', x: 1, y: 0, altitude: 1, holdSeconds: 0, action: 'COLLECT', pointId: 1 }] } }
 test('Tello recognizes model and permits a local collection route without GPS or lifecycle waypoints', () => {

@@ -87,7 +87,7 @@ export function allowedMissionStatuses(mission, state) {
 }
 
 export function updateMissionMonitoring(state, { missionId, note, status }, actor, workspace) {
-  if (!hasPermission(actor.activeRole, PERMISSIONS.MISSIONS_MANAGE)) throw new Error('Only operators can update mission monitoring records.')
+  if (!hasPermission(actor.activeRole, PERMISSIONS.MISSIONS_MANAGE)) throw new Error('Only farm owners can update mission monitoring records.')
   const mission = state.missions.find(({ id }) => id === missionId)
   if (!mission) throw new Error('Mission not found.')
   const text = String(note ?? '').trim()

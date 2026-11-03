@@ -4,6 +4,7 @@ import Icon from './Icon'
 
 const links = [
   { label: 'Nền tảng', href: '#platform' },
+  { label: 'Thiết bị và dịch vụ', href: '#rental' },
   { label: 'Cách hoạt động', href: '#how-it-works' },
   { label: 'Về Smart Farm', href: '#about' },
 ]

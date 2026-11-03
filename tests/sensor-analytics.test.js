@@ -26,7 +26,7 @@ test('buffered values require opt-in; mock receipts become available exactly onc
   const buffered = selectAnalytics(state, workspace, { ...filters, includeBuffered: true })
   assert.ok(synchronized.rows.every(({ receivedAt }) => receivedAt))
   assert.ok(buffered.rows.length > synchronized.rows.length)
-  const next = finishSyncRetry(beginSyncRetry(state, 6, { activeRole: 'UAV_DEVICE_OPERATOR', fullName: 'Test operator' }), 6, 1)
+  const next = finishSyncRetry(beginSyncRetry(state, 6, { kind: 'gateway', gatewayId: 1, name: 'Test gateway' }), 6, 1)
   const updated = selectAnalytics(next, workspace, filters)
   assert.equal(updated.rows.length, synchronized.rows.length + 1)
   assert.equal(new Set(updated.rows.map(({ sourceRecordKey }) => sourceRecordKey)).size, updated.rows.length)

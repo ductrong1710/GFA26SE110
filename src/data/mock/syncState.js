@@ -1,7 +1,6 @@
 import { syncBatches } from './syncBatches.js'
 import { sensorReadings } from './sensorReadings.js'
 import { MOCK_NOW } from './scenario.js'
-import { hasPermission, PERMISSIONS } from '../../config/permissions.js'
 
 export const SYNC_STATUSES = ['PENDING', 'SYNCING', 'SUCCESS', 'PARTIAL', 'FAILED']
 export function syncCounts(records) {
@@ -29,15 +28,16 @@ export function createSyncState() {
 }
 
 export function beginSyncRetry(state, batchId, actor) {
-  if (!hasPermission(actor.activeRole, PERMISSIONS.SYNC_MANAGE)) throw new Error('Only operators can retry synchronization.')
+  if (actor?.kind !== 'gateway' || actor.activeRole) throw new Error('Only the owning gateway can retry synchronization.')
   const batch = state.syncBatches.find(({ id }) => id === batchId)
   if (!batch || batch.status !== 'FAILED') throw new Error('Only failed batches can be retried.')
+  if (actor.gatewayId !== batch.gatewayId) throw new Error('Only the owning gateway can retry synchronization.')
   const gateway = state.gateways.find(({ id }) => id === batch.gatewayId)
   if (!gateway || !['ONLINE', 'SYNCING'].includes(gateway.status)) throw new Error('The gateway is offline. Local records are retained until connectivity returns.')
   const retryCount = batch.retryCount + 1
   return { ...state, syncBatches: state.syncBatches.map((record) => record.id !== batchId ? record : {
     ...batch, retryCount, status: 'SYNCING', activeRetry: true, startedAt: MOCK_NOW, completedAt: null,
-    history: [...batch.history, { id: retryCount, actorName: actor.fullName ?? 'Operator', startedAt: MOCK_NOW, completedAt: null, status: 'SYNCING', error: null }],
+    history: [...batch.history, { id: retryCount, actorName: actor.name ?? 'Gateway', startedAt: MOCK_NOW, completedAt: null, status: 'SYNCING', error: null }],
   }) }
 }
 

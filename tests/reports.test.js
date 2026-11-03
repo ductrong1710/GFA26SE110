@@ -12,14 +12,14 @@ const filters = { ...REPORT_DEFAULT_RANGE, farmId: 1, zoneId: '', type: 'sensor'
 const build = (role = 'ADMINISTRATOR', values = {}, state = createOperationsState(), management = createManagementState()) => buildReport(role, { ...filters, ...values }, state, workspace, management)
 
 test('report catalog, payloads and export actions respect role scope', () => {
-  assert.deepEqual(getReportTypes('UAV_DEVICE_OPERATOR').map(({ id }) => id), ['mission', 'device'])
-  assert.deepEqual(getReportTypes('AGRICULTURAL_ENGINEER').map(({ id }) => id), ['sensor', 'alert'])
+  assert.deepEqual(getReportTypes('TECHNICIAN').map(({ id }) => id), [])
+  assert.deepEqual(getReportTypes('AGRICULTURAL_ENGINEER').map(({ id }) => id), [])
   assert.throws(() => build('UAV_DEVICE_OPERATOR'), /cannot view/)
   assert.throws(() => build('AGRICULTURAL_ENGINEER', { type: 'mission' }), /cannot view/)
   const owner = build('FARM_OWNER')
   assert.equal(owner.detail, null)
   assert.ok(reportCsv(owner, 'FARM_OWNER').includes('Sensor statistics'))
-  assert.throws(() => reportCsv(build('AGRICULTURAL_ENGINEER'), 'AGRICULTURAL_ENGINEER'), /cannot export/)
+  assert.throws(() => reportCsv(owner, 'AGRICULTURAL_ENGINEER'), /cannot export/)
   assert.throws(() => reportCsv(owner, 'ADMINISTRATOR'), /cannot export/)
 })
 
@@ -38,13 +38,13 @@ test('sensor summaries keep units separate, zone filters consistent and previews
 })
 
 test('mission counts and weighted attempt success rate derive from linked outcomes', () => {
-  const report = build('UAV_DEVICE_OPERATOR', { type: 'mission' })
+  const report = build('ADMINISTRATOR', { type: 'mission' })
   assert.equal(report.kpis.find(([name]) => name === 'Mission Count')[1], 4)
   assert.equal(report.kpis.find(([name]) => name === 'Completed')[1], 1)
   assert.equal(report.kpis.find(([name]) => name === 'Partial')[1], 1)
   assert.equal(report.kpis.find(([name]) => name === 'Failed')[1], 1)
   assert.equal(report.kpis.find(([name]) => name === 'Collection Success Rate')[1], '86%')
-  const zone = build('UAV_DEVICE_OPERATOR', { type: 'mission', zoneId: '2' })
+  const zone = build('ADMINISTRATOR', { type: 'mission', zoneId: '2' })
   assert.equal(zone.kpis[0][1], 3)
   assert.ok(zone.detail.rows.every(({ targets }) => targets > 0))
 })
@@ -60,12 +60,10 @@ test('device report filters last seen and zone relationships without fabricating
   assert.equal(empty.detail.rows.length, 0)
 })
 
-test('alert reports use latest lifecycle and engineer environmental scope', () => {
+test('alert reports use latest lifecycle and deny unassigned engineers', () => {
   const report = build('ADMINISTRATOR', { type: 'alert' })
   assert.deepEqual(report.kpis.map(([, value]) => value), [7, 4, 2, 1])
-  const engineer = build('AGRICULTURAL_ENGINEER', { type: 'alert' })
-  assert.equal(engineer.kpis[0][1], 3)
-  assert.ok(engineer.detail.rows.every(({ type }) => ['SENSOR_THRESHOLD', 'SENSOR_DATA_TIMEOUT'].includes(type)))
+  assert.throws(() => build('AGRICULTURAL_ENGINEER', { type: 'alert' }), /cannot view/)
   const management = createManagementState()
   management.alerts[0].missionId = 1
   assert.equal(build('ADMINISTRATOR', { type: 'alert', zoneId: '1' }, createOperationsState(), management).detail.rows.some(({ id }) => id === 1), false)

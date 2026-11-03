@@ -17,7 +17,7 @@ function SensorDataView({ currentFarm, selectFarm, farmWorkspace, compareOnly })
   const { operations: demoOperations } = useOperations()
   const { activeRole, can } = useAuth()
   const simplified = activeRole === ROLES.FARM_OWNER
-  const technical = activeRole === ROLES.UAV_DEVICE_OPERATOR
+  const technical = activeRole === ROLES.TECHNICIAN
   const [filters, setFilters] = useState({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '1', includeBuffered: false })
   const [page, setPage] = useState(0)
   const query = useAnalytics(currentFarm.id, filters)

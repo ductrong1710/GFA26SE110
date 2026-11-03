@@ -65,12 +65,12 @@ test('settings enforce ranges and preserve captured alert thresholds', () => {
   assert.throws(() => update(state, { kind: 'settings', values: { ...settings, dataTimeoutMinutes: 0 } }))
 })
 
-test('read-only roles cannot mutate any management data; operator alert scope stays related-only', () => {
+test('read-only roles cannot mutate any management data; technicians have no general alert scope', () => {
   const state = createManagementState()
-  for (const role of [ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER, ROLES.UAV_DEVICE_OPERATOR]) {
+  for (const role of [ROLES.FARM_OWNER, ROLES.AGRICULTURAL_ENGINEER, ROLES.TECHNICIAN]) {
     for (const change of [{ kind: 'user', id: 1, values: { status: 'INACTIVE' } }, { kind: 'alert', id: 1, action: 'CLOSED' }, { kind: 'settings', values: state.settings }]) assert.throws(() => update(state, change, { id: 2, activeRole: role }), /cannot make/)
   }
-  assert.ok(!getAlertsForUser(2, ROLES.UAV_DEVICE_OPERATOR, state.alerts).some(({ id }) => id === 5))
+  assert.deepEqual(getAlertsForUser(2, ROLES.TECHNICIAN, state.alerts), [])
 })
 
 test('alert filters use Vietnam dates and linked farm/zone/device metadata', () => {

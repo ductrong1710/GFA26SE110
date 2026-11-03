@@ -9,7 +9,7 @@ afterEach(() => {
 })
 
 describe('Users page role selection', () => {
-  it.each(['AGRICULTURAL_ENGINEER', 'UAV_DEVICE_OPERATOR'])('submits the selected role %s with the Save button', async (selectedRole) => {
+  it.each([['AGRICULTURAL_ENGINEER'], ['TECHNICIAN'], ['TECHNICIAN', 'AGRICULTURAL_ENGINEER']].map(roles => [roles]))('submits the selected role %s with the Save button', async (selectedRoles) => {
     const changeManagement = vi.fn().mockResolvedValue(undefined)
     HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
     HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
@@ -25,20 +25,18 @@ describe('Users page role selection', () => {
     </ManagementContext.Provider>)
 
     fireEvent.click(screen.getByRole('button', { name: '+ Add User' }))
-    const owner = screen.getByRole('radio', { name: 'Farm Owner' })
-    const engineer = screen.getByRole('radio', { name: 'Agricultural Engineer' })
+    const owner = screen.getByRole('checkbox', { name: 'Farm Owner' })
+    const engineer = screen.getByRole('checkbox', { name: 'Agricultural Engineer' })
     expect(owner.checked).toBe(true)
     expect(engineer.checked).toBe(false)
 
-    const operator = screen.getByRole('radio', { name: 'UAV and Device Operator' })
-    fireEvent.click(operator)
-    expect(operator.checked).toBe(true)
+    const technician = screen.getByRole('checkbox', { name: 'Technician' })
+    fireEvent.click(owner)
+    if (selectedRoles.includes('TECHNICIAN')) fireEvent.click(technician)
+    if (selectedRoles.includes('AGRICULTURAL_ENGINEER')) fireEvent.click(engineer)
     expect(owner.checked).toBe(false)
-    fireEvent.click(engineer)
-    expect(owner.checked).toBe(false)
-    expect(engineer.checked).toBe(true)
-
-    if (selectedRole === 'UAV_DEVICE_OPERATOR') fireEvent.click(operator)
+    expect(technician.checked).toBe(selectedRoles.includes('TECHNICIAN'))
+    expect(engineer.checked).toBe(selectedRoles.includes('AGRICULTURAL_ENGINEER'))
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } })
@@ -48,7 +46,7 @@ describe('Users page role selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }))
 
     await waitFor(() => expect(changeManagement).toHaveBeenCalledWith(expect.objectContaining({
-      values: expect.objectContaining({ roles: [selectedRole] }),
+      values: expect.objectContaining({ roles: selectedRoles }),
     })))
   })
 })

@@ -3,6 +3,7 @@ import { useNotifications } from '../../services/api/useNotifications'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getNavigationForRole } from '../../config/navigation'
+import { PERMISSIONS as P } from '../../config/permissions'
 import { useAuth } from '../../context/AuthContext'
 import AppIcon from './AppIcon'
 
@@ -101,6 +102,8 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
         </button>
         {popover === 'account' && <section id="app-account-panel" className="app-popover app-account-panel" aria-label="Your account">
           <p className="app-popover-label">Your account</p><strong>{user.fullName}</strong><p>{user.email}</p><p>{activeRoleLabel}</p>
+          {canAny([P.SETTINGS_MANAGE]) && <Link to="/app/settings" onClick={() => setPopover(null)}>Nội dung trang chủ</Link>}
+          <Link to="/doi-mat-khau">Đổi mật khẩu</Link>
           <button type="button" onClick={handleLogout}><AppIcon name="logout" size={17} />Đăng xuất</button>
         </section>}
       </div>
