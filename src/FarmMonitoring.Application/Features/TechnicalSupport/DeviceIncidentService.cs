@@ -6,7 +6,7 @@ namespace FarmMonitoring.Application.Features.TechnicalSupport;
 
 public sealed record CreateDeviceIncidentRequest(int RentalDeviceAssignmentId, string Description, int? MissionId = null, EvidenceImageData[]? Images = null);
 public sealed record DeviceIncidentSummary(int Id, int FarmId, int RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId);
-public sealed record DeviceIncidentDetail(int Id, int FarmId, int RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId, int ReporterId, EvidenceImageData[] Images);
+public sealed record DeviceIncidentDetail(int Id, int FarmId, int RentalDeviceAssignmentId, string DeviceCode, string Description, DateTimeOffset ReportedAt, string Status, int? MissionId, int ReporterId, EvidenceImageData[] Images, int? ServiceJobId);
 public sealed class CreateDeviceIncidentValidator : AbstractValidator<CreateDeviceIncidentRequest>
 {
     public CreateDeviceIncidentValidator()

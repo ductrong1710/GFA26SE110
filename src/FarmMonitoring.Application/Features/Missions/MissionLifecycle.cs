@@ -16,6 +16,9 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
     {
         if (!MissionRules.CanTransition(mission.Status, status))
             throw new ConflictException($"Cannot change mission from {mission.Status} to {status}.");
+        if (request.ManualCompletion && (status != MissionStatus.COMPLETED || userId == null || gatewayId != null ||
+            string.IsNullOrWhiteSpace(request.Note)))
+            throw new ValidationException("Manual completion requires an operator statement and an authenticated human completion action.");
         if (status is MissionStatus.SCHEDULED or MissionStatus.RUNNING)
         {
             await ValidateResources(mission, true, ct);
@@ -26,7 +29,7 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
             if (status == MissionStatus.SCHEDULED) ValidateFutureSchedule(mission);
             await CheckOverlap(mission, status == MissionStatus.RUNNING, ct);
         }
-        if (status == MissionStatus.COMPLETED && (mission.Targets.Count == 0 || mission.Targets.Any(x => x.Status == MissionTargetStatus.PENDING)))
+        if (status == MissionStatus.COMPLETED && !request.ManualCompletion && (mission.Targets.Count == 0 || mission.Targets.Any(x => x.Status == MissionTargetStatus.PENDING)))
             throw new BusinessRuleException("Every mission target must have a collection outcome before completion.");
         if (status == MissionStatus.FAILED)
         {
@@ -45,6 +48,8 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         if (status == MissionStatus.RUNNING) mission.StartedAt = Timestamp();
         if (status is MissionStatus.COMPLETED or MissionStatus.FAILED or MissionStatus.CANCELLED)
             mission.CompletedAt = Timestamp();
+        if (request.ManualCompletion)
+            Log(mission, userId, null, "MANUAL_COMPLETION", request.Note!);
         mission.Status = status;
         mission.UpdatedAt = Timestamp();
         if (request.OperatorNotes is not null) mission.OperatorNotes = request.OperatorNotes.Trim();

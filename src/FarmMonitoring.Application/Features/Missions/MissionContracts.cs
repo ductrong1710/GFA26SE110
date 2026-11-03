@@ -13,7 +13,7 @@ public sealed record MissionRequest(string Name, int FarmId, int? UavId, int? Ga
     public int[] TargetSensorIds() => TargetAssignments?.Select(x => x.SensorNodeId).ToArray() ?? SensorNodeIds ?? [];
 }
 public sealed record ScheduleMissionRequest(DateTimeOffset ScheduledStartAt, DateTimeOffset ScheduledEndAt);
-public sealed record MissionActionRequest(string? OperatorNotes, string? FailureReason, string? Note, string? Reason);
+public sealed record MissionActionRequest(string? OperatorNotes, string? FailureReason, string? Note, string? Reason, bool ManualCompletion = false);
 public sealed record MissionNoteRequest(string Note, EvidenceImageData[]? Images = null);
 public sealed record MissionStatusRequest(string Status, string? Note);
 public sealed class MissionQuery : PageQuery

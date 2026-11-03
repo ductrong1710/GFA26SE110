@@ -541,6 +541,186 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("crop_consultation_updates", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CropSeason", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("AreaHectares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("area_hectares");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("CompletionNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("completion_notes");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Crop")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("crop");
+
+                    b.Property<int?>("CropAgeDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("crop_age_days");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<DateOnly?>("ExpectedEndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expected_end_date");
+
+                    b.Property<int>("FarmId")
+                        .HasColumnType("integer")
+                        .HasColumnName("farm_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
+
+                    b.Property<decimal?>("RevenueVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revenue_vnd");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal?>("TotalCostVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_cost_vnd");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<decimal?>("YieldKg")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("yield_kg");
+
+                    b.Property<int?>("ZoneId")
+                        .HasColumnType("integer")
+                        .HasColumnName("zone_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FarmId");
+
+                    b.HasIndex("ZoneId");
+
+                    b.HasIndex("OwnerId", "FarmId", "Id");
+
+                    b.ToTable("crop_seasons", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_crop_season_dates", "(start_date IS NULL OR expected_end_date IS NULL OR expected_end_date >= start_date) AND (start_date IS NULL OR end_date IS NULL OR end_date >= start_date)");
+
+                            t.HasCheckConstraint("ck_crop_season_status", "(status = 'ACTIVE' AND completed_at IS NULL) OR (status = 'COMPLETED' AND completed_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_crop_season_values", "(area_hectares IS NULL OR area_hectares > 0) AND (crop_age_days IS NULL OR crop_age_days >= 0) AND (yield_kg IS NULL OR yield_kg >= 0) AND (total_cost_vnd IS NULL OR total_cost_vnd >= 0) AND (revenue_vnd IS NULL OR revenue_vnd >= 0) AND revision > 0");
+                        });
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CultivationActivity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("CostVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("cost_vnd");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("SeasonId")
+                        .HasColumnType("integer")
+                        .HasColumnName("season_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SeasonId", "Date", "Id");
+
+                    b.ToTable("cultivation_activities", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cultivation_activity_cost", "cost_vnd IS NULL OR cost_vnd >= 0");
+
+                            t.HasCheckConstraint("ck_cultivation_activity_type", "type IN ('WATERING', 'FERTILIZING', 'PESTICIDE', 'INSPECTION', 'OTHER')");
+                        });
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.DeviceIncident", b =>
                 {
                     b.Property<int>("Id")
@@ -719,6 +899,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("crop_consultation_update_id");
 
+                    b.Property<int?>("CultivationActivityId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cultivation_activity_id");
+
                     b.Property<int?>("IncidentId")
                         .HasColumnType("integer")
                         .HasColumnName("incident_id");
@@ -745,6 +929,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CropConsultationUpdateId");
 
+                    b.HasIndex("CultivationActivityId");
+
                     b.HasIndex("IncidentId");
 
                     b.HasIndex("MissionLogId");
@@ -757,7 +943,7 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
                     b.ToTable("evidence_images", null, t =>
                         {
-                            t.HasCheckConstraint("ck_evidence_image_parent", "num_nonnulls(survey_id, report_id, mission_log_id, incident_id, service_report_id, crop_condition_report_id, crop_consultation_update_id) = 1");
+                            t.HasCheckConstraint("ck_evidence_image_parent", "num_nonnulls(survey_id, report_id, mission_log_id, incident_id, service_report_id, crop_condition_report_id, crop_consultation_update_id, cultivation_activity_id) = 1");
 
                             t.HasCheckConstraint("ck_evidence_image_size", "octet_length(content) BETWEEN 4 AND 2097152");
 
@@ -2012,6 +2198,70 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasIndex("SurveyZoneId");
 
                     b.ToTable("proposal_lines", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.PublicContent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<decimal?>("EstimatedMonthlyRentVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("estimated_monthly_rent_vnd");
+
+                    b.Property<byte[]>("Image")
+                        .HasColumnType("bytea")
+                        .HasColumnName("image");
+
+                    b.Property<string>("ImageType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("image_type");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<bool>("Published")
+                        .HasColumnType("boolean")
+                        .HasColumnName("published");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Published", "Id");
+
+                    b.ToTable("public_content", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_public_content_image", "(image IS NULL AND image_type IS NULL) OR (image IS NOT NULL AND image_type IS NOT NULL AND image_type IN ('image/png', 'image/jpeg') AND octet_length(image) BETWEEN 1 AND 2097152)");
+
+                            t.HasCheckConstraint("ck_public_content_rent", "estimated_monthly_rent_vnd IS NULL OR (kind = 'DEVICE' AND estimated_monthly_rent_vnd >= 0)");
+
+                            t.HasCheckConstraint("ck_public_content_revision", "revision > 0");
+                        });
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.RefreshToken", b =>
@@ -3581,6 +3831,43 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Report");
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CropSeason", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Farm", null)
+                        .WithMany()
+                        .HasForeignKey("FarmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Zone", null)
+                        .WithMany()
+                        .HasForeignKey("ZoneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CultivationActivity", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.CropSeason", "Season")
+                        .WithMany("Activities")
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Season");
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.DeviceIncident", b =>
                 {
                     b.HasOne("FarmMonitoring.Domain.Entities.Farm", null)
@@ -3656,6 +3943,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasOne("FarmMonitoring.Domain.Entities.CropConsultationUpdate", null)
                         .WithMany("Images")
                         .HasForeignKey("CropConsultationUpdateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.CultivationActivity", null)
+                        .WithMany("Images")
+                        .HasForeignKey("CultivationActivityId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FarmMonitoring.Domain.Entities.DeviceIncident", null)
@@ -4494,6 +4786,16 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.CropConsultationUpdate", b =>
+                {
+                    b.Navigation("Images");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CropSeason", b =>
+                {
+                    b.Navigation("Activities");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.CultivationActivity", b =>
                 {
                     b.Navigation("Images");
                 });

@@ -2,13 +2,14 @@ using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Application.Features.Equipment;
 using FarmMonitoring.Application.Common;
 using FarmMonitoring.Application.Features.Reports;
+using FarmMonitoring.Application.Features.Rentals;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
-public sealed class ReportRepository(AppDbContext db, TimeProvider clock) : IReportRepository
+public sealed class ReportRepository(AppDbContext db, TimeProvider clock, RentalExpirationSettings rentalSettings) : IReportRepository
 {
     private IQueryable<Alert> AlertsInFarm(IQueryable<Alert> rows, int farmId) =>
         rows.Where(x => (x.SensorChannel != null ? (int?)x.SensorChannel.SensorNode.Zone.FarmId :
@@ -41,8 +42,27 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock) : IRep
             g.Count(x => x.Status == MissionStatus.RUNNING), g.Count(x => x.Status == MissionStatus.FAILED))).SingleOrDefaultAsync(ct) ?? new(0, 0, 0);
         var alerts = await alertRows.GroupBy(x => 1).Select(g => new AlertCounts(g.Count(x => x.Status == AlertStatus.OPEN),
             g.Count(x => x.Status != AlertStatus.CLOSED && x.Severity == AlertSeverity.CRITICAL), g.Count(x => x.Status == AlertStatus.ACKNOWLEDGED))).SingleOrDefaultAsync(ct) ?? new(0, 0, 0);
+        var operations = await OperationsAsync(scope, farmIds, now, ct);
         await transaction.CommitAsync(ct);
-        return new(farms, sensors, gateways, missions, alerts);
+        return new(farms, sensors, gateways, missions, alerts, operations);
+    }
+    private async Task<DashboardOperations> OperationsAsync(FarmAccessScope scope, IQueryable<int> farmIds, DateTimeOffset now, CancellationToken ct)
+    {
+        var contracts = db.RentalContracts.Where(x => farmIds.Contains(x.FarmId) && (scope.IsAdministrator || x.OwnerId == scope.UserId));
+        var active = contracts.Where(x => x.Status == RentalStatus.ACTIVE && x.StartAt <= now && x.EndAt > now);
+        var warningAt = now.AddDays(rentalSettings.WarningDays);
+        var installations = await db.InstallationJobs.CountAsync(x => farmIds.Contains(x.InstallationRequest.FarmId) &&
+            (scope.IsAdministrator || x.InstallationRequest.OwnerId == scope.UserId) && x.Status != InstallationJobStatus.APPROVED, ct);
+        var serviceCounts = await db.ServiceJobs.Where(x => contracts.Any(c => c.Id == x.RentalDeviceAssignment.ContractId) && x.Status != ServiceJobStatus.CLOSED)
+            .GroupBy(x => x.Type).Select(g => new { Type = g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Type, x => x.Count, ct);
+        var seasons = db.CropSeasons.Where(x => farmIds.Contains(x.FarmId) && (scope.IsAdministrator || x.OwnerId == scope.UserId));
+        var recent = await db.CultivationActivities.Where(x => seasons.Any(s => s.Id == x.SeasonId))
+            .OrderByDescending(x => x.Date).ThenByDescending(x => x.Id).Take(5)
+            .Select(x => new RecentCultivation(x.Id, x.SeasonId, x.Season.Name, x.Date, x.Type.ToString(), x.Description)).ToArrayAsync(ct);
+        return new(installations, serviceCounts.GetValueOrDefault(ServiceJobType.MAINTENANCE), serviceCounts.GetValueOrDefault(ServiceJobType.REPAIR),
+            await active.CountAsync(ct), await active.CountAsync(x => x.EndAt <= warningAt, ct),
+            await contracts.CountAsync(x => x.Status == RentalStatus.EXPIRED || x.Status == RentalStatus.ACTIVE && x.EndAt <= now, ct),
+            rentalSettings.WarningDays, await seasons.CountAsync(x => x.Status == CropSeasonStatus.ACTIVE, ct), recent);
     }
     public async Task<PagedResult<SensorReportRow>> SensorsAsync(ReportQuery query, ReportPeriod period, FarmAccessScope scope, CancellationToken ct)
     {

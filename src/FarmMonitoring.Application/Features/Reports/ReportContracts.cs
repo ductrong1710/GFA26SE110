@@ -20,7 +20,11 @@ public sealed class DeviceReportQuery : PageQuery
 public sealed record DeviceCounts(int Total, int Online, int Offline, int Other, int Inactive);
 public sealed record MissionCounts(int Scheduled, int Running, int Failed);
 public sealed record AlertCounts(int Open, int Critical, int Acknowledged);
-public sealed record DashboardOverview(int Farms, DeviceCounts SensorNodes, DeviceCounts Gateways, MissionCounts Missions, AlertCounts Alerts);
+public sealed record DashboardOverview(int Farms, DeviceCounts SensorNodes, DeviceCounts Gateways, MissionCounts Missions, AlertCounts Alerts,
+    DashboardOperations Operations);
+public sealed record DashboardOperations(int OpenInstallations, int OpenMaintenance, int OpenRepairs,
+    int ActiveRentals, int ExpiringRentals, int ExpiredRentals, int WarningDays, int ActiveSeasons, RecentCultivation[] RecentCultivation);
+public sealed record RecentCultivation(int Id, int SeasonId, string SeasonName, DateOnly Date, string Type, string Description);
 public sealed record SensorReportRow(int SensorChannelId, int SensorNodeId, string ChannelCode, string? Unit, int ZoneId,
     long ReadingCount, decimal Minimum, decimal Maximum, decimal Average, DateTimeOffset FirstMeasuredAt, DateTimeOffset LastMeasuredAt);
 public sealed record MissionReportRow(int Id, string Name, int FarmId, string Status, DateTimeOffset CreatedAt,

@@ -28,6 +28,15 @@ public sealed class CropSupportApiTests(ApiFactory factory)
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         var path = $"/api/crop-condition-reports/{id}";
         (await engineer.PostAsync($"{path}/claim", null)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await unassigned.GetAsync($"{path}/crop-seasons")).StatusCode);
+        var ownerId = await db.Users.Where(x => x.Email == "owner@example.com").Select(x => x.Id).SingleAsync();
+        db.CropSeasons.AddRange(new CropSeason { OwnerId = ownerId, FarmId = farm.Id, Name = "Spring rice", Crop = "Rice", CreatedAt = DateTimeOffset.UtcNow },
+            new CropSeason { OwnerId = user.Id, FarmId = farm.Id, Name = "Private", Crop = "Corn", CreatedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+        var seasons = await engineer.GetFromJsonAsync<JsonElement>($"{path}/crop-seasons");
+        var season = Assert.Single(seasons.GetProperty("data").EnumerateArray());
+        Assert.Equal("Spring rice", season.GetProperty("name").GetString());
+        Assert.False(season.TryGetProperty("revenueVnd", out _));
         var request = new { expectedRevision = 2, content = "Please send more photos" };
         Assert.Equal(HttpStatusCode.Forbidden, (await unassigned.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await unassigned.PostAsJsonAsync($"{path}/request-information", request)).StatusCode);

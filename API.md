@@ -1,5 +1,9 @@
 # API.md
 
+### Operational dashboard summary
+
+`GET /api/dashboard/overview?farmId={id}` additionally returns `operations`: `openInstallations`, `openMaintenance`, `openRepairs`, `activeRentals`, `expiringRentals`, `expiredRentals`, `warningDays`, `activeSeasons`, and `recentCultivation` (up to five `{id, seasonId, seasonName, date, type, description}` entries ordered by activity date then ID). Existing overview fields are unchanged. Counts are computed in the same repeatable-read snapshot as device/alert/mission totals. Owner results require current farm membership and the linked owner identity; Admin can view all or filter to one farm. Expiring contracts use the configured `RentalExpiration:WarningDays`; dates and status are evaluated on the server. Missing cultivation data returns an empty array, never estimated activities or harvest values.
+
 ## Cancel a manually claimed, never-started flight test
 
 Admin-only `POST /api/gateways/{gatewayId}/flight-tests/{id}/cancel` accepts
@@ -1263,3 +1267,26 @@ Request-information: IN_REVIEW -> AWAITING_INFORMATION; reply: AWAITING_INFORMAT
 
 ### Crop report sensor context
 GET `/api/crop-condition-reports/{id}/sensor-readings` accepts standard pagination and returns measurement id, sensorChannelId, channelCode, unit, value, measuredAt, isValid and qualityStatus, newest measuredAt/id first. It applies the same current report visibility as detail and restricts data to report-linked channels still in the report farm and optional zone. Moved channels produce no readings; general farm/sensor API permissions are unchanged. No write endpoint, mission/gateway identities, raw source keys or generated diagnosis are exposed by this contextual endpoint. Invalid pagination400; inaccessible report403; missing404. This is live context, not a snapshot of the readings at submission time.
+
+### Crop seasons
+POST /api/crop-seasons creates an ACTIVE season at revision 1. Submit expectedRevision 0, farmId, optional zoneId, name and crop. Optional metadata includes areaHectares, startDate, expectedEndDate, cropAgeDays and notes. Missing values remain null. PUT /api/crop-seasons/{id} replaces the editable metadata and requires the current revision and original farm/zone. Concurrent edits at one revision have one winner. A completed season rejects edits. Writes require the recorded Owner, current membership and an active farm. GET /api/crop-seasons lists visible seasons with standard pagination. GET /api/crop-seasons/{id} returns details. Admin may monitor all seasons. Owner reads require current membership and ownership. POST /api/crop-seasons/{id}/complete accepts the current expectedRevision plus optional endDate, yieldKg, totalCostVnd, revenueVnd and notes. Only the recorded Owner with current membership can complete an active season. An actual end date before a recorded start returns 422. Successful completion advances the revision and closes the season to further edits. Unknown results remain null and supplied zero values are retained.
+
+POST /api/crop-seasons/{id}/activities appends a dated cultivation log to an active season and returns the updated season. Send expectedRevision, date, type and description with optional costVnd, notes and images. Image limits are five JPEG/PNG files up to 2 MiB each. The activity, images and season revision are saved together. GET /api/crop-seasons/{id}/activities lists activities by date and ID descending with standard pagination and imageCount. GET /api/crop-seasons/{id}/activities/{activityId}/images returns evidence for that activity. Both reads enforce current season access, including after completion.
+
+GET /api/crop-seasons/compare?ids=1&ids=2 returns the selected seasons in request order. A Farm Owner may select 2 through 50 distinct seasons within current farm membership. Each row includes recorded area, yield, total cost, revenue, activity counts by type, elapsed days between actual start and end dates, and revenue less total cost. Missing inputs leave the derived result null. A selection containing an inaccessible season returns 403 for the whole comparison. An unknown season returns 404.
+
+### Public homepage content
+
+Visitors can read the paged list at `GET /api/public-content`. Each entry provides its category, title, body, optional estimated monthly device rent in VND and an image indicator. `GET /api/public-content/{id}/image` serves the published image. A missing, draft or withdrawn image returns 404.
+
+Administrators list all entries or create drafts at `/api/admin/public-content` using GET or POST. Send `kind`, `title`, `body` and `expectedRevision: 0` to create a draft. Supported categories are SERVICE, DEVICE, INSTALLATION, WARRANTY, MAINTENANCE, RETURN and CONTACT. Only DEVICE accepts `estimatedMonthlyRentVnd`. Supply one optional PNG or JPEG as `image` with `contentType` and `dataBase64`, up to 2 MiB decoded.
+
+Update with `PUT /api/admin/public-content/{id}` and the loaded revision. Omitting the image retains it. Set `removeImage` to remove it. Changes to a published entry take effect immediately. Use `POST /api/admin/public-content/{id}/publish` or `/unpublish` with `expectedRevision` to change visibility. A concurrent edit or repeated publication transition returns 409.
+
+An incident detail response includes nullable `serviceJobId`. After assignment, the Admin or the authorized Farm Owner can open that service job from the incident detail. The incident remains OPEN during repair and changes to RESOLVED when the Admin approves the owner-confirmed service report.
+
+### Operator-confirmed mission completion
+
+`POST /api/missions/{id}/complete` accepts optional `manualCompletion: true` together with a required nonblank `note`. The normal Farm Owner authorization, farm access and RUNNING-to-COMPLETED transition still apply. This records a human observation when collection outcomes are unavailable. A `MANUAL_COMPLETION` log retains the actor, timestamp and statement. Existing pending targets remain pending and no collection attempt, reading or successful target is synthesized.
+
+Requests without the flag continue to require recorded outcomes for every target. The flag is invalid for other lifecycle actions or device actors. A late result is handled by the existing ingestion rules. This implementation treats the mission's terminal state as the flight outcome and its per-target result as the separately recorded collection outcome.

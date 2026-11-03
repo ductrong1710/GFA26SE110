@@ -3,6 +3,7 @@ namespace FarmMonitoring.Domain.Entities;
 public sealed class EvidenceImage
 {
     public int Id { get; set; }
+    public int? CultivationActivityId { get; set; }
     public int? CropConditionReportId { get; set; }
     public int? CropConsultationUpdateId { get; set; }
     public int? IncidentId { get; set; }

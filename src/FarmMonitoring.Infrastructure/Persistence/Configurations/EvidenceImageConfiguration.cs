@@ -10,11 +10,13 @@ public sealed class EvidenceImageConfiguration : IEntityTypeConfiguration<Eviden
     {
         builder.ToTable("evidence_images", t =>
         {
-            t.HasCheckConstraint("ck_evidence_image_parent", "num_nonnulls(survey_id, report_id, mission_log_id, incident_id, service_report_id, crop_condition_report_id, crop_consultation_update_id) = 1");
+            t.HasCheckConstraint("ck_evidence_image_parent", "num_nonnulls(survey_id, report_id, mission_log_id, incident_id, service_report_id, crop_condition_report_id, crop_consultation_update_id, cultivation_activity_id) = 1");
             t.HasCheckConstraint("ck_evidence_image_size", "octet_length(content) BETWEEN 4 AND 2097152");
             t.HasCheckConstraint("ck_evidence_image_type", "content_type IN ('image/png', 'image/jpeg')");
         });
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.CultivationActivityId).HasColumnName("cultivation_activity_id");
+        builder.HasOne<CultivationActivity>().WithMany(x => x.Images).HasForeignKey(x => x.CultivationActivityId).OnDelete(DeleteBehavior.Restrict);
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.CropConditionReportId).HasColumnName("crop_condition_report_id");
         builder.Property(x => x.CropConsultationUpdateId).HasColumnName("crop_consultation_update_id");

@@ -7,6 +7,7 @@ namespace FarmMonitoring.Application.Features.CropSupport;
 
 public sealed record CropConditionSummary(int Id, int FarmId, int? ZoneId, string Crop, string Description,
     DateTimeOffset ReportedAt, string Status, int ReporterId, int? EngineerId, int Revision);
+public sealed record SupportingCropSeason(int Id, string Name, string Crop, DateOnly? StartDate, DateOnly? EndDate, string Status);
 public sealed record CropSensorReading(long Id, int SensorChannelId, string ChannelCode, string? Unit,
     decimal Value, DateTimeOffset MeasuredAt, bool IsValid, string? QualityStatus);
 public sealed record CropConsultationDetail(int Id, int UserId, string Action, string Content,
@@ -19,6 +20,11 @@ public sealed class CropSupportService(ICropSupportRepository repository, ICurre
     IValidator<PageQuery> pages, IValidator<CreateCropConditionRequest> creates, IValidator<CropConsultationRequest> updates)
 {
     private int Actor => current.UserId ?? throw new AuthException("Authentication required.");
+    public async Task<PagedResult<SupportingCropSeason>> SeasonsAsync(int id, PageQuery query, CancellationToken ct)
+    {
+        await pages.ValidateAndThrowAsync(query, ct);
+        return await repository.SeasonsAsync(id, Actor, query, ct);
+    }
     public async Task<PagedResult<CropSensorReading>> ReadingsAsync(int id, PageQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);

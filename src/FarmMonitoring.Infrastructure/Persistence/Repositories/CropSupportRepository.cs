@@ -8,6 +8,23 @@ using Microsoft.EntityFrameworkCore;
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 public sealed class CropSupportRepository(AppDbContext db) : ICropSupportRepository
 {
+    public async Task<PagedResult<SupportingCropSeason>> SeasonsAsync(int id, int actorId, PageQuery query, CancellationToken ct)
+    {
+        var reports = db.CropConditionReports.Where(r => r.Id == id && r.EngineerId == actorId &&
+            db.UserRoles.Any(role => role.UserId == actorId && role.User.IsActive && role.Role.Name == RoleNames.FarmEngineer));
+        if (!await reports.AnyAsync(ct))
+        {
+            if (!await db.CropConditionReports.AnyAsync(r => r.Id == id, ct)) throw new NotFoundException("Crop condition report not found.");
+            throw new AccessDeniedException("Only the assigned Engineer can view supporting seasons.");
+        }
+        var seasons = db.CropSeasons.Where(s => reports.Any(r => r.ReporterId == s.OwnerId && r.FarmId == s.FarmId &&
+            (r.ZoneId == null || r.ZoneId == s.ZoneId)));
+        var count = await seasons.CountAsync(ct);
+        var items = await seasons.OrderByDescending(s => s.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+            .Select(s => new SupportingCropSeason(s.Id, s.Name, s.Crop, s.StartDate, s.EndDate, s.Status.ToString())).ToArrayAsync(ct);
+        return new(items, count, query.Page, query.PageSize);
+    }
+
     public async Task<PagedResult<CropSensorReading>> ReadingsAsync(int id, int actorId, PageQuery query, CancellationToken ct)
     {
         var reports = (await ScopeAsync(actorId, ct)).Where(x => x.Id == id);

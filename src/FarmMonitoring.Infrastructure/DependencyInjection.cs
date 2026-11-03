@@ -1,4 +1,6 @@
+using FarmMonitoring.Application.Features.PublicInformation;
 using FarmMonitoring.Application.Interfaces;
+using FarmMonitoring.Application.Features.CropSeasons;
 using FarmMonitoring.Application.Features.Rentals;
 using FarmMonitoring.Application.Features.Alerts;
 using FarmMonitoring.Infrastructure.BackgroundJobs;
@@ -42,7 +44,9 @@ public static class DependencyInjection
         services.AddScoped<IInstallationDeviceRepository, InstallationDeviceRepository>();
         services.AddScoped<IRentalRepository, RentalRepository>();
         services.AddScoped<IDeviceIncidentRepository, DeviceIncidentRepository>();
+        services.AddScoped<IPublicContentRepository, PublicContentRepository>();
         services.AddScoped<ICropSupportRepository, CropSupportRepository>();
+        services.AddScoped<ICropSeasonRepository, CropSeasonRepository>();
         services.AddScoped<IServiceJobRepository, ServiceJobRepository>();
         services.AddScoped<IMaintenanceScheduleRepository, MaintenanceScheduleRepository>();
         services.AddOptions<MaintenanceSchedulerSettings>().Bind(configuration.GetSection("MaintenanceScheduler"))

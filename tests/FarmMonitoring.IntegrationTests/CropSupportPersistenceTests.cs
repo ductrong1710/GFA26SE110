@@ -8,11 +8,14 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace FarmMonitoring.IntegrationTests;
 [Collection("PostgreSQL Auth")]
-public sealed class CropSupportPersistenceTests(ApiFactory factory)
+public sealed class CropSupportPersistenceTests
 {
     [Fact]
     public async Task Crop_report_preserves_communication_and_image_ownership()
     {
+        // Downgrades can commit newer migrations before an older guard rejects them.
+        await using var factory = new ApiFactory();
+        await factory.InitializeAsync();
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var owner = await db.Users.SingleAsync(x => x.Email == "owner@example.com");
         var farm = new Farm { Name = "Crop support evidence", CreatedAt = DateTimeOffset.UtcNow };

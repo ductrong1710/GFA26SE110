@@ -13,6 +13,10 @@ namespace FarmMonitoring.Api.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CropConditionReportsController(CropSupportService service) : ControllerBase
 {
+    [HttpGet("{id:int}/crop-seasons")]
+    public async Task<ActionResult<ApiPageResponse<SupportingCropSeason>>> Seasons(int id, [FromQuery] PageQuery query, CancellationToken ct)
+        => Ok(ApiPageResponse<SupportingCropSeason>.From(await service.SeasonsAsync(id, query, ct)));
+
     [HttpGet("{id:int}/sensor-readings")]
     public async Task<ActionResult<ApiPageResponse<CropSensorReading>>> Readings(int id, [FromQuery] PageQuery query, CancellationToken ct)
         => Ok(ApiPageResponse<CropSensorReading>.From(await service.ReadingsAsync(id, query, ct)));

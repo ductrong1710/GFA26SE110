@@ -33,7 +33,8 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
             if (await db.DeviceIncidents.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this incident is denied.");
             throw new NotFoundException("Device incident not found.");
         }
-        return new(row.Id, row.FarmId, row.RentalDeviceAssignmentId, row.DeviceCode, row.Description, row.ReportedAt, row.Status.ToString(), row.MissionId, row.ReporterId, EvidenceImages.Encode(row.Images));
+        var jobId = await db.ServiceJobs.Where(x => x.IncidentId == id).Select(x => (int?)x.Id).SingleOrDefaultAsync(ct);
+        return new(row.Id, row.FarmId, row.RentalDeviceAssignmentId, row.DeviceCode, row.Description, row.ReportedAt, row.Status.ToString(), row.MissionId, row.ReporterId, EvidenceImages.Encode(row.Images), jobId);
     }
     public async Task<int> CreateAsync(int actorId, CreateDeviceIncidentRequest request, List<EvidenceImage> images, DateTimeOffset now, CancellationToken ct)
     {

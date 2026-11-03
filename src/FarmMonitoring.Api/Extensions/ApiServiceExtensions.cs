@@ -1,5 +1,7 @@
+using FarmMonitoring.Application.Features.PublicInformation;
 using System.Text;
 using FarmMonitoring.Application.Features.CropSupport;
+using FarmMonitoring.Application.Features.CropSeasons;
 using FarmMonitoring.Application.Features.TechnicalSupport;
 using FarmMonitoring.Application.Features.Rentals;
 using FarmMonitoring.Api.Authorization;
@@ -38,7 +40,12 @@ public static class ApiServiceExtensions
         services.AddScoped<AuthService>();
         services.AddScoped<RentalService>();
         services.AddScoped<DeviceIncidentService>();
+        services.AddScoped<PublicContentService>();
         services.AddScoped<CropSupportService>();
+        services.AddScoped<CropSeasonService>();
+        services.AddScoped<IValidator<CropSeasonRequest>, CropSeasonValidator>();
+        services.AddScoped<IValidator<CompleteCropSeasonRequest>, CompleteCropSeasonValidator>();
+        services.AddScoped<IValidator<CultivationActivityRequest>, CultivationActivityValidator>();
         services.AddScoped<IValidator<CreateCropConditionRequest>, CreateCropConditionValidator>();
         services.AddScoped<IValidator<CropConsultationRequest>, CropConsultationValidator>();
         services.AddScoped<ServiceJobService>();
