@@ -129,7 +129,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             // Historical fixtures cannot insert columns introduced by the current model.
             proposal.Lines.Clear();
-            db.InstallationRequests.Add(job.InstallationRequest); db.Set<SurveyZone>().Add(zone); await db.SaveChangesAsync();
+            db.Set<SurveyZone>().Add(zone); await db.SaveChangesAsync();
+            proposal.Id = await db.Database.SqlQuery<int>($"INSERT INTO device_proposals (consultation_id,survey_id,revision,created_by_user_id,rental_months,requested_installation_at,status,created_at) VALUES ({consultation.Id},{survey.Id},1,{engineer.Id},12,{now},'SUBMITTED',{now}) RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();
+            db.Attach(proposal);
+            db.InstallationRequests.Add(job.InstallationRequest); await db.SaveChangesAsync();
             line.Id = await db.Database.SqlQuery<int>($"INSERT INTO proposal_lines (proposal_id,survey_zone_id,device_type,quantity,installation_location) VALUES ({proposal.Id},{zone.Id},{line.DeviceType},{line.Quantity},{line.InstallationLocation}) RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();
             job.Id = await db.Database.SqlQuery<int>($"INSERT INTO installation_jobs (installation_request_id,technician_id,scheduled_at,status,revision,created_at) VALUES ({job.InstallationRequest.Id},{admin.Id},{now},'APPROVED',1,{now}) RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();
         }

@@ -158,7 +158,7 @@ public sealed class ConsultationTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Proposal_versions_require_plan_and_external_deposit_confirmation_before_installation_submission()
+    public async Task External_dossier_bill_is_reviewed_before_installation_assignment_and_paper_rental()
     {
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
@@ -191,46 +191,37 @@ public sealed class ConsultationTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(firstPath + "/confirm-plan", new { note = "Old plan" })).StatusCode);
         (await engineer.PostAsJsonAsync(path + "/confirm-plan", new { note = "Customer accepted by phone" })).EnsureSuccessStatusCode();
         (await engineer.PostAsJsonAsync(path + "/confirm-deposit", new { note = "External bank receipt REF-42 confirmed" })).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await engineer.PostAsJsonAsync(path + "/submit-installation", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(path + "/submit-installation", new { })).StatusCode);
         using var owner = await Login("owner@example.com");
         using var admin = await Login("admin@example.com");
         var ownerId = (await owner.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("data").GetProperty("id").GetInt32();
-        var farmResult = await admin.PostAsJsonAsync("/api/farms", new { name = "Proposal farm" });
-        farmResult.EnsureSuccessStatusCode();
-        var farmId = (await farmResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        (await admin.PostAsJsonAsync($"/api/farms/{farmId}/members", new { userId = ownerId })).EnsureSuccessStatusCode();
-        (await admin.PutAsJsonAsync($"/api/consultations/{id}/customer-farm", new { ownerId, farmId })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(path + "/submit-installation", new { })).StatusCode);
-        var submitted = await engineer.PostAsJsonAsync(path + "/submit-installation", new { });
-        Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
-        var installation = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
-        Assert.Equal("SUBMITTED", installation.GetProperty("status").GetString());
-        Assert.Equal(farmId, installation.GetProperty("farmId").GetInt32());
-        Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(path + "/submit-installation", new { })).StatusCode);
+        var secondId = second.GetProperty("id").GetInt32();
+        object Dossier(int revision) => new { expectedRevision = revision, note = "Agreed outside; bank bill attached", bills = new[] { new { contentType = "image/png", dataBase64 = EvidencePng } }, customer = new { fullName = "Proposal customer", email = "owner@example.com" } };
+        var dossierPath = $"/api/installation-dossiers/{secondId}";
+        (await engineer.PostAsJsonAsync(dossierPath + "/submit", Dossier(2))).EnsureSuccessStatusCode();
+        var linked = (await admin.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}")).GetProperty("data");
+        var farmId = linked.GetProperty("farmId").GetInt32();
+        Assert.Equal(ownerId, linked.GetProperty("ownerId").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(dossierPath + "/submit", Dossier(2))).StatusCode);
         var preserved = (await engineer.GetFromJsonAsync<JsonElement>(firstPath)).GetProperty("data");
         Assert.Equal("DRAFT", preserved.GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(path)).StatusCode);
-        var requestPath = $"/api/installation-requests/{installation.GetProperty("id").GetInt32()}";
-        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync(requestPath)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(requestPath + "/approve", new { note = "Owner cannot approve" })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(requestPath + "/return", new { note = " " })).StatusCode);
-        (await admin.PostAsJsonAsync(requestPath + "/return", new { note = "Clarify installation location" })).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(requestPath + "/approve", new { note = "Too late" })).StatusCode);
-        var returned = (await engineer.GetFromJsonAsync<JsonElement>(requestPath)).GetProperty("data");
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(dossierPath + "/review", new { expectedRevision = 2, approve = true, note = "Owner cannot approve" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(dossierPath + "/review", new { expectedRevision = 2, approve = false, note = " " })).StatusCode);
+        (await admin.PostAsJsonAsync(dossierPath + "/review", new { expectedRevision = 2, approve = false, note = "Clarify farm information" })).EnsureSuccessStatusCode();
+        var returned = (await engineer.GetFromJsonAsync<JsonElement>(path)).GetProperty("data");
         Assert.Equal("RETURNED", returned.GetProperty("status").GetString());
-        Assert.Equal("Clarify installation location", returned.GetProperty("reviewNote").GetString());
+        Assert.Equal("Clarify farm information", returned.GetProperty("dossierReviewNote").GetString());
         var revisedResult = await engineer.PostAsJsonAsync($"/api/consultations/{id}/proposals", Proposal(2));
         revisedResult.EnsureSuccessStatusCode();
         var revisedId = (await revisedResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        var revisedPath = $"/api/consultations/{id}/proposals/{revisedId}";
-        (await engineer.PostAsJsonAsync(revisedPath + "/confirm-plan", new { note = "Revised plan accepted" })).EnsureSuccessStatusCode();
-        (await admin.PostAsJsonAsync(revisedPath + "/confirm-deposit", new { note = "Deposit receipt checked" })).EnsureSuccessStatusCode();
-        var resubmitted = await engineer.PostAsJsonAsync(revisedPath + "/submit-installation", new { });
-        resubmitted.EnsureSuccessStatusCode();
-        var newId = (await resubmitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        var approvedResult = await admin.PostAsJsonAsync($"/api/installation-requests/{newId}/approve", new { note = "Information verified" });
+        (await engineer.PostAsJsonAsync($"/api/installation-dossiers/{revisedId}/submit", Dossier(3))).EnsureSuccessStatusCode();
+        var approvedResult = await admin.PostAsJsonAsync($"/api/installation-dossiers/{revisedId}/review", new { expectedRevision = 3, approve = true, note = "Farm and bill verified" });
         approvedResult.EnsureSuccessStatusCode();
-        Assert.Equal("APPROVED", (await approvedResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("status").GetString());
+        var newId = (await approvedResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("installationRequestId").GetInt32();
+        var requestPath = $"/api/installation-requests/{newId}";
+        Assert.Equal("APPROVED", (await admin.GetFromJsonAsync<JsonElement>(requestPath)).GetProperty("data").GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/installation-requests/{newId}/return", new { note = "Already reviewed" })).StatusCode);
         var technicianEmail = $"install-tech-{Guid.NewGuid():N}@example.com";
         var technicianResult = await admin.PostAsJsonAsync("/api/users", new { email = technicianEmail, fullName = "Installation technician", password = "Test-password-123!", roles = new[] { "Technician" } });
@@ -240,7 +231,6 @@ public sealed class ConsultationTests(ApiFactory factory)
         var appointment = DateTimeOffset.UtcNow.AddDays(8);
         var jobRequest = new { technicianId, scheduledAt = appointment, note = "Customer appointment agreed" };
         Assert.Equal(HttpStatusCode.Forbidden, (await engineer.PostAsJsonAsync($"/api/installation-requests/{newId}/jobs", jobRequest)).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(requestPath + "/jobs", jobRequest)).StatusCode);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync($"/api/installation-requests/{newId}/jobs", new { technicianId = ownerId, scheduledAt = appointment, note = "Wrong role" })).StatusCode);
         var jobResult = await admin.PostAsJsonAsync($"/api/installation-requests/{newId}/jobs", jobRequest);
         Assert.Equal(HttpStatusCode.Created, jobResult.StatusCode);

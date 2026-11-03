@@ -1,0 +1,51 @@
+LUONG TU VAN BEN NGOAI VA HO SO LAP DAT
+
+Truoc khi sua:
+- FE yeu cau 3 thao tac: xac nhan phuong an, xac nhan coc, gui lap dat.
+- Chua bat buoc bill coc.
+- BE yeu cau Admin lien ket khach/vuon truoc khi ky su gui.
+
+Sau khi sua:
+1. Khach gui form Homepage. Nguoi truc lien he ben ngoai.
+2. Ky su nong nghiep tu van, chot thiet bi va nhan coc ben ngoai he thong.
+3. Ky su nhap thong tin vuon, thiet bi, so luong, thoi han va lich mong muon.
+4. Ky su nhap ho ten/email khach neu chua lien ket, dinh kem bill va gui mot lan.
+5. BE luu khach/vuon/quyen chu vuon trong cung transaction voi ho so.
+   Khach/vuon da lien ket hop le duoc giu nguyen; khong tao lai khi gui lai.
+   Tai khoan moi chi la FarmOwner, dung mat khau ngau nhien khong tiet lo;
+   khach co the dung chuc nang quen mat khau de dat mat khau sau nay.
+6. Admin nhan thong bao, thay ho so cho duyet tren dashboard/Lap dat & dich vu.
+7. Admin xem thong tin khach, vuon, gia da chot va anh bill; tra bo sung hoac duyet.
+8. Duyet tao dung mot yeu cau APPROVED; chuyen sang man hinh phan cong KTV.
+   Admin khong phai nhap lai khach hang hay tao lai vuon.
+9. Cac buoc cap phat, lap dat, ky giay, hau kiem va thue ngay hom sau giu nguyen.
+
+API MOI:
+GET  /api/installation-dossiers
+POST /api/installation-dossiers/{proposalId}/submit
+POST /api/installation-dossiers/{proposalId}/review
+
+BAO VE DU LIEU:
+- Bill bat buoc: 1-5 anh JPEG/PNG, moi anh toi da 2 MiB, kiem tra noi dung file.
+- Chi ky su phu trach duoc gui; chi Admin duoc duyet.
+- Dang WAITING_ADMIN khong duoc sua vuon/tao de xuat chen len.
+- Tra ho so thi tao phien ban de xuat moi; giu bill va y kien cu.
+- Kiem tra revision, chan gui trung, chan duyet trung va thong bao giao viec.
+- API submit-installation cu tra 409, khong the bo qua bill.
+- Khong mo quyen quan ly users/farms chung cho ky su.
+- Khong dua thanh toan online, kho hay ke toan vao flow.
+
+MIGRATION:
+20261103153523_ExternalConsultationDossier
+Them deposit_bills_json, dossier_submitted_at, dossier_review_note.
+Chua cap nhat database ung dung. Can ap dung migration truoc khi chay flow moi.
+Khong dung migration de gan bill gia cho ho so cu.
+
+KIEM THU:
+- Build BE Release thanh cong, khong dung build Debug dang bi API chay khoa.
+- Dot test BE day du: 157 unit dat, 216/217 integration dat ban dau.
+- Ca migration con lai loi do fixture chen cot moi vao schema cu; da sua
+  fixture bang SQL theo schema lich su va chay lai cung 5 ca dossier: 6/6 dat.
+- FE: 180 test dat; build thanh cong; 253 file code deu <= 300 dong.
+- Database test tam da dung sau moi dot; khong dung database ung dung.
+- Chua commit/push thay doi cua luot nay.

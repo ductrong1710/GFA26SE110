@@ -10,5 +10,4 @@ public interface IProposalRepository
     Task<DeviceProposal?> GetAsync(int consultationId, int id, CancellationToken ct);
     Task CreateAsync(DeviceProposal proposal, int expectedRevision, CancellationToken ct);
     Task ConfirmAsync(int consultationId, int id, int actorId, bool deposit, string note, DateTimeOffset now, CancellationToken ct);
-    Task<InstallationRequest> SubmitAsync(int consultationId, int id, int actorId, DateTimeOffset now, CancellationToken ct);
 }

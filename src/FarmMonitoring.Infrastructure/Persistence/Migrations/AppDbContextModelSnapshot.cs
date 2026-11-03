@@ -802,6 +802,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("created_by_user_id");
 
+                    b.Property<string>("DepositBillsJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("deposit_bills_json");
+
                     b.Property<string>("DepositConfirmationNote")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -814,6 +818,15 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Property<int?>("DepositConfirmedByUserId")
                         .HasColumnType("integer")
                         .HasColumnName("deposit_confirmed_by_user_id");
+
+                    b.Property<string>("DossierReviewNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("dossier_review_note");
+
+                    b.Property<DateTimeOffset?>("DossierSubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dossier_submitted_at");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(4000)

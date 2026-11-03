@@ -86,6 +86,8 @@ public sealed class ConsultationRepository(AppDbContext db) : IConsultationRepos
         if (consultation.EngineerId == null && consultation.Status == ConsultationStatus.NEW) { consultation.EngineerId=survey.EngineerId; consultation.Status=ConsultationStatus.IN_PROGRESS; }
         if (consultation.EngineerId != survey.EngineerId) throw new AccessDeniedException("Only the assigned engineer can record a survey.");
         if (consultation.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
+        if (await db.DeviceProposals.AnyAsync(x => x.ConsultationId == survey.ConsultationId && x.Status == ProposalStatus.WAITING_ADMIN, ct))
+            throw new ConflictException("Wait for administrator review before changing submitted farm information.");
         var latest = await db.FarmSurveys.Where(x => x.ConsultationId == survey.ConsultationId).MaxAsync(x => (int?)x.Revision, ct) ?? 0;
         if (latest != expectedRevision) throw new ConflictException("Survey changed. Reload the latest revision.");
         survey.Revision = latest + 1;

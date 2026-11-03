@@ -1,5 +1,22 @@
 # BUSINESS_RULES.md
 
+### External consultation dossier — 2026-11-03
+
+Consultation, device agreement and travel-deposit payment happen outside the system.
+The engineer records the customer, garden, agreed devices/period/appointment and bill.
+Sending the dossier provisions the customer/farm when needed before notifying Admin.
+Admin only checks the complete dossier, returns it or approves and assigns a technician;
+Admin is not required to re-enter customer/farm data. No customer online confirmation.
+An assigned engineer may provision only a FarmOwner and a new farm within this scoped
+dossier transaction; this exception does not grant general user/farm-management access.
+Existing administrator, engineer, mixed-role or inactive accounts cannot be reused as
+customers by this operation. Account creation does not reveal or overwrite passwords.
+Pending dossiers cannot be superseded by edits; returned versions and bills remain
+available for audit. The latest revision and latest survey must be used. Final approval
+is serialized and creates exactly one approved installation request before assignment.
+This section supersedes the earlier separate plan/deposit confirmation flow.
+
+
 ### Operational workflow — 2026-11-03 (supersedes earlier conflicting checkpoints)
 
 Public consultation forms are contact leads. Admin monitors contact lists/counts;

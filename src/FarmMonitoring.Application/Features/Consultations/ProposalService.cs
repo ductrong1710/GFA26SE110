@@ -40,13 +40,11 @@ public sealed class ProposalService(IProposalRepository repository, Consultation
         await repository.ConfirmAsync(consultationId, id, actor, deposit, request.Note.Trim(), clock.GetUtcNow(), ct);
         return await GetAsync(consultationId, id, ct);
     }
-    public async Task<InstallationRequestResponse> SubmitAsync(int consultationId, int id, CancellationToken ct)
-    {
-        var row = await repository.SubmitAsync(consultationId, id, Actor, clock.GetUtcNow(), ct);
-        return new(row.Id, row.ProposalId, row.FarmId, row.OwnerId, row.Status.ToString(), row.SubmittedAt);
-    }
+    public Task<InstallationRequestResponse> SubmitAsync(int consultationId, int id, CancellationToken ct) =>
+        throw new ConflictException("Submit the dossier with its external deposit bill through /api/installation-dossiers/{proposalId}/submit.");
     private static ProposalResponse Response(DeviceProposal x) => new(x.Id, x.ConsultationId, x.SurveyId, x.Revision, x.RentalMonths,
         x.RequestedInstallationAt, x.Notes, x.Status.ToString(), x.CreatedByUserId, x.CreatedAt, x.PlanConfirmedByUserId,
         x.PlanConfirmedAt, x.PlanConfirmationNote, x.DepositConfirmedByUserId, x.DepositConfirmedAt, x.DepositConfirmationNote,
-        x.Lines.OrderBy(l => l.Id).Select(l => new ProposalLineResponse(l.Id, l.SurveyZoneId, l.DeviceType, l.Quantity, l.InstallationLocation, l.PublicContentId, l.PriceRevision, l.MonthlyRentVnd, l.ProductName)).ToArray());
+        x.Lines.OrderBy(l => l.Id).Select(l => new ProposalLineResponse(l.Id, l.SurveyZoneId, l.DeviceType, l.Quantity, l.InstallationLocation, l.PublicContentId, l.PriceRevision, l.MonthlyRentVnd, l.ProductName)).ToArray(),
+        System.Text.Json.JsonSerializer.Deserialize<EvidenceImageData[]>(x.DepositBillsJson ?? "[]") ?? [], x.DossierSubmittedAt, x.DossierReviewNote);
 }

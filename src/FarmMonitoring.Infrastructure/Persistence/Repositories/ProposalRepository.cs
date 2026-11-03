@@ -26,6 +26,8 @@ public sealed class ProposalRepository(AppDbContext db) : IProposalRepository
         var consultation = await LockWorkAsync(proposal.ConsultationId, proposal.CreatedByUserId, false, ct);
         var latest = await db.DeviceProposals.Where(x => x.ConsultationId == proposal.ConsultationId).MaxAsync(x => (int?)x.Revision, ct) ?? 0;
         if (latest != expectedRevision) throw new ConflictException("Proposal changed. Reload the latest revision.");
+        if (await db.DeviceProposals.AnyAsync(x => x.ConsultationId == proposal.ConsultationId && x.Status == ProposalStatus.WAITING_ADMIN, ct))
+            throw new ConflictException("Wait for administrator review or return before revising this dossier.");
         if (await db.InstallationRequests.AnyAsync(x => x.Proposal.ConsultationId == proposal.ConsultationId && x.Status != InstallationRequestStatus.RETURNED, ct))
             throw new ConflictException("Installation has already been submitted.");
         var survey = await db.FarmSurveys.Include(x => x.Zones).SingleOrDefaultAsync(x => x.Id == proposal.SurveyId && x.ConsultationId == proposal.ConsultationId, ct)
@@ -54,28 +56,6 @@ public sealed class ProposalRepository(AppDbContext db) : IProposalRepository
         else { proposal.PlanConfirmedByUserId = actorId; proposal.PlanConfirmedAt = now; proposal.PlanConfirmationNote = note; proposal.Status = ProposalStatus.PLAN_CONFIRMED; }
         History(consultation, actorId, deposit ? ConsultationAction.DEPOSIT_CONFIRMED : ConsultationAction.PLAN_CONFIRMED, $"Proposal #{id}: {note}", now);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-    }
-    public async Task<InstallationRequest> SubmitAsync(int consultationId, int id, int actorId, DateTimeOffset now, CancellationToken ct)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var consultation = await LockWorkAsync(consultationId, actorId, false, ct);
-        var proposal = await CurrentAsync(consultationId, id, ct);
-        if (proposal.Status != ProposalStatus.DEPOSIT_CONFIRMED) throw new ConflictException("Current plan and external deposit confirmation are required.");
-        if (consultation.OwnerId is not int ownerId || consultation.FarmId is not int farmId ||
-            !await FarmAccessQuery.AssignedFarmIds(db, ownerId).ContainsAsync(farmId, ct))
-            throw new BusinessRuleException("Administrator must link the customer to an authorized farm before submission.");
-        if (!await db.Farms.AnyAsync(x => x.Id == farmId && x.IsActive, ct)) throw new BusinessRuleException("Farm must be active.");
-        if (proposal.RequestedInstallationAt <= now) throw new BusinessRuleException("Requested installation time has passed. Prepare a revised proposal.");
-        if (await db.InstallationRequests.AnyAsync(x => x.Proposal.ConsultationId == consultationId && x.Status != InstallationRequestStatus.RETURNED, ct))
-            throw new ConflictException("Installation has already been submitted.");
-        var request = new InstallationRequest { ProposalId = id, FarmId = farmId, OwnerId = ownerId, SubmittedByUserId = actorId,
-            Status = InstallationRequestStatus.SUBMITTED, SubmittedAt = now };
-        db.InstallationRequests.Add(request); proposal.Status = ProposalStatus.SUBMITTED;
-        History(consultation, actorId, ConsultationAction.INSTALLATION_SUBMITTED, $"Proposal #{id} submitted for installation review.", now);
-        await db.SaveChangesAsync(ct);
-        await WorkflowNotifications.AddForRoleAsync(db, RoleNames.FarmAdministrator, "Installation review required", $"Installation request #{request.Id} is awaiting review for farm #{farmId}.", now, ct);
-        await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
-        return request;
     }
     private async Task<Consultation> LockWorkAsync(int id, int actorId, bool allowAdmin, CancellationToken ct)
     {

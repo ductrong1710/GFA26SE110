@@ -1,5 +1,28 @@
 # API.md
 
+### External consultation dossier — 2026-11-03
+
+- `POST /api/installation-dossiers/{proposalId}/submit` (assigned FarmEngineer):
+  `{ expectedRevision, note, bills: [{contentType,dataBase64}], customer: {fullName,email} }`.
+  Records an already agreed external plan/deposit in one step. Requires 1–5 valid
+  JPEG/PNG bills (2 MiB each). For an unlinked lead, creates/reuses a pure active
+  FarmOwner account and creates its farm/membership from the survey, atomically.
+  `customer` may be omitted for an already linked authorized owner/farm. No online
+  payment or customer confirmation occurs. New accounts use an unknown random
+  password; the customer sets one through the existing password recovery flow.
+- `GET /api/installation-dossiers` (Admin, standard paging/search): pending complete
+  dossiers, with customer and farm information; no date window hides old pending work.
+- `POST /api/installation-dossiers/{proposalId}/review` (Admin):
+  `{expectedRevision,approve,note}`. Approval creates one APPROVED installation
+  request and returns `installationRequestId`; assign through the existing jobs API.
+  Return preserves the old bill and requires a new proposal revision before resubmission.
+- Proposal detail includes `depositBills`, `dossierSubmittedAt`, `dossierReviewNote`;
+  installation request detail also exposes authenticated `depositBills`.
+- Legacy `.../submit-installation` returns 409 with the new endpoint; it cannot bypass
+  the bill/review requirement. Old plan/deposit confirmation APIs remain readable/
+  callable for compatibility but are not required by the new flow or shown in FE.
+
+
 ### Operational workflow revision — 2026-11-03 (supersedes older claim/paper/replacement descriptions)
 
 See `BE_FLOW_CHANGES_2026-11-03.txt` for exact payloads and FE migration notes.

@@ -38,6 +38,9 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IConsultationRepository, ConsultationRepository>();
         services.AddScoped<IProposalRepository, ProposalRepository>();
+        services.AddScoped<IInstallationDossierRepository, InstallationDossierRepository>();
+        services.AddScoped<DossierCustomerProvisioner>();
+        services.AddScoped<FarmMonitoring.Application.Features.Consultations.InstallationDossierService>();
         services.AddScoped<IInstallationRepository, InstallationRepository>();
         services.AddScoped<IInstallationJobRepository, InstallationJobRepository>();
         services.AddScoped<IInstallationReportRepository, InstallationReportRepository>();

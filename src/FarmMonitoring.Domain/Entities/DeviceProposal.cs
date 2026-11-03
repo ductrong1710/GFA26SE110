@@ -1,6 +1,6 @@
 namespace FarmMonitoring.Domain.Entities;
 
-public enum ProposalStatus { DRAFT, PLAN_CONFIRMED, DEPOSIT_CONFIRMED, SUBMITTED }
+public enum ProposalStatus { DRAFT, PLAN_CONFIRMED, DEPOSIT_CONFIRMED, SUBMITTED, WAITING_ADMIN, RETURNED }
 public sealed class DeviceProposal
 {
     public int Id { get; set; }
@@ -22,6 +22,9 @@ public sealed class DeviceProposal
     public DateTimeOffset? DepositConfirmedAt { get; set; }
     public string? DepositConfirmationNote { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public string? DepositBillsJson { get; set; }
+    public DateTimeOffset? DossierSubmittedAt { get; set; }
+    public string? DossierReviewNote { get; set; }
     public List<ProposalLine> Lines { get; set; } = [];
 }
 

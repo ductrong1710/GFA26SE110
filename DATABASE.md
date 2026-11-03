@@ -1,5 +1,16 @@
 # DATABASE.md
 
+### ExternalConsultationDossier — 2026-11-03
+
+Migration `20261103153523_ExternalConsultationDossier` adds nullable
+`device_proposals.deposit_bills_json` (JSONB), `dossier_submitted_at` (UTC timestamp)
+and `dossier_review_note` (varchar 2000). WAITING_ADMIN and RETURNED are new proposal
+statuses in the existing varchar column. Existing data is not assigned invented bills.
+Bills are authenticated bounded image payloads; they do not become public catalog media.
+Downgrade refuses to discard retained dossier evidence. No application DB migration
+has been applied by this change; integration tests migrate isolated temporary DBs.
+
+
 ### OperationalWorkflow — 2026-11-03
 
 Migration `20261103084905_OperationalWorkflow` adds service_plans (typed optional

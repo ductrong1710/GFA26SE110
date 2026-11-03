@@ -754,6 +754,12 @@ Do NOT:
 
 ## Farm-level access control
 
+Scoped dossier exception (2026-11-03): the assigned FarmEngineer may record a
+FarmOwner customer and create that customer's new farm/membership only when sending
+an installation dossier with a valid external deposit bill. This does not grant
+general user/farm management APIs. Admin receives a complete linked dossier to review
+and assign; no Admin customer/farm data-entry step is required by this workflow.
+
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
 - FarmAdministrator has global access, with no `user_farms` row required.
