@@ -1290,3 +1290,6 @@ An incident detail response includes nullable `serviceJobId`. After assignment, 
 `POST /api/missions/{id}/complete` accepts optional `manualCompletion: true` together with a required nonblank `note`. The normal Farm Owner authorization, farm access and RUNNING-to-COMPLETED transition still apply. This records a human observation when collection outcomes are unavailable. A `MANUAL_COMPLETION` log retains the actor, timestamp and statement. Existing pending targets remain pending and no collection attempt, reading or successful target is synthesized.
 
 Requests without the flag continue to require recorded outcomes for every target. The flag is invalid for other lifecycle actions or device actors. A late result is handled by the existing ingestion rules. This implementation treats the mission's terminal state as the flight outcome and its per-target result as the separately recorded collection outcome.
+
+Mission create and edit requests accept an optional purpose of up to 2,000 characters. Mission detail returns purpose independently of operatorNotes and appended operational observations.
+Mission requests also accept an optional zoneId. The zone must belong to the selected farm and contain all target sensors. Mission detail returns zone as {id, name} or null for a farm-wide plan.

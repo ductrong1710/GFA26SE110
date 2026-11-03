@@ -44,6 +44,48 @@ public class MissionTests(ApiFactory factory)
         waypoints = new[] { new { sequenceNo = 1, latitude = 10.1m, longitude = 106.2m, altitudeM = 10m } }
     };
     [Fact]
+    public async Task Zone_scoped_missions_reject_another_farm_or_targets_outside_the_selected_zone()
+    {
+        var setup = await Setup();
+        var other = await Setup();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var zoneId = await db.SensorNodes.Where(n => n.Id == setup.sensor).Select(n => n.ZoneId).SingleAsync();
+        var otherFarmZone = await db.SensorNodes.Where(n => n.Id == other.sensor).Select(n => n.ZoneId).SingleAsync();
+        var sibling = new Zone { FarmId = setup.farm, Name = "Neighbouring field", CreatedAt = DateTimeOffset.UtcNow };
+        db.Zones.Add(sibling);
+        await db.SaveChangesAsync();
+        using var owner = await Login();
+        var plan = JsonSerializer.SerializeToNode(Plan(setup))!.AsObject();
+        foreach (var invalid in new[] { otherFarmZone, sibling.Id })
+        {
+            plan["zoneId"] = invalid;
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync("/api/missions", plan)).StatusCode);
+        }
+        plan["zoneId"] = zoneId;
+        var mission = await Data(await owner.PostAsJsonAsync("/api/missions", plan));
+        var id = mission.GetProperty("id").GetInt32();
+        var detail = await Data(await owner.GetAsync($"/api/missions/{id}"));
+        Assert.Equal(zoneId, detail.GetProperty("zone").GetProperty("id").GetInt32());
+        Assert.Equal("Mission zone", detail.GetProperty("zone").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Mission_purpose_survives_plan_reload_separately_from_operator_notes()
+    {
+        var setup = await Setup();
+        using var owner = await Login();
+        var plan = JsonSerializer.SerializeToNode(Plan(setup))!.AsObject();
+        plan["purpose"] = "Check irrigation coverage";
+        plan["operatorNotes"] = "Inspect the dock before departure";
+        var created = await Data(await owner.PostAsJsonAsync("/api/missions", plan));
+        var id = created.GetProperty("id").GetInt32();
+        var detail = await Data(await owner.GetAsync($"/api/missions/{id}"));
+        Assert.Equal("Check irrigation coverage", detail.GetProperty("purpose").GetString());
+        Assert.Equal("Inspect the dock before departure", detail.GetProperty("operatorNotes").GetString());
+    }
+
+    [Fact]
     public async Task Operational_notes_append_without_changing_plan_status_or_results()
     {
         var setup = await Setup();

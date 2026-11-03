@@ -26,6 +26,8 @@ public sealed class MissionValidator : AbstractValidator<MissionRequest>
     public MissionValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.ZoneId).GreaterThan(0);
+        RuleFor(x => x.Purpose).MaximumLength(2000);
         RuleFor(x => x.FarmId).GreaterThan(0);
         RuleFor(x => x.UavId).GreaterThan(0);
         RuleFor(x => x.GatewayId).GreaterThan(0);

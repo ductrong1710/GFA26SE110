@@ -24,6 +24,8 @@ public sealed class Mission
     public int Id { get; set; }
     public int FarmId { get; set; }
     public Farm Farm { get; set; } = null!;
+    public int? ZoneId { get; set; }
+    public Zone? Zone { get; set; }
     public int? UavId { get; set; }
     public Uav? Uav { get; set; }
     public int? GatewayId { get; set; }
@@ -36,6 +38,7 @@ public sealed class Mission
     public DateTimeOffset? CompletedAt { get; set; }
     public int CreatedByUserId { get; set; }
     public User CreatedByUser { get; set; } = null!;
+    public string? Purpose { get; set; }
     public string? OperatorNotes { get; set; }
     public string? FailureReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

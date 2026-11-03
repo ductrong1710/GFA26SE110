@@ -52,11 +52,12 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
     private async Task ApplyPlan(Mission mission, MissionRequest request, CancellationToken ct)
     {
         await access.EnsureFarmAccessAsync(request.FarmId, ct);
+        await access.CheckFilterAsync(FarmResource.Zone, request.ZoneId, ct);
         await access.EnsureManyAsync(FarmResource.SensorNode, request.TargetSensorIds(), ct);
         // Validate and reserve resources before mutating the tracked plan or flushing child replacements.
         var candidate = new Mission
         {
-            Id = mission.Id, Name = request.Name.Trim(), FarmId = request.FarmId,
+            Id = mission.Id, Name = request.Name.Trim(), FarmId = request.FarmId, ZoneId = request.ZoneId,
             UavId = request.UavId, GatewayId = request.GatewayId, OperatorNotes = request.OperatorNotes?.Trim(),
             ScheduledStartAt = request.ScheduledStartAt?.ToUniversalTime(), ScheduledEndAt = request.ScheduledEndAt?.ToUniversalTime()
         };
@@ -81,10 +82,13 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
         mission.Name = candidate.Name;
         mission.FarmId = candidate.FarmId;
         mission.Farm = candidate.Farm;
+        mission.ZoneId = candidate.ZoneId;
+        mission.Zone = candidate.Zone;
         mission.UavId = candidate.UavId;
         mission.Uav = candidate.Uav;
         mission.GatewayId = candidate.GatewayId;
         mission.Gateway = candidate.Gateway;
+        mission.Purpose = string.IsNullOrWhiteSpace(request.Purpose) ? null : request.Purpose.Trim();
         mission.OperatorNotes = candidate.OperatorNotes;
         mission.ScheduledStartAt = candidate.ScheduledStartAt;
         mission.ScheduledEndAt = candidate.ScheduledEndAt;
@@ -191,5 +195,5 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
     private async Task<MissionResponse> MapAsync(Mission x, CancellationToken ct) => new(x.Id, x.Name, x.Status.ToString(), new(x.FarmId, x.Farm.Name),
         x.Uav is null ? null : new(x.Uav.Id, x.Uav.Name), x.Gateway is null ? null : new(x.Gateway.Id, x.Gateway.Name),
         x.ScheduledStartAt, x.ScheduledEndAt, x.StartedAt, x.CompletedAt, x.CreatedByUserId, x.OperatorNotes, x.FailureReason,
-        x.CreatedAt, x.UpdatedAt, await TargetsAsync(x, ct), Waypoints(x), Progress(x), x.PlanRevision);
+        x.CreatedAt, x.UpdatedAt, await TargetsAsync(x, ct), Waypoints(x), Progress(x), x.PlanRevision, x.Purpose, x.Zone is null ? null : new(x.Zone.Id, x.Zone.Name));
 }

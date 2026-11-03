@@ -40,7 +40,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         }
         var query = db.Missions.AsQueryable();
         if (!forUpdate) query = query.AsNoTracking();
-        return await query.Include(x => x.Farm).Include(x => x.Uav).Include(x => x.Gateway)
+        return await query.Include(x => x.Farm).Include(x => x.Zone).Include(x => x.Uav).Include(x => x.Gateway)
             .Include(x => x.Targets).ThenInclude(x => x.SensorNode).ThenInclude(x => x.Zone).Include(x => x.Waypoints)
             .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
     }
@@ -58,6 +58,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
     }
     public Task<bool> HasDeviceLogAsync(int missionId, int gatewayId, string logType, CancellationToken ct) =>
         db.MissionLogs.AnyAsync(x => x.MissionId == missionId && x.GatewayId == gatewayId && x.UserId == null && x.LogType == logType, ct);
+    public Task<Zone?> GetZoneAsync(int id, CancellationToken ct) => db.Zones.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<Farm?> GetFarmAsync(int id, CancellationToken ct) => db.Farms.SingleOrDefaultAsync(x => x.Id == id, ct);
     public async Task<IReadOnlyList<SensorNode>> GetSensorsAsync(int[] ids, CancellationToken ct)
     {

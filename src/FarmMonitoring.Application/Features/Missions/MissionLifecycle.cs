@@ -67,6 +67,12 @@ public sealed class MissionLifecycle(IMissionRepository repository, TimeProvider
         var sensors = await repository.GetSensorsAsync(mission.Targets.Select(x => x.SensorNodeId).ToArray(), ct);
         if (sensors.Count != mission.Targets.Count) throw new NotFoundException("A selected sensor node was not found.");
         if (sensors.Any(x => x.Zone.FarmId != mission.FarmId)) throw new BusinessRuleException("Every target sensor must belong to the mission farm.");
+        if (mission.ZoneId is int zoneId)
+        {
+            mission.Zone = await repository.GetZoneAsync(zoneId, ct) ?? throw new NotFoundException("Mission zone not found.");
+            if (mission.Zone.FarmId != mission.FarmId || sensors.Any(x => x.ZoneId != zoneId))
+                throw new BusinessRuleException("The selected zone must belong to the mission farm and contain every target sensor.");
+        }
         foreach (var target in mission.Targets) target.SensorNode = sensors.Single(x => x.Id == target.SensorNodeId);
         if (mission.Uav is { IsActive: false } || mission.Gateway is { IsActive: false })
             throw new BusinessRuleException("Assigned UAV and gateway must be active.");
