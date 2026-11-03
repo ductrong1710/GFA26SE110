@@ -1,3 +1,4 @@
+import { parseVietnamDateTime } from '../../utils/display'
 import { useState } from 'react'
 import { api } from '../../services/api'
 
@@ -10,7 +11,7 @@ export default function RentalContractForm({ jobId }) {
     event.preventDefault(); if (pending) return
     setPending(true); setError('')
     try {
-      const startAt = new Date(values.startAt), endAt = new Date(values.endAt)
+      const startAt = parseVietnamDateTime(values.startAt), endAt = parseVietnamDateTime(values.endAt)
       if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || endAt <= startAt) throw new Error('Rental end must be after the agreed start.')
       setCreated(await api.request(`/api/installation-jobs/${jobId}/rental-contract`, { method: 'POST', body: { startAt: startAt.toISOString(), endAt: endAt.toISOString(), note: values.note } }))
     } catch (err) { setError(err.message) } finally { setPending(false) }

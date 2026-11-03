@@ -25,7 +25,7 @@ it('creates a proposal against the selected survey and its zone', async () => {
   fireEvent.change(screen.getByLabelText('Requested installation time'), { target: { value: '2030-01-15T09:00' } })
   fireEvent.submit(screen.getByRole('form', { name: 'Device proposal' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations/42/proposals', expect.objectContaining({ method: 'POST', body: expect.objectContaining({
-    expectedRevision: 0, surveyId: 3, rentalMonths: 6, lines: [{ surveyZoneId: 5, deviceType: 'Soil moisture sensor', quantity: 3, installationLocation: 'Canal edge' }],
+    expectedRevision: 0, surveyId: 3, rentalMonths: 6, requestedInstallationAt: '2030-01-15T02:00:00.000Z', lines: [{ surveyZoneId: 5, deviceType: 'Soil moisture sensor', quantity: 3, installationLocation: 'Canal edge' }],
   }) })))
   expect(await screen.findByText('Proposal revision 1 saved.')).toBeTruthy()
 })

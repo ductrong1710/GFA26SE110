@@ -3,7 +3,7 @@ import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 import { DataTable, SectionCard, StatusBadge } from './ui'
-import { displayTime } from '../../utils/display'
+import { displayTime, parseVietnamDateTime } from '../../utils/display'
 
 const emptyLine = () => ({ surveyZoneId: '', deviceType: '', quantity: 1, installationLocation: '' })
 
@@ -29,7 +29,7 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     setPending(true); setError(''); setNotice('')
     try {
       const saved = await api.request(path, { method: 'POST', body: { ...draft, surveyId: Number(draft.surveyId), rentalMonths: Number(draft.rentalMonths),
-        requestedInstallationAt: new Date(draft.requestedInstallationAt).toISOString(), notes: draft.notes || null,
+        requestedInstallationAt: parseVietnamDateTime(draft.requestedInstallationAt).toISOString(), notes: draft.notes || null,
         lines: draft.lines.map(line => ({ ...line, surveyZoneId: Number(line.surveyZoneId), quantity: Number(line.quantity) })) } })
       setSelected(saved); setDraft(null); setPage(1); query.reload(); setNotice(`Proposal revision ${saved.revision} saved.`)
     } catch (err) { setError(err.message) } finally { setPending(false) }

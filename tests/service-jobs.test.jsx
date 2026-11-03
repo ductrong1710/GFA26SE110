@@ -19,7 +19,7 @@ test('administrator creates a typed service appointment linked to the incident',
   fireEvent.change(screen.getByLabelText('Assignment note'), { target: { value: 'Check motor' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create service job' }))
   await vi.waitFor(() => expect(saved).toHaveBeenCalledWith({ id: 8 }))
-  expect(request).toHaveBeenCalledWith('/api/device-incidents/5/jobs', { method: 'POST', body: { type: 'REPAIR', technicianId: 3, expectedRevision: 0, note: 'Check motor', scheduledAt: new Date('2027-01-01T10:00').toISOString() } })
+  expect(request).toHaveBeenCalledWith('/api/device-incidents/5/jobs', { method: 'POST', body: { type: 'REPAIR', technicianId: 3, expectedRevision: 0, note: 'Check motor', scheduledAt: '2027-01-01T03:00:00.000Z' } })
 })
 
 test('technician starts the assigned service job with the current revision', async () => {

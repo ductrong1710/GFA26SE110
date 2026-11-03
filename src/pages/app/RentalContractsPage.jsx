@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { PERMISSIONS as P } from '../../config/permissions'
 import ApiState from '../../components/app/ApiState'
 import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
-import { displayTime } from '../../utils/display'
+import { displayTime, parseVietnamDateTime } from '../../utils/display'
 
 export default function RentalContractsPage() {
   const { can } = useAuth()
@@ -31,7 +31,7 @@ export default function RentalContractsPage() {
     try {
       const body = { expectedRevision: selected.revision, note: values.note }
       if (values.action === 'extend') {
-        const end = new Date(values.endAt)
+        const end = parseVietnamDateTime(values.endAt)
         if (!Number.isFinite(end.getTime()) || end <= new Date(selected.endAt)) throw new Error('Choose a rental end later than the current end.')
         body.endAt = end.toISOString()
       }

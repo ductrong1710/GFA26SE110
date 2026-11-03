@@ -1,17 +1,12 @@
+import { parseVietnamDateTime, vietnamDateTimeInput } from '../../utils/display'
 import { useState } from 'react'
 import { api } from '../../services/api'
 import { listAll } from '../../services/api/resources'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 
-function localTime(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-}
-
 export default function JobAssignmentForm({ requestId, job, onSaved }) {
-  const [values, setValues] = useState({ technicianId: job?.technicianId ?? '', scheduledAt: localTime(job?.scheduledAt), note: '' })
+  const [values, setValues] = useState({ technicianId: job?.technicianId ?? '', scheduledAt: vietnamDateTimeInput(job?.scheduledAt), note: '' })
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const technicians = useApiQuery('installation-technicians', signal => listAll('/api/installation-jobs/technicians', {}, signal))
@@ -20,7 +15,7 @@ export default function JobAssignmentForm({ requestId, job, onSaved }) {
     setPending(true); setError('')
     try {
       const row = await api.request(job ? `/api/installation-jobs/${job.id}/assignment` : `/api/installation-requests/${requestId}/jobs`, {
-        method: 'POST', body: { expectedRevision: job?.revision ?? 0, technicianId: Number(values.technicianId), scheduledAt: new Date(values.scheduledAt).toISOString(), note: values.note },
+        method: 'POST', body: { expectedRevision: job?.revision ?? 0, technicianId: Number(values.technicianId), scheduledAt: parseVietnamDateTime(values.scheduledAt).toISOString(), note: values.note },
       })
       onSaved(row)
     } catch (err) { setError(err.message) } finally { setPending(false) }

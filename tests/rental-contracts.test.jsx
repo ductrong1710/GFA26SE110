@@ -26,7 +26,7 @@ it('creates a separate draft contract with agreed UTC dates', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Create rental draft' }))
   expect(await screen.findByText(/Rental contract #6 created/)).toBeTruthy()
   expect(request).toHaveBeenCalledWith('/api/installation-jobs/3/rental-contract', { method: 'POST', body: {
-    startAt: new Date('2029-01-15T09:00').toISOString(), endAt: new Date('2030-01-15T09:00').toISOString(), note: 'Dates agreed with owner',
+    startAt: '2029-01-15T02:00:00.000Z', endAt: '2030-01-15T02:00:00.000Z', note: 'Dates agreed with owner',
   } })
   expect(request).toHaveBeenCalledTimes(1)
 })
@@ -77,5 +77,5 @@ it('preserves an extension agreement when a concurrent change rejects it', async
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('Contract changed'))
   expect(screen.getByLabelText('Decision note').value).toBe('Extension confirmed outside system')
   expect(request).toHaveBeenCalledWith('/api/rental-contracts/6/extend', { method: 'POST', body: { expectedRevision: 2,
-    note: 'Extension confirmed outside system', endAt: new Date('2031-01-15T09:00').toISOString() } })
+    note: 'Extension confirmed outside system', endAt: '2031-01-15T02:00:00.000Z' } })
 })

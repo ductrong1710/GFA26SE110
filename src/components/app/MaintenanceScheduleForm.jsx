@@ -1,18 +1,14 @@
+import { parseVietnamDateTime, vietnamDateTimeInput } from '../../utils/display'
 import { useState } from 'react'
 import { api } from '../../services/api'
 import { listAll } from '../../services/api/resources'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 
-function localTime(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-}
 export default function MaintenanceScheduleForm({ schedule, onSaved, onReload, onBusyChange, busy = false }) {
   const [values, setValues] = useState({ policy: schedule?.policy ?? '', deviceType: schedule?.deviceType ?? 'UAV',
     technicianId: schedule?.technicianId ?? '', intervalDays: schedule?.intervalDays ?? 30,
-    nextDueAt: localTime(schedule?.nextDueAt), enabled: schedule?.enabled ?? true })
+    nextDueAt: vietnamDateTimeInput(schedule?.nextDueAt), enabled: schedule?.enabled ?? true })
   const [mode, setMode] = useState(schedule?.rentalDeviceAssignmentId ? 'CURRENT' : 'TYPE')
   const [page, setPage] = useState(1)
   const [contractId, setContractId] = useState('')
@@ -32,7 +28,7 @@ export default function MaintenanceScheduleForm({ schedule, onSaved, onReload, o
     try {
       onSaved(await api.request(schedule ? `/api/maintenance-schedules/${schedule.id}` : '/api/maintenance-schedules', {
         method: schedule ? 'PUT' : 'POST', body: { policy: values.policy.trim(), intervalDays: Number(values.intervalDays),
-          nextDueAt: new Date(values.nextDueAt).toISOString(), technicianId: Number(values.technicianId), enabled: values.enabled,
+          nextDueAt: parseVietnamDateTime(values.nextDueAt).toISOString(), technicianId: Number(values.technicianId), enabled: values.enabled,
           expectedRevision: schedule?.revision ?? 0, deviceType: mode === 'TYPE' ? values.deviceType : null,
           rentalDeviceAssignmentId: mode === 'CURRENT' ? schedule.rentalDeviceAssignmentId : mode === 'DEVICE' ? Number(assignmentId) : null },
       }))

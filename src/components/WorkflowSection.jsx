@@ -10,9 +10,9 @@ const missions = [
 function MissionTable() {
   return (
     <div className="mission-board">
-      <div className="mission-board-top"><div><span className="eyebrow">ĐIỀU PHỐI THU THẬP</span><h3>Nhiệm vụ hôm nay</h3></div><button type="button" aria-label="Thêm nhiệm vụ"><Icon name="plus" size={17} /></button></div>
+      <div className="mission-board-top"><div><span className="eyebrow">ĐIỀU PHỐI THU THẬP</span><h3>Ví dụ về nhiệm vụ UAV</h3></div></div>
       <div className="mission-table-wrap"><table className="mission-table"><thead><tr><th>Mã nhiệm vụ</th><th>Khu vực</th><th>Waypoint</th><th>Trạng thái</th></tr></thead><tbody>{missions.map((mission) => <tr key={mission.id}><td className="mission-id">{mission.id}</td><td>{mission.area}</td><td>{mission.progress}</td><td><span className={`mission-state ${mission.state === 'Đang chạy' ? 'is-running' : ''}`}><i />{mission.state}</span></td></tr>)}</tbody></table></div>
-      <div className="mission-board-foot"><span><i /> Gateway UAV kết nối</span><span>03 nhiệm vụ</span></div>
+      <div className="mission-board-foot"><span>Dữ liệu minh họa</span><span>3 nhiệm vụ mẫu</span></div>
     </div>
   )
 }

@@ -46,7 +46,7 @@ test('creates a typed schedule with numeric interval and UTC date', async () => 
   await vi.waitFor(() => expect(saved).toHaveBeenCalledWith({ id: 9 }))
   expect(request).toHaveBeenCalledWith('/api/maintenance-schedules', { method: 'POST', body: {
     rentalDeviceAssignmentId: null, deviceType: 'UAV', policy: 'Quarterly inspection', intervalDays: 90,
-    nextDueAt: new Date('2027-01-01T10:00').toISOString(), technicianId: 3, enabled: true, expectedRevision: 0,
+    nextDueAt: '2027-01-01T03:00:00.000Z', technicianId: 3, enabled: true, expectedRevision: 0,
   } })
 })
 test('conflicting edit preserves the draft and offers explicit reload', async () => {
@@ -56,6 +56,7 @@ test('conflicting edit preserves the draft and offers explicit reload', async ()
   render(<MaintenanceScheduleForm schedule={{ id: 9, deviceType: 'UAV', policy: 'Inspection', intervalDays: 30,
     nextDueAt: '2027-01-01T03:00:00Z', technicianId: 3, enabled: true, revision: 4 }} onSaved={vi.fn()} onReload={reload} />)
   await screen.findByRole('option', { name: 'Maintenance technician' })
+  expect(screen.getByLabelText('Next maintenance').value).toBe('2027-01-01T10:00')
   fireEvent.change(screen.getByLabelText('Service policy'), { target: { value: 'Keep my draft' } })
   fireEvent.click(screen.getByRole('button', { name: 'Save schedule' }))
   expect((await screen.findByRole('alert')).textContent).toContain('Schedule changed')
