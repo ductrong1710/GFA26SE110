@@ -46,7 +46,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('Gateway credentials on the Devices page', () => {
-  it.each([ROLES.ADMINISTRATOR, ROLES.FARM_OWNER])('shows Credential only for authorized gateway rows (%s)', async role => {
+  it('does not grant a Farm Owner credential-management controls', () => {
+    render(<Page account={auth(ROLES.FARM_OWNER)} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Mobile Gateways' }))
+    expect(screen.queryByRole('button', { name: 'Credential' })).toBeNull()
+  })
+  it.each([ROLES.ADMINISTRATOR])('shows Credential only for authorized gateway rows (%s)', async role => {
     render(<Page account={auth(role)} />)
     expect(screen.queryByRole('button', { name: 'Credential' })).toBeNull()
     await open()
