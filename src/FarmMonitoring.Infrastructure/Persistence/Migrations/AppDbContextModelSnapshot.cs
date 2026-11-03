@@ -1906,6 +1906,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("plan_revision");
 
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("purpose");
+
                     b.Property<DateTimeOffset?>("ScheduledEndAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("scheduled_end_at");
@@ -1932,6 +1937,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<int?>("ZoneId")
+                        .HasColumnType("integer")
+                        .HasColumnName("zone_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
@@ -1939,6 +1948,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasIndex("ScheduledStartAt");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("ZoneId");
 
                     b.HasIndex("FarmId", "Status");
 
@@ -4495,6 +4506,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UavId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("FarmMonitoring.Domain.Entities.Zone", "Zone")
+                        .WithMany()
+                        .HasForeignKey("ZoneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("Farm");
@@ -4502,6 +4518,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Gateway");
 
                     b.Navigation("Uav");
+
+                    b.Navigation("Zone");
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.MissionLog", b =>

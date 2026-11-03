@@ -11,6 +11,7 @@ public interface IMissionRepository
     Task<Mission?> FindAsync(int id, bool forUpdate, CancellationToken ct);
     Task<Mission?> GetNextScheduledForGatewayAsync(int gatewayId, CancellationToken ct);
     Task<bool> HasDeviceLogAsync(int missionId, int gatewayId, string logType, CancellationToken ct);
+    Task<Zone?> GetZoneAsync(int id, CancellationToken ct);
     Task<Farm?> GetFarmAsync(int id, CancellationToken ct);
     Task<IReadOnlyList<SensorNode>> GetSensorsAsync(int[] ids, CancellationToken ct);
     Task<Uav?> LockUavAsync(int id, CancellationToken ct);

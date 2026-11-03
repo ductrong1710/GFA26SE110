@@ -7,7 +7,7 @@ public sealed record WaypointRequest(int SequenceNo, decimal? Latitude, decimal?
 public sealed record MissionTargetRequest(int SensorNodeId, int WaypointSequenceNo, int SequenceNo);
 public sealed record MissionRequest(string Name, int FarmId, int? UavId, int? GatewayId,
     DateTimeOffset? ScheduledStartAt, DateTimeOffset? ScheduledEndAt, int[]? SensorNodeIds,
-    WaypointRequest[] Waypoints, string? OperatorNotes, MissionTargetRequest[]? TargetAssignments = null)
+    WaypointRequest[] Waypoints, string? OperatorNotes, MissionTargetRequest[]? TargetAssignments = null, string? Purpose = null, int? ZoneId = null)
 {
     // Legacy sensor-only plans remain valid drafts; scheduling requires explicit assignments.
     public int[] TargetSensorIds() => TargetAssignments?.Select(x => x.SensorNodeId).ToArray() ?? SensorNodeIds ?? [];
@@ -36,7 +36,7 @@ public sealed record MissionResponse(int Id, string Name, string Status, Mission
     MissionReference? Uav, MissionReference? Gateway, DateTimeOffset? ScheduledStartAt, DateTimeOffset? ScheduledEndAt,
     DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, int CreatedByUserId, string? OperatorNotes,
     string? FailureReason, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt,
-    IReadOnlyList<TargetResponse> Targets, IReadOnlyList<WaypointResponse> Waypoints, MissionProgress Progress, int PlanRevision = 0);
+    IReadOnlyList<TargetResponse> Targets, IReadOnlyList<WaypointResponse> Waypoints, MissionProgress Progress, int PlanRevision = 0, string? Purpose = null, MissionReference? Zone = null);
 public sealed record MissionResults(int MissionId, string Status, int TotalTargets, int SuccessfulTargets,
     int FailedTargets, int SkippedTargets, int PendingTargets, IReadOnlyList<TargetResponse> Targets);
 public sealed record MissionLogResponse(int Id, int MissionId, int? UserId, int? GatewayId, string LogType, string Message, DateTimeOffset CreatedAt, int ImageCount = 0);

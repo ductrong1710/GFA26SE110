@@ -24,6 +24,8 @@ public sealed class MissionLaunchService(IMissionRepository repository, FarmAcce
         {
             var m = await repository.FindAsync(id, true, ct) ?? throw new NotFoundException("Mission not found.");
             await access.EnsureFarmAccessAsync(m.FarmId, ct);
+            if (m.CreatedByUserId != actor)
+                throw new AccessDeniedException("Only the mission owner can approve launch.");
             if (request.PlanRevision != m.PlanRevision || request.Session != m.LaunchSession)
                 throw new ConflictException("The plan or gateway session changed. Review the current plan and confirm again.");
             if (!request.ConfirmAircraftReady || !request.ConfirmAreaClear)

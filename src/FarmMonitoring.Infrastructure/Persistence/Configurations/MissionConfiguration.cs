@@ -22,6 +22,8 @@ public sealed class MissionConfiguration : IEntityTypeConfiguration<Mission>
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         b.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        b.Property(x => x.ZoneId).HasColumnName("zone_id");
+        b.HasOne(x => x.Zone).WithMany().HasForeignKey(x => x.ZoneId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.FarmId).HasColumnName("farm_id");
         b.Property(x => x.UavId).HasColumnName("uav_id");
         b.Property(x => x.GatewayId).HasColumnName("gateway_id");
@@ -32,6 +34,7 @@ public sealed class MissionConfiguration : IEntityTypeConfiguration<Mission>
         b.Property(x => x.CompletedAt).HasColumnName("completed_at");
         b.Property(x => x.CreatedAt).HasColumnName("created_at");
         b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+        b.Property(x => x.Purpose).HasColumnName("purpose").HasMaxLength(2000);
         b.Property(x => x.OperatorNotes).HasColumnName("operator_notes").HasColumnType("text");
         b.Property(x => x.FailureReason).HasColumnName("failure_reason").HasColumnType("text");
         b.HasOne(x => x.Farm).WithMany().HasForeignKey(x => x.FarmId).OnDelete(DeleteBehavior.Restrict);

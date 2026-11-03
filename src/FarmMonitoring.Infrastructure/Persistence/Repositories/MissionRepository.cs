@@ -14,12 +14,13 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         if (mission.UavId is null && mission.GatewayId is null) return;
         var end = mission.ScheduledEndAt > now ? mission.ScheduledEndAt.Value : now;
         var devices = db.RentalDeviceAssignments.Where(x => x.ReturnedAt == null && x.Contract.FarmId == mission.FarmId &&
+            x.Contract.OwnerId == mission.CreatedByUserId &&
             x.Contract.Status == RentalStatus.ACTIVE && x.Contract.StartAt <= now && x.Contract.EndAt > now && x.Contract.EndAt >= end &&
             db.UserFarms.Any(f => f.FarmId == mission.FarmId && f.UserId == x.Contract.OwnerId && f.User.IsActive &&
                 f.User.UserRoles.Any(r => r.Role.Name == FarmMonitoring.Domain.Constants.RoleNames.FarmOwner)));
         if (mission.UavId is int uav && !await devices.AnyAsync(x => x.UavId == uav, ct) ||
             mission.GatewayId is int gateway && !await devices.AnyAsync(x => x.GatewayId == gateway, ct))
-            throw new BusinessRuleException("Selected UAV and gateway require an active rental assigned to this farm covering the mission period.");
+            throw new BusinessRuleException("Selected UAV and gateway require an active rental belonging to the mission owner on this farm and covering the mission period.");
     }
     public async Task<T> InTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct)
     {
@@ -40,7 +41,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
         }
         var query = db.Missions.AsQueryable();
         if (!forUpdate) query = query.AsNoTracking();
-        return await query.Include(x => x.Farm).Include(x => x.Uav).Include(x => x.Gateway)
+        return await query.Include(x => x.Farm).Include(x => x.Zone).Include(x => x.Uav).Include(x => x.Gateway)
             .Include(x => x.Targets).ThenInclude(x => x.SensorNode).ThenInclude(x => x.Zone).Include(x => x.Waypoints)
             .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
     }
@@ -58,6 +59,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
     }
     public Task<bool> HasDeviceLogAsync(int missionId, int gatewayId, string logType, CancellationToken ct) =>
         db.MissionLogs.AnyAsync(x => x.MissionId == missionId && x.GatewayId == gatewayId && x.UserId == null && x.LogType == logType, ct);
+    public Task<Zone?> GetZoneAsync(int id, CancellationToken ct) => db.Zones.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<Farm?> GetFarmAsync(int id, CancellationToken ct) => db.Farms.SingleOrDefaultAsync(x => x.Id == id, ct);
     public async Task<IReadOnlyList<SensorNode>> GetSensorsAsync(int[] ids, CancellationToken ct)
     {
