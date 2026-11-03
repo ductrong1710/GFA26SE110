@@ -4,7 +4,7 @@ import { useApiQuery } from '../services/api/useApiQuery'
 import { listAll } from '../services/api/resources'
 import { api } from '../services/api'
 import { normalizeUser, toBackendRoles } from '../services/api/roles'
-import { ROLES, USER_ASSIGNABLE_ROLES } from '../config/roles'
+import { ROLE_LABELS, USER_ASSIGNABLE_ROLES } from '../config/roles'
 import { useAuth } from './AuthContext'
 import { PERMISSIONS } from '../config/permissions'
 import { showToast } from '../utils/toast'
@@ -20,7 +20,7 @@ export default function ApiManagementProvider({ children }) {
         throw new Error('Select exactly one role when creating a user.')
       }
       if ((!id || mode === 'edit') && values.roles.some(role => !USER_ASSIGNABLE_ROLES.includes(role))) {
-        throw new Error(`Only ${USER_ASSIGNABLE_ROLES.map(role => role === ROLES.FARM_OWNER ? 'Farm Owner' : role === ROLES.UAV_DEVICE_OPERATOR ? 'UAV and Device Operator' : 'Agricultural Engineer').join(' and ')} roles can be assigned from this page.`)
+        throw new Error(`Only ${USER_ASSIGNABLE_ROLES.map(role => ROLE_LABELS[role]).join(' and ')} roles can be assigned from this page.`)
       }
       if (!id) await api.post('/api/users', { email: values.email, fullName: values.fullName, password: values.password, roles: toBackendRoles(values.roles) })
       else if (mode === 'status') await api.patch(`/api/users/${id}/status`, { isActive: values.status === 'ACTIVE' })

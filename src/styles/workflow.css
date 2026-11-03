@@ -1,0 +1,109 @@
+@import './app-ui.css';
+
+/* Two fluid columns share the available width: (100% - 20px gap) / 2. */
+.workflow { display: grid; gap: 22px; max-width: 1600px; margin: 0 auto; }
+.workflow h1 { font-size: clamp(24px, 2.4vw, 30px); letter-spacing: -.6px; }
+.workflow h3 { margin: 0 0 5px; font-size: 15px; font-weight: 600; }
+.workflow p { margin: 6px 0; overflow-wrap: anywhere; }
+.workflow small { color: var(--ui-muted); font-size: 12px; }
+.workflow button, .workflow select, .workflow input { min-height: 42px; }
+.workflow button { cursor: pointer; }
+.workflow .app-ui-section-card { border-radius: 10px; box-shadow: none; }
+.wf-two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+.wf-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.wf-toolbar .wf-field { min-width: 160px; }
+.wf-form { display: grid; gap: 16px; margin-top: 16px; }
+.wf-field { display: grid; gap: 7px; min-width: 0; font-size: 13px; color: #3d5146; }
+.wf-field input, .wf-field select, .wf-field textarea { width: 100%; padding: 10px 12px; border: 1px solid #d4dfd8; border-radius: 6px; background: white; color: #203b2c; font: inherit; }
+.wf-field textarea { resize: vertical; min-height: 80px; }
+.workflow fieldset { border: 1px solid #dce5df; border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.workflow legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
+.workflow input[type='checkbox'] { width: 17px; height: 17px; min-height: 17px; accent-color: #176346; margin-right: 7px; }
+.wf-checks { display: flex; flex-wrap: wrap; gap: 14px; }
+.wf-checks label { display: flex; align-items: center; }
+.wf-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 1px solid #dfe7e1; border-radius: 10px; background: #fff; padding: 20px 0; }
+.wf-metrics > div { display: grid; gap: 10px; padding: 0 20px; border-right: 1px solid #e4eae6; }
+.wf-metrics > div:last-child { border: 0; }
+.wf-metrics span { color: #68766d; font-size: 12px; }
+.wf-metrics strong { font-size: 28px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.wf-charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.wf-chart { min-width: 0; height: 220px; font-size: 11px; }
+.wf-charts .app-ui-card-body { padding: 16px 10px; }
+.wf-list { list-style: none; padding: 0; margin: 8px 0; }
+.wf-list > li { display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 16px 0; border-bottom: 1px solid #e8eeea; min-width: 0; }
+.wf-list > li:last-child { border-bottom: 0; }
+.wf-list li > div { min-width: 0; }
+.wf-list small { display: block; }
+.wf-list p { color: #66766b; font-size: 13px; }
+.wf-link { color: #176346; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.wf-badge { display: inline-flex; padding: 4px 8px; font-size: 12px; border-radius: 4px; background: #edf2ef; color: #53665b; }
+.wf-badge[data-state='APPROVED'], .wf-badge[data-state='ACTIVE'], .wf-badge[data-state='CLOSED'], .wf-badge[data-state='APPLIED'] { background: #e3f1e8; color: #176346; }
+.wf-badge[data-state='REPORT_SUBMITTED'], .wf-badge[data-state='PROPOSED'], .wf-badge[data-state='EXPIRED'], .wf-badge[data-state='REWORK'] { background: #fcf2dc; color: #805b1e; }
+.wf-empty { padding: 25px 0; color: #768379; font-size: 13px; }
+.wf-muted { color: #728075; font-size: 12px; }
+.wf-error { color: #a12a22; padding: 10px 12px; background: #fff2ee; border-radius: 6px; }
+.wf-callout { padding: 14px 16px; background: #edf5ef; border-radius: 6px; font-size: 13px; line-height: 1.7; }
+.wf-pager { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: 10px; padding-top: 15px; }
+.wf-pager > span { margin-right: auto; font-size: 12px; color: #6d7a71; }
+.wf-inline-form { display: grid; gap: 12px; margin-top: 18px; }
+.wf-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
+.wf-facts dt, .wf-report-grid dt { font-size: 12px; color: #748076; }
+.wf-facts dd, .wf-report-grid dd { margin: 5px 0 0; overflow-wrap: anywhere; }
+.wf-timeline { padding-left: 18px; margin: 14px 0; }
+.wf-timeline li { padding: 0 0 18px 12px; border-left: 1px solid #dbe5dd; }
+.wf-timeline li::marker { color: #176346; }
+.workflow summary { padding: 12px 0; cursor: pointer; color: #365742; font-size: 13px; font-weight: 600; }
+.wf-plan { border-bottom: 1px solid #e4eae6; padding: 15px 0; }
+.wf-evidence > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.wf-evidence img { width: 180px; height: 140px; object-fit: contain; background: #f2f5f3; border: 1px solid #dfe7e1; }
+.wf-thumbnails { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.wf-thumbnails img { width: 72px; height: 64px; object-fit: cover; border-radius: 4px; }
+.wf-report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.wf-report-grid > article { padding: 16px; border: 1px solid #e0e8e2; border-radius: 8px; }
+.wf-kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; align-items: start; }
+.wf-lane { min-width: 215px; flex: 1; padding: 12px; border: 1px solid #e0e7e2; border-radius: 8px; background: #f0f4f1; }
+.wf-lane h2 { font-size: 13px; display: flex; gap: 8px; justify-content: space-between; margin: 2px 0 16px; }
+.wf-lane h2 span { color: #748076; font-variant-numeric: tabular-nums; }
+.wf-lane article { background: #fff; padding: 14px; border: 1px solid #e0e7e2; border-radius: 6px; margin: 10px 0; }
+.wf-lane article p { font-size: 13px; }
+.wf-calendar-wrap { overflow-x: auto; }
+.wf-calendar { display: grid; grid-template-columns: 160px repeat(var(--days), minmax(140px, 1fr)); min-width: max-content; border-top: 1px solid #e0e7e2; border-left: 1px solid #e0e7e2; }
+.wf-calendar-row { display: contents; }
+.wf-calendar-head, .wf-calendar-row > strong, .wf-calendar-cell { padding: 12px; border-right: 1px solid #e0e7e2; border-bottom: 1px solid #e0e7e2; font-size: 12px; }
+.wf-calendar-head { background: #f4f7f5; font-weight: 600; }
+.wf-calendar-row > strong { background: white; font-weight: 500; }
+.wf-calendar-cell { min-height: 100px; }
+.wf-booking { display: grid; gap: 5px; padding: 8px; background: #e6f1e9; border-radius: 4px; margin-bottom: 8px; font-size: 12px; }
+.wf-booking[data-kind='MAINTENANCE'] { background: #fff; border: 1px dashed #81978a; }
+.wf-booking[data-kind='REPAIR'] { background: #f9f1e1; }
+.wf-mobile-jobs { display: none; }
+.app-shell:has(.workflow) .app-sidebar { background: #f0f5f1; color: #2f4a39; border-right: 1px solid #dce5df; }
+.app-shell:has(.workflow) .app-nav-label, .app-shell:has(.workflow) .app-sidebar-footer, .app-shell:has(.workflow) .app-workspace-label { color: #64796b; }
+.app-shell:has(.workflow) .app-nav-link { color: #52685b; }
+.app-shell:has(.workflow) .app-nav-link.is-active { background: #dfece3; color: #176346; }
+.app-shell:has(.workflow) .app-nav-link:hover { background: #e5eee7; color: #176346; }
+.app-shell:has(.workflow) .app-sidebar-brand { color: #176346; }
+.app-shell:has(.workflow) .app-brand { color: #244b34; }
+.app-shell:has(.workflow) .app-brand-mark i { background: #176346; }
+.app-shell:has(.workflow) .app-brand-mark i:nth-child(2) { background: #6da17e; }
+.app-farm-control[hidden] { display: none; }
+@media (max-width: 1250px) {
+  .wf-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 0; }
+  .wf-charts { grid-template-columns: 1fr; }
+  .wf-chart { height: 220px; }
+}
+@media (max-width: 760px) {
+  .workflow { gap: 16px; }
+  .wf-two-col, .wf-report-grid { grid-template-columns: 1fr; }
+  .wf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wf-metrics > div { padding: 0 14px; }
+  .wf-metrics strong { font-size: 25px; }
+  .wf-toolbar { align-items: stretch; }
+  .wf-toolbar .wf-field { flex: 1; }
+  .wf-facts { grid-template-columns: 1fr; }
+  .wf-list > li { flex-wrap: wrap; }
+  .wf-calendar-wrap { display: none; }
+  .wf-mobile-jobs { display: grid; gap: 14px; }
+  .wf-mobile-jobs article { padding: 14px; border: 1px solid #dce5df; border-radius: 6px; }
+  .wf-evidence img { width: 140px; height: 120px; }
+}

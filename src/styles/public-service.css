@@ -1,0 +1,40 @@
+.public-service { color: #213d2b; background: #f6f8f3; }
+.public-service-section { max-width: 1280px; padding: 90px 32px; margin: auto; scroll-margin-top: 70px; }
+.public-service-section > header { max-width: 670px; margin-bottom: 36px; }
+.public-service h2 { font-size: clamp(28px, 3.5vw, 44px); line-height: 1.15; letter-spacing: -1.4px; font-weight: 500; margin: 16px 0; }
+.public-service p { line-height: 1.8; color: #667461; }
+.public-product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.public-product-grid article { border: 1px solid #dde5d8; background: #fff; border-radius: 8px; overflow: hidden; }
+.public-product-grid article > div { padding: 24px; }
+.public-product-grid article > img { width: 100%; height: 210px; object-fit: contain; background: #edf2e9; padding: 20px; }
+.public-product-grid h3 { font-size: 22px; margin: 10px 0; font-weight: 500; }
+.public-product-grid p { white-space: pre-line; font-size: 14px; }
+.public-product-grid strong { display: block; font-size: 22px; font-weight: 500; }
+.public-product-grid small { color: #6f7c68; font-size: 12px; }
+.public-product-grid a { display: inline-block; margin-top: 20px; color: #176346; text-decoration: underline; text-underline-offset: 4px; }
+.public-policy-grid { display: grid; gap: 8px; }
+.public-policy-grid details { border-bottom: 1px solid #dce4d7; }
+.public-policy-grid summary { font-size: 18px; cursor: pointer; padding: 20px 0; }
+.public-policy-grid p { white-space: pre-line; margin: 0 0 24px; }
+.public-consultation { max-width: 1280px; margin: auto; padding: 70px 32px 100px; display: grid; grid-template-columns: 1fr 1fr; gap: 90px; scroll-margin-top: 80px; }
+.public-consultation > div > p { max-width: 440px; }
+.public-consultation form { display: grid; gap: 17px; }
+.public-consultation label { display: grid; gap: 7px; font-size: 13px; color: #39513a; }
+.public-consultation input, .public-consultation textarea { padding: 12px; min-height: 45px; border: 1px solid #cbd8c4; background: white; border-radius: 5px; font: inherit; }
+.public-consultation button, .public-service-section button { background: #176346; color: white; padding: 13px 20px; min-height: 44px; border: 0; border-radius: 5px; cursor: pointer; }
+.public-consultation button:disabled { opacity: .6; cursor: wait; }
+.public-consultation :focus-visible, .public-service-section :focus-visible { outline: 2px solid #176346; outline-offset: 4px; }
+.public-consultation-note { font-size: 12px; }
+.public-sent { padding: 32px; border: 1px solid #bfd4bf; background: #eaf2e5; align-self: start; }
+.public-quick-contacts { position: fixed; bottom: 24px; right: 24px; z-index: 25; display: flex; flex-direction: column; gap: 8px; }
+.public-quick-contacts a { background: white; border: 1px solid #d8e3d4; border-radius: 6px; padding: 12px 18px; color: #176346; font-size: 13px; }
+@media(max-width: 760px) { .public-product-grid, .public-consultation { grid-template-columns: 1fr; } .public-consultation { gap: 30px; padding: 45px 20px; } .public-service-section { padding: 55px 20px; } .public-quick-contacts { right: 12px; bottom: 12px; } }
+
+.public-flow { background:#f5f7f1; padding:80px 24px; color:#24442e; }
+.public-flow h2 { font-size:clamp(30px,4vw,48px);line-height:1.15;letter-spacing:-1px;font-weight:500; }
+.public-flow .page-width > div { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px;margin-top:40px; }
+.public-flow article { border-top:1px solid #cfdcca;padding-top:18px; }
+.public-flow article > span { color:#7f9778;font-size:13px; }
+.public-flow h3 { font-size:19px;font-weight:500;margin:14px 0; }
+.public-flow article p { color:#6a7962;font-size:14px;line-height:1.8; }
+@media(max-width:760px) { .public-flow .page-width > div {grid-template-columns:1fr;gap:24px;} }

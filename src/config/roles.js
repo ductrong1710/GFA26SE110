@@ -1,17 +1,19 @@
 // Human UI roles only. The Sensor Collection Engine is a device/service actor.
 export const ROLES = Object.freeze({
   FARM_OWNER: 'FARM_OWNER',
+  TECHNICIAN: 'TECHNICIAN',
   ADMINISTRATOR: 'ADMINISTRATOR',
   UAV_DEVICE_OPERATOR: 'UAV_DEVICE_OPERATOR',
   AGRICULTURAL_ENGINEER: 'AGRICULTURAL_ENGINEER',
 })
 
-export const HUMAN_ROLES = Object.freeze(Object.values(ROLES))
+export const HUMAN_ROLES = Object.freeze(Object.values(ROLES).filter(role => role !== ROLES.UAV_DEVICE_OPERATOR))
 export const USER_ASSIGNABLE_ROLES = Object.freeze(
   HUMAN_ROLES.filter(role => ![ROLES.ADMINISTRATOR, ROLES.UAV_DEVICE_OPERATOR].includes(role)),
 )
 
 export const ROLE_LABELS = Object.freeze({
+  [ROLES.TECHNICIAN]: 'Kỹ thuật viên',
   [ROLES.FARM_OWNER]: 'Farm Owner',
   [ROLES.ADMINISTRATOR]: 'Administrator',
   [ROLES.UAV_DEVICE_OPERATOR]: 'UAV and Device Operator',

@@ -1,6 +1,18 @@
 import { PERMISSIONS as P } from './permissions.js'
 
 export const appRoutes = [
+  { path: 'crop-seasons', title: 'Mùa vụ & nhật ký', permissions: [P.FARMS_VIEW] },
+  { path: 'consultations', title: 'Khách cần tư vấn', permissions: [P.CONSULTATIONS] },
+  { path: 'consultations/:id', title: 'Hồ sơ tư vấn', permissions: [P.CONSULTATIONS] },
+  { path: 'work-orders', title: 'Lắp đặt & dịch vụ', permissions: [P.WORK_ORDERS] },
+  { path: 'work-orders/:kind/:id', title: 'Chi tiết công việc', permissions: [P.WORK_ORDERS] },
+  { path: 'installation-requests/:id', title: 'Yêu cầu lắp đặt', permissions: [P.MAINTENANCE] },
+  { path: 'dispatch', title: 'Lịch kỹ thuật viên', permissions: [P.DISPATCH] },
+  { path: 'rentals', title: 'Hồ sơ thuê', permissions: [P.RENTALS] },
+  { path: 'support', title: 'Báo cáo hỗ trợ', permissions: [P.SUPPORT] },
+  { path: 'maintenance', title: 'Bảo trì định kỳ', permissions: [P.MAINTENANCE] },
+  { path: 'device-history', title: 'Lịch sử thiết bị', permissions: [P.DEVICE_HISTORY] },
+  { path: 'public-content', title: 'Nội dung Homepage', permissions: [P.PUBLIC_CONTENT] },
   { path: 'dashboard', title: 'Tổng quan', permissions: [P.DASHBOARD_VIEW] },
   { path: 'farms', title: 'Nông trại', permissions: [P.FARMS_VIEW] },
   { path: 'sensors', title: 'Cảm biến', permissions: [P.SENSORS_VIEW] },

@@ -1,3 +1,4 @@
+import LiveHomepage from '../components/LiveHomepage'
 import FeatureSection from '../components/FeatureSection'
 import HeroSection from '../components/HeroSection'
 import ResourceSection from '../components/ResourceSection'
@@ -15,6 +16,7 @@ export default function HomePage() {
         <SensorBand />
         <FeatureSection />
         <WorkflowSection />
+        <LiveHomepage />
         <ResourceSection />
       </main>
       <SiteFooter />

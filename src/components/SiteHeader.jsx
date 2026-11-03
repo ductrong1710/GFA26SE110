@@ -5,7 +5,8 @@ import Icon from './Icon'
 const links = [
   { label: 'Nền tảng', href: '#platform' },
   { label: 'Cách hoạt động', href: '#how-it-works' },
-  { label: 'Về Smart Farm', href: '#about' },
+  { label: 'Thiết bị & giá', href: '#thiet-bi-thue' },
+  { label: 'Tư vấn', href: '#gui-tu-van' },
 ]
 
 export default function SiteHeader({ innerPage = false, heroPage = false }) {

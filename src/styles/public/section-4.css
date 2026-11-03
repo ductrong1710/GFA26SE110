@@ -1,0 +1,191 @@
+/* Use the supplied UAV farm image and keep auth views within the viewport. */
+.account-screen { width: 100%; height: 100svh; min-height: 560px; overflow: hidden; grid-template-columns: minmax(420px, .92fr) minmax(460px, 1.08fr); }
+.account-form-panel { height: 100%; min-height: 0; overflow: hidden; padding: 24px clamp(32px, 5.3vw, 82px) 18px; }
+.account-form-content { margin: 12px auto; }
+.account-tabs button { min-width: 112px; padding: 10px 15px; border: 0; border-radius: 24px; color: #68736a; background: transparent; font: inherit; font-size: 13px; font-weight: 600; text-align: center; cursor: pointer; transition: color .25s ease, background .25s ease, box-shadow .25s ease; }
+.account-tabs button.is-active { color: #fff; background: #176346; box-shadow: 0 3px 10px rgba(23,99,70,.18); }
+.account-tabs a { display: none; }
+.account-switch button { padding: 0; border: 0; color: #176346; background: none; font: inherit; font-weight: 600; cursor: pointer; }
+.account-switch { margin: 15px 0 0; }
+.account-back { margin-top: 13px; }
+.account-visual { height: 100%; min-height: 0; padding: 0; background: #e8efe8; animation: account-image-in-right .45s ease both; }
+.account-visual img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
+.account-screen--register .account-visual { animation-name: account-image-in-left; }
+.account-form-content h1 { animation: account-copy-in .32s ease both; }
+@keyframes account-image-in-right { from { opacity: .5; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes account-image-in-left { from { opacity: .5; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes account-copy-in { from { opacity: .45; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 900px) and (min-width: 681px) {
+  .account-screen { grid-template-columns: minmax(360px, .98fr) minmax(330px, 1.02fr); }
+  .account-form-panel { padding-inline: 26px; }
+  .account-form-content { width: min(390px, 100%); }
+}
+@media (max-width: 680px) {
+  .account-screen { height: 100svh; min-height: 560px; grid-template-columns: minmax(0, 1fr); grid-template-rows: 25svh minmax(0, 75svh); }
+  .account-visual, .account-screen--register .account-visual, .account-screen--login .account-visual { min-height: 0; max-height: none; height: auto; grid-row: 1; order: -1; }
+  .account-visual img { object-position: center 42%; }
+  .account-form-panel, .account-screen--register .account-form-panel, .account-screen--login .account-form-panel { height: auto; min-height: 0; grid-row: 2; order: 1; padding: 13px 22px 10px; }
+  .account-form-content { width: min(430px, 100%); margin: 8px auto; }
+  .account-tabs { margin-bottom: 15px; }
+  .account-tabs button { min-width: 100px; padding-block: 8px; }
+  .account-form-content h1 { margin: 6px 0 4px; font-size: 28px; }
+  .account-intro { margin-bottom: 14px; font-size: 12px; line-height: 1.4; }
+  .account-form-content form { gap: 10px; }
+  .account-form-content form label { gap: 5px; font-size: 12px; }
+  .account-form-content form input { min-height: 41px; }
+  #root .account-form-content .account-submit { min-height: 44px; }
+  .account-switch { margin-top: 11px; font-size: 12px; }
+  .account-back { margin-top: 9px; font-size: 12px; }
+  .account-legal { display: none; }
+}
+@media (max-height: 680px) {
+  .account-form-panel { padding-block: 14px 10px; }
+  .account-form-content { margin-block: 5px; }
+  .account-tabs { margin-bottom: 14px; }
+  .account-intro { margin-bottom: 14px; }
+  .account-form-content form { gap: 11px; }
+  .account-form-content form input { min-height: 42px; }
+  .account-switch { margin-top: 10px; }
+  .account-back, .account-legal { display: none; }
+}
+@media (max-width: 680px) and (max-height: 680px) {
+  .account-screen { grid-template-rows: 20svh minmax(0, 80svh); }
+  .account-brand { font-size: 19px; }
+  .account-form-content h1 { font-size: 24px; }
+  .account-intro { display: none; }
+  .account-tabs { margin-bottom: 10px; }
+  .account-form-content form { gap: 8px; }
+  .account-form-content form input { min-height: 37px; }
+  #root .account-form-content .account-submit { min-height: 40px; }
+}
+/* Double-slider transition between the login and registration panels. */
+.account-screen--register .account-visual { animation: account-slide-in-from-right .62s cubic-bezier(.22,.72,.18,1) both; }
+.account-screen--login .account-visual { animation: account-slide-in-from-left .62s cubic-bezier(.22,.72,.18,1) both; }
+.account-screen--register .account-form-panel { animation: account-form-in-from-left .62s cubic-bezier(.22,.72,.18,1) both; }
+.account-screen--login .account-form-panel { animation: account-form-in-from-right .62s cubic-bezier(.22,.72,.18,1) both; }
+.forgot-password-content .eyebrow { color: #548066; font-size: 10px; letter-spacing: .11em; }
+.forgot-password-content .account-intro { margin-bottom: 22px; }
+.forgot-password-content form { gap: 14px; }
+.forgot-resend { color: #176346; font-size: 12px; font-weight: 600; text-decoration: none; }
+.forgot-resend { justify-self: center; padding: 5px; border: 0; background: transparent; font: inherit; cursor: pointer; }
+.forgot-resend:hover { color: #123e2c; text-decoration: underline; }
+@media (max-width: 680px) { .forgot-password-content .account-intro { margin-bottom: 14px; }.forgot-password-content form { gap: 10px; } }
+.account-screen--forgot { min-height: 100svh; height: auto; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; }
+.account-screen--forgot .account-card { width: min(600px, 100%); height: auto; min-height: min(620px, calc(100svh - 40px)); display: block; }
+.account-screen--forgot .account-form-panel { min-height: min(620px, calc(100svh - 40px)); padding: 90px 28px 36px; }
+.account-screen--forgot .account-form-content { width: min(430px, 100%); }
+.account-screen--forgot .account-form-panel { padding: 40px; }
+.account-screen--forgot .account-form-content { width: 100%; max-width: 420px; margin: 0; text-align: left; }
+.account-screen--forgot .account-brand-group { position: static; width: 100%; margin: 0 0 38px; align-items: flex-start; gap: 14px; }
+.account-screen--forgot .account-brand { color: #18231b; font-size: 20px; }
+.account-screen--forgot .account-form-content h1 { margin: 0 0 10px; font-size: clamp(30px, 4vw, 38px); letter-spacing: -.04em; line-height: 1.15; }
+.account-screen--forgot .account-intro { margin: 0 0 20px; }
+.account-screen--forgot .account-form-content form { width: 100%; gap: 16px; }
+.account-screen--forgot .account-form-content form label { width: 100%; }
+.account-screen--forgot .account-form-content form input,
+.account-screen--forgot .account-form-content .account-submit { box-sizing: border-box; width: 100%; min-height: 50px; }
+.account-screen--forgot .account-form-content .account-submit { margin: 0; }
+.account-screen--forgot .account-message { margin: 0 0 16px; }
+@media (max-width: 680px) {
+  .account-screen--forgot { min-height: 100svh; padding: 10px; }
+  .account-screen--forgot .account-card { width: 100%; min-height: calc(100svh - 20px); height: auto; border-radius: 16px; }
+  .account-screen--forgot .account-form-panel { min-height: calc(100svh - 20px); padding: 68px 22px 24px; }
+  .account-screen--forgot .account-form-panel { min-height: calc(100svh - 20px); padding: 40px 24px; }
+  .account-screen--forgot .account-brand-group { margin-bottom: 30px; }
+}
+@keyframes account-slide-in-from-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes account-slide-in-from-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes account-form-in-from-left { from { transform: translateX(-18%); opacity: .72; } to { transform: translateX(0); opacity: 1; } }
+@keyframes account-form-in-from-right { from { transform: translateX(18%); opacity: .72; } to { transform: translateX(0); opacity: 1; } }
+@media (max-width: 680px) {
+  .account-screen--register .account-visual, .account-screen--login .account-visual { animation: account-mobile-fade .4s ease both; }
+  .account-screen--register .account-form-panel, .account-screen--login .account-form-panel { animation: account-mobile-fade .4s ease both; }
+}
+@keyframes account-mobile-fade { from { opacity: .55; } to { opacity: 1; } }
+/* Auth action buttons follow the reference's outlined switch + rounded submit style. */
+.account-tabs { padding: 0; border: 0; border-radius: 0; gap: 10px; background: transparent; }
+.account-tabs button { min-width: 108px; padding: 9px 18px; border: 1px solid #176346; border-radius: 999px; color: #176346; background: transparent; }
+.account-tabs button.is-active { border-color: #176346; color: #fff; background: #176346; box-shadow: none; }
+.account-tabs button:not(.is-active):hover { color: #176346; background: rgba(23,99,70,.08); }
+#root .account-form-content .account-submit { min-height: 48px; border-radius: 999px; }
+.account-visual { position: relative; }
+.account-visual::after { content: ''; position: absolute; inset: 46% 0 0; background: linear-gradient(180deg, transparent, rgba(12,42,27,.72)); pointer-events: none; }
+.account-visual-content { position: absolute; z-index: 2; right: clamp(24px, 6%, 70px); bottom: clamp(25px, 7%, 70px); left: clamp(24px, 6%, 70px); color: #fff; animation: account-copy-in .4s ease both; }
+.account-visual-content .eyebrow { color: rgba(255,255,255,.82); font-size: 10px; letter-spacing: .13em; }
+.account-visual-content h2 { margin: 10px 0 7px; color: #fff; font-size: clamp(27px, 3vw, 40px); font-weight: 600; letter-spacing: -.045em; line-height: 1.08; text-shadow: 0 2px 16px rgba(0,0,0,.18); }
+.account-visual-content p { max-width: 420px; margin: 0 0 17px; color: rgba(255,255,255,.92); font-size: 13px; line-height: 1.55; }
+.account-visual-content button { min-width: 142px; min-height: 42px; padding: 0 22px; border: 1px solid rgba(255,255,255,.9); border-radius: 999px; color: #176346; background: rgba(255,255,255,.94); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+.account-visual-content button:hover { background: #fff; transform: translateY(-2px); }
+@media (max-width: 680px) {
+  .account-tabs { margin-bottom: 12px; }
+  .account-visual::after { inset: 30% 0 0; }
+  .account-visual-content { right: 16px; bottom: 12px; left: 16px; }
+  .account-visual-content .eyebrow { font-size: 8px; }
+  .account-visual-content h2 { margin: 3px 0; font-size: 19px; }
+  .account-visual-content p { max-width: 290px; margin-bottom: 7px; font-size: 10px; }
+  .account-visual-content button { min-width: 98px; min-height: 30px; padding-inline: 14px; font-size: 11px; }
+}
+@media (max-width: 680px) and (max-height: 680px) {
+  .account-visual-content .eyebrow, .account-visual-content p { display: none; }
+  .account-visual-content button { min-height: 28px; }
+}
+/* Auth layout ratio and minimalist underline fields from the supplied reference. */
+.account-screen { grid-template-columns: 40% 60%; }
+.account-screen--register { grid-template-columns: 60% 40%; }
+.account-form-panel { min-width: 0; }
+.account-form-content { width: min(430px, 100%); }
+.account-form-content form { gap: 17px; }
+.account-form-content form label { gap: 3px; color: #303a32; font-size: 12px; font-weight: 400; }
+.account-form-content form input { min-height: 39px; padding: 2px 0 7px; border: 0; border-bottom: 1px solid #d2d9d3; border-radius: 0; color: #1e2720; background: transparent; font-size: 14px; box-shadow: none; }
+.account-form-content form input:focus { border-bottom-color: #176346; box-shadow: 0 1px 0 #176346; }
+.account-form-content form input::placeholder { color: #7b847d; opacity: 1; }
+@media (max-width: 900px) and (min-width: 681px) {
+  .account-screen { grid-template-columns: 40% 60%; }
+  .account-screen--register { grid-template-columns: 60% 40%; }
+  .account-form-panel { padding-inline: 24px; }
+  .account-form-content { width: 100%; }
+}
+/* Inset the complete auth card inside a calm Smart Farm backdrop. */
+.account-screen { width: 100%; height: 100svh; min-height: 560px; padding: 32px; display: grid; place-items: center; overflow: hidden; background: radial-gradient(ellipse at 20% 15%, #24553f 0%, #123e2c 46%, #0c2a1d 100%); }
+.account-card { width: min(1280px, 100%); height: min(820px, calc(100svh - 64px)); min-height: 560px; display: grid; grid-template-columns: 40% 60%; overflow: hidden; border: 1px solid rgba(255,255,255,.55); border-radius: 22px; background: #fff; box-shadow: 0 28px 80px rgba(0,0,0,.28); }
+.account-screen--register .account-card { grid-template-columns: 60% 40%; }
+.account-card .account-form-panel, .account-card .account-visual { height: 100%; min-height: 0; }
+.account-card .account-form-panel { padding: 24px clamp(28px, 4vw, 64px) 18px; }
+.account-card .account-visual { padding: 0; }
+@media (max-width: 900px) and (min-width: 681px) {
+  .account-screen { padding: 22px; }
+  .account-card { height: calc(100svh - 44px); min-height: 540px; border-radius: 18px; }
+  .account-screen--register .account-card { grid-template-columns: 60% 40%; }
+  .account-card .account-form-panel { padding-inline: 24px; }
+}
+@media (max-width: 680px) {
+  .account-screen { width: 100%; height: 100svh; min-height: 0; padding: 12px; }
+  .account-card, .account-screen--register .account-card { width: 100%; height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: 25svh minmax(0, 75svh); border-radius: 16px; }
+  .account-card .account-visual, .account-screen--register .account-visual, .account-screen--login .account-visual { height: auto; min-height: 0; max-height: none; grid-column: 1; grid-row: 1; order: 0; }
+  .account-card .account-form-panel, .account-screen--register .account-form-panel, .account-screen--login .account-form-panel { height: auto; min-height: 0; grid-column: 1; grid-row: 2; order: 0; padding: 13px 22px 10px; }
+}
+@media (max-width: 680px) and (max-height: 680px) {
+  .account-screen { padding: 8px; }
+  .account-card, .account-screen--register .account-card { grid-template-rows: 20svh minmax(0, 80svh); border-radius: 13px; }
+}
+/* Keep the backdrop as one centered stage; apply the 40/60 split only inside the card. */
+.account-screen.account-screen--login, .account-screen.account-screen--register { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.account-card { width: min(1280px, 100%); margin-inline: auto; }
+.account-card .account-form-panel { padding-inline: clamp(24px, 2.4vw, 40px); }
+.account-card > .account-visual { padding: 0; }
+.account-card .account-form-content { width: min(430px, 100%); }
+@media (max-width: 900px) and (min-width: 681px) {
+  .account-screen.account-screen--login, .account-screen.account-screen--register { grid-template-columns: minmax(0, 1fr); }
+  .account-card .account-form-panel { padding-inline: 25px; }
+}
+@media (max-width: 680px) {
+  .account-screen.account-screen--login, .account-screen.account-screen--register { grid-template-columns: minmax(0, 1fr); }
+  .account-card, .account-screen--register .account-card { width: 100%; margin: 0; }
+}
+/* Remove the outer backdrop and card frame; retain the split auth layout. */
+.account-screen { width: 100%; height: 100svh; min-height: 0; padding: 0; background: #fff; }
+.account-card { width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+@media (max-width: 900px) and (min-width: 681px) {
+  .account-screen { padding: 0; }
+  .account-card { height: 100%; min-height: 0; border-radius: 0; }
+}

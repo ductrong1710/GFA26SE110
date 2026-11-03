@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom'
-import FloatingContactDock from '../components/FloatingContactDock'
+import { QuickContacts } from '../components/LiveHomepage'
 
 export default function PublicLayout() {
-  return <><Outlet /><FloatingContactDock /></>
+  return <><Outlet /><QuickContacts /></>
 }

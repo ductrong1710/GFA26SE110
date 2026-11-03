@@ -63,7 +63,7 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
     <div className="app-topbar-context">
       <button ref={menuButtonRef} type="button" className="app-icon-button app-menu-toggle" onClick={onOpenMenu}
         aria-label={isOwner ? 'Mở điều hướng' : 'Open navigation'} aria-controls="app-sidebar" aria-expanded={drawerOpen}><AppIcon name="menu" /></button>
-      <div className="app-farm-control">
+      <div className="app-farm-control" hidden={![ROLES.ADMINISTRATOR, ROLES.FARM_OWNER].includes(activeRole)}>
         <span className="app-farm-icon"><AppIcon name="map" /></span>
         <label className="app-farm-label"><span>{isOwner ? 'Nông trại hiện tại' : 'Current farm'}</span>
           <select aria-label={isOwner ? 'Nông trại hiện tại' : 'Current farm'} value={currentFarm.id} onChange={(event) => onFarmChange(Number(event.target.value))}>

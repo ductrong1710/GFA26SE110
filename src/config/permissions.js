@@ -2,6 +2,14 @@ import { ROLES } from './roles.js'
 
 export const PERMISSIONS = Object.freeze({
   DASHBOARD_VIEW: 'dashboard.view',
+  WORK_ORDERS: 'workflow.jobs',
+  CONSULTATIONS: 'workflow.consultations',
+  DISPATCH: 'workflow.dispatch',
+  RENTALS: 'workflow.rentals',
+  SUPPORT: 'workflow.support',
+  PUBLIC_CONTENT: 'workflow.publicContent',
+  MAINTENANCE: 'workflow.maintenance',
+  DEVICE_HISTORY: 'workflow.deviceHistory',
   FARMS_VIEW: 'farms.view',
   FARMS_MANAGE: 'farms.manage',
   SENSORS_VIEW: 'sensors.view',

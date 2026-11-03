@@ -30,7 +30,21 @@ const ReportsPage = lazy(() => import('./pages/app/ReportsPage'))
 const SyncPage = lazy(() => import('./pages/app/SyncPage'))
 const SettingsPage = lazy(() => import('./pages/app/SettingsPage'))
 
-const applicationPages = { dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, profile: <ProfilePage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage />, 'sensor-data': <SensorDataPage />, 'sensor-data/compare-zones': <SensorDataPage compareOnly />, reports: <ReportsPage /> }
+const ConsultationRequestsPage = lazy(() => import('./pages/app/ConsultationRequestsPage'))
+const ConsultationDetailPage = lazy(() => import('./pages/app/ConsultationDetailPage'))
+const WorkOrdersPage = lazy(() => import('./pages/app/WorkOrdersPage'))
+const WorkOrderDetailPage = lazy(() => import('./pages/app/WorkOrderDetailPage'))
+const InstallationRequestPage = lazy(() => import('./pages/app/InstallationRequestPage'))
+const DispatchPage = lazy(() => import('./pages/app/DispatchPage'))
+const RentalsPage = lazy(() => import('./pages/app/RentalsPage'))
+const SupportPage = lazy(() => import('./pages/app/SupportPage'))
+const MaintenancePage = lazy(() => import('./pages/app/MaintenancePage'))
+const DeviceHistoryPage = lazy(() => import('./pages/app/DeviceHistoryPage'))
+const PublicContentPage = lazy(() => import('./pages/app/PublicContentPage'))
+
+const CropSeasonsPage = lazy(() => import('./pages/app/CropSeasonsPage'))
+
+const applicationPages = { 'crop-seasons': <CropSeasonsPage />, 'consultations': <ConsultationRequestsPage />, 'consultations/:id': <ConsultationDetailPage />, 'work-orders': <WorkOrdersPage />, 'work-orders/:kind/:id': <WorkOrderDetailPage />, 'installation-requests/:id': <InstallationRequestPage />, 'dispatch': <DispatchPage />, 'rentals': <RentalsPage />, 'support': <SupportPage />, 'maintenance': <MaintenancePage />, 'device-history': <DeviceHistoryPage />, 'public-content': <PublicContentPage />, dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, profile: <ProfilePage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage />, 'sensor-data': <SensorDataPage />, 'sensor-data/compare-zones': <SensorDataPage compareOnly />, reports: <ReportsPage /> }
 
 function LoadingPage() {
   const t = useUiText({ 'Loading page…': 'Đang tải trang…' })

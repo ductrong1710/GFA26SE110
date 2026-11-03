@@ -14,7 +14,7 @@ const mobileQuery = '(max-width: 1023px)'
 
 export default function AppShell() {
   const { activeRole } = useAuth()
-  const real = useFarmWorkspace()
+  const real = useFarmWorkspace([ROLES.ADMINISTRATOR, ROLES.FARM_OWNER].includes(activeRole))
   const farmWorkspace = real.farmWorkspace
   const farms = farmWorkspace.farms
   const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches)

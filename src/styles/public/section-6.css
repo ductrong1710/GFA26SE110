@@ -1,0 +1,88 @@
+.account-screen--forgot .account-card {
+  width: min(420px, 100%);
+  height: auto;
+  min-height: 0;
+  margin: auto;
+  padding: 40px;
+  display: block;
+  border: 1px solid #e4eae3;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 55px rgba(19,55,34,.1);
+}
+.account-screen--forgot .account-form-panel {
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.account-screen--forgot .account-form-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.account-screen--forgot .account-brand-group {
+  position: static;
+  width: 100%;
+  margin: 0 0 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.account-screen--forgot .account-brand { position: static; color: #18231b; font-size: 20px; }
+.account-screen--forgot .forgot-login-link { width: fit-content; color: #176346; font-size: 13px; font-weight: 600; text-decoration: none; }
+.account-screen--forgot .forgot-login-link:hover { color: #123e2c; text-decoration: underline; }
+.account-screen--forgot .forgot-login-link:focus-visible { outline: 3px solid rgba(23,99,70,.28); outline-offset: 3px; }
+.account-screen--forgot .account-form-content h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -.04em; line-height: 1.18; }
+.account-screen--forgot .account-intro { margin: 0 0 20px; }
+.account-screen--forgot .account-form-content form { width: 100%; gap: 16px; }
+.account-screen--forgot .account-form-content form label { width: 100%; }
+.account-screen--forgot .account-form-content form input,
+.account-screen--forgot .account-form-content .password-field,
+.account-screen--forgot .account-form-content .account-submit { box-sizing: border-box; width: 100%; }
+.account-screen--forgot .account-form-content form input { min-height: 48px; }
+.account-screen--forgot .account-form-content .account-submit { min-height: 48px; margin: 0; }
+.account-screen--forgot .account-message { margin: 0; }
+@media (max-width: 680px) {
+  .account-screen.account-screen--forgot { min-height: 100dvh; padding: 16px; }
+  .account-screen--forgot .account-card {
+    width: 100%;
+    min-height: calc(100dvh - 32px);
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(19,55,34,.06);
+  }
+  .account-screen--forgot .account-form-panel { min-height: calc(100dvh - 80px); }
+  .account-screen--forgot .account-brand-group { margin-bottom: 20px; gap: 8px; }
+  .account-screen--forgot .account-form-content h1 { margin-bottom: 8px; font-size: 22px; }
+  .account-screen--forgot .account-intro { margin-bottom: 16px; font-size: 13px; line-height: 1.5; }
+  .account-screen--forgot .account-form-content form { gap: 12px; }
+  .account-screen--forgot .account-form-content form label { gap: 6px; }
+  .account-screen--forgot .account-form-content form input,
+  .account-screen--forgot .account-form-content .account-submit { min-height: 48px; }
+}
+@media (min-width: 681px) {
+  .account-screen--forgot .account-card {
+    width: min(560px, 100%);
+    padding: 56px;
+  }
+  .account-screen--forgot .account-brand-group { margin-bottom: 36px; gap: 12px; }
+  .account-screen--forgot .account-brand { font-size: 21px; }
+  .account-screen--forgot .forgot-login-link { font-size: 16px; }
+  .account-screen--forgot .account-form-content h1 {
+    margin-bottom: 14px;
+    font-size: 30px;
+    font-weight: 700;
+  }
+  .account-screen--forgot .account-intro { margin-bottom: 26px; font-size: 15px; }
+  .account-screen--forgot .account-form-content form { gap: 20px; }
+  .account-screen--forgot .account-form-content form label { gap: 9px; font-size: 16px; }
+  .account-screen--forgot .account-form-content form input { min-height: 52px; font-size: 16px; }
+  .account-screen--forgot .account-form-content .account-submit { min-height: 52px; font-size: 16px; }
+}

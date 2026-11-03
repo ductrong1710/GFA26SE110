@@ -1,0 +1,190 @@
+@media (max-width: 680px) {
+  .cart-item { padding: 15px 0; grid-template-columns: minmax(0, 1fr) auto; }
+  .cart-product { grid-column: 1 / -1; }
+  .cart-product > div { width: calc(100% - 97px); }
+  .cart-product h2, .cart-product p, .cart-product p strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cart-product p { display: block; }
+  .cart-remove { display: inline-flex; grid-column: 2; grid-row: 3; justify-self: end; align-self: center; }
+  .cart-remove-mobile { display: none; }
+  .cart-total { grid-column: 1; grid-row: 3; }
+  .cart-quantity { grid-column: 2; grid-row: 2; }
+}
+/* Compact, internally scrollable 12-month rental price list */
+.rental-pricing-table-wrap { max-height: 245px; overflow: auto; border: 1px solid #e8ede7; border-radius: 9px; scrollbar-width: thin; scrollbar-color: #a9b9aa #f3f6f1; }
+.rental-pricing-table { min-width: 490px; }
+.rental-pricing-table thead { position: sticky; top: 0; z-index: 1; }
+.rental-pricing-table th { padding: 8px 10px; font-size: 11px; }
+.rental-pricing-table td { padding: 7px 10px; font-size: 12px; }
+.rental-pricing-table input[type="radio"] { width: 15px; height: 15px; }
+.rental-pricing-dialog { max-height: calc(100vh - 40px); overflow-y: auto; }
+@media (max-width: 680px) {
+  .rental-pricing-dialog { max-height: calc(100dvh - 24px); padding: 22px 14px 17px; }
+  .rental-pricing-table-wrap { max-height: 220px; }
+  .rental-pricing-table th, .rental-pricing-table td { padding: 7px 8px; font-size: 11px; }
+}
+/* Restore full-height rental table */
+.rental-pricing-table-wrap { max-height: none; overflow-x: auto; overflow-y: visible; border: 0; border-radius: 0; }
+.rental-pricing-table { min-width: 0; }
+.rental-pricing-table thead { position: static; }
+.rental-pricing-table th { padding: 12px 10px; }
+.rental-pricing-table td { padding: 14px 10px; }
+.rental-pricing-dialog { max-height: none; overflow-y: visible; }
+@media (max-width: 680px) { .rental-pricing-table th, .rental-pricing-table td { padding-inline: 7px; } }
+/* Fit the rental table to its dialog without an internal scrollbar */
+.rental-pricing-table-wrap { width: 100%; overflow: hidden; }
+.rental-pricing-table { width: 100%; min-width: 0; table-layout: fixed; white-space: normal; }
+.rental-pricing-table th, .rental-pricing-table td { padding-inline: 6px; white-space: normal; overflow-wrap: anywhere; }
+.rental-pricing-table th:nth-child(1), .rental-pricing-table td:nth-child(1) { width: 11%; }
+.rental-pricing-table th:nth-child(2), .rental-pricing-table td:nth-child(2) { width: 27%; }
+.rental-pricing-table th:nth-child(3), .rental-pricing-table td:nth-child(3) { width: 20%; }
+.rental-pricing-table th:nth-child(4), .rental-pricing-table td:nth-child(4) { width: 42%; }
+@media (max-width: 680px) {
+  .rental-pricing-table th, .rental-pricing-table td { padding: 9px 4px; font-size: 10px; }
+  .rental-pricing-table input[type="radio"] { width: 13px; height: 13px; }
+}
+/* Scroll the monthly price list inside the rental dialog; dock dialog 5px from viewport bottom. */
+.rental-pricing-backdrop { padding: 5px 20px; align-items: end; }
+.rental-pricing-dialog { width: min(620px, 100%); max-height: calc(100dvh - 10px); overflow-y: auto; }
+.rental-pricing-table-wrap { max-height: min(42dvh, 390px); overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #9eaf9f #f3f6f1; }
+.rental-pricing-table thead { position: sticky; top: 0; z-index: 2; }
+@media (max-width: 680px) {
+  .rental-pricing-backdrop { padding: 5px; }
+  .rental-pricing-dialog { max-height: calc(100dvh - 10px); padding: 20px 14px 16px; }
+  .rental-pricing-table-wrap { max-height: 38dvh; }
+}
+/* Show more rental months at once while keeping the list scrollable. */
+.rental-pricing-table-wrap { max-height: min(62dvh, 560px); }
+@media (max-width: 680px) { .rental-pricing-table-wrap { max-height: 54dvh; } }
+/* Keep scrolling inside the month list only; suppress the dialog's outer scrollbar. */
+.rental-pricing-dialog { display: flex; flex-direction: column; overflow: hidden; }
+.rental-pricing-dialog > :not(.rental-pricing-table-wrap) { flex: 0 0 auto; }
+.rental-pricing-table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; overflow-x: hidden; overflow-y: auto; }
+.rental-pricing-dialog::-webkit-scrollbar { display: none; }
+@media (max-width: 680px) { .rental-pricing-table-wrap { max-height: none; } }
+/* Center cart row contents within their respective columns. */
+.cart-column-head { text-align: center; }
+.cart-column-head > span:first-child { text-align: left; }
+.cart-item { align-items: center; }
+.cart-product { justify-content: center; }
+.cart-product > div { text-align: left; }
+.cart-price, .cart-total { text-align: center; }
+.cart-quantity { justify-self: center; }
+.cart-remove { justify-self: center; }
+@media (max-width: 680px) {
+  .cart-product { justify-content: flex-start; }
+  .cart-price, .cart-total { text-align: left; }
+  .cart-quantity { justify-self: end; }
+  .cart-remove { justify-self: end; }
+}
+/* Cart columns aligned like a marketplace order list. */
+.cart-items { padding: 0 24px; }
+.cart-column-head, .cart-item { grid-template-columns: minmax(340px, 1fr) minmax(140px, 180px) 130px minmax(140px, 180px) 90px; gap: 12px; }
+.cart-column-head { min-height: 62px; text-align: center; }
+.cart-column-head > span:first-child { text-align: left; }
+.cart-column-head > span:last-child { text-align: center; }
+.cart-item { min-height: 142px; padding: 18px 0; }
+.cart-product { justify-content: flex-start; }
+.cart-price, .cart-total { text-align: center; }
+.cart-quantity, .cart-remove { justify-self: center; }
+.cart-remove { grid-column: 5; grid-row: 1; position: static; margin: 0; }
+@media (max-width: 1180px) and (min-width: 681px) {
+  .cart-column-head, .cart-item { grid-template-columns: minmax(250px, 1fr) minmax(115px, 145px) 105px minmax(125px, 150px) 62px; gap: 8px; }
+  .cart-items { padding-inline: 15px; }
+  .cart-item { padding-right: 0; }
+  .cart-remove { grid-column: 5; grid-row: 1; }
+  .cart-total { grid-column: 4; }
+}
+@media (max-width: 880px) and (min-width: 681px) {
+  .cart-column-head { display: none; }
+  .cart-item { grid-template-columns: minmax(230px, 1fr) minmax(120px, 160px) 100px; padding-right: 0; }
+  .cart-product { grid-row: span 2; }
+  .cart-price { grid-column: 2; }
+  .cart-quantity { grid-column: 3; grid-row: 1; }
+  .cart-total { grid-column: 2; grid-row: 2; }
+  .cart-remove { grid-column: 3; grid-row: 2; }
+}
+@media (max-width: 680px) {
+  .cart-items { padding-inline: 12px; }
+  .cart-item { min-height: 0; }
+  .cart-product { justify-content: flex-start; }
+  .cart-remove { grid-column: 2; grid-row: 3; }
+}
+/* Checkout summary bar inspired by the reference layout. */
+.cart-summary { margin-top: 20px; padding: 16px 20px; border: 1px solid #e3e9e2; border-radius: 10px; display: flex; align-items: center; justify-content: flex-end; gap: 30px; background: #fff; box-shadow: 0 5px 18px rgba(25,48,31,.06); }
+.cart-summary-count { margin-right: auto; display: flex; align-items: center; gap: 9px; color: #626e64; font-size: 14px; }
+.cart-summary-count strong { color: #26352a; font-size: 16px; }
+.cart-summary-price { display: flex; align-items: center; flex-direction: row; gap: 10px; color: #29382d; font-size: 15px; }
+.cart-summary-price strong { color: #176346; font-size: 23px; font-weight: 700; white-space: nowrap; }
+.cart-summary-price strong small { display: inline; color: #718075; font-size: 12px; font-weight: 400; }
+.cart-summary .cart-contact { min-width: 190px; min-height: 48px; margin: 0; padding-inline: 22px; border-radius: 7px; background: #176346; font-size: 14px; }
+.cart-summary .cart-contact:hover { background: #123e2c; }
+@media (max-width: 680px) {
+  .cart-summary { margin-top: 14px; padding: 14px; display: grid; grid-template-columns: 1fr auto; gap: 12px; }
+  .cart-summary-count { margin: 0; }
+  .cart-summary-price { grid-column: 1 / -1; align-items: flex-start; flex-direction: column; gap: 4px; }
+  .cart-summary-price strong { font-size: 20px; }
+  .cart-summary .cart-contact { width: 100%; min-width: 0; grid-column: 1 / -1; }
+}
+/* Smart Farm split-screen sign-in and registration */
+.account-screen { min-height: 100vh; display: grid; grid-template-columns: minmax(430px, .92fr) minmax(480px, 1.08fr); background: #fff; }
+.account-form-panel { min-height: 100vh; padding: 32px clamp(34px, 6vw, 92px) 24px; display: flex; flex-direction: column; justify-content: space-between; }
+.account-brand { width: fit-content; display: inline-flex; align-items: center; gap: 9px; color: #142019; font-size: 22px; font-weight: 650; letter-spacing: -.045em; text-decoration: none; }
+.account-brand .wordmark-mark { width: 26px; height: 26px; }
+.account-brand .wordmark-mark i { background: #176346; }
+.account-form-content { width: min(410px, 100%); margin: 50px auto; }
+.account-tabs { width: fit-content; margin-bottom: 35px; padding: 4px; border: 1px solid #e5ebe4; border-radius: 30px; display: flex; gap: 3px; background: #f7f9f6; }
+.account-tabs a { min-width: 112px; padding: 10px 15px; border-radius: 24px; color: #68736a; font-size: 13px; font-weight: 600; text-align: center; text-decoration: none; transition: color .2s ease, background .2s ease, box-shadow .2s ease; }
+.account-tabs a.is-active { color: #fff; background: #176346; box-shadow: 0 3px 10px rgba(23,99,70,.18); }
+.account-form-content > .eyebrow { color: #548066; font-size: 10px; letter-spacing: .11em; }
+.account-form-content h1 { margin: 12px 0 9px; color: #18231b; font-size: clamp(32px, 3vw, 42px); font-weight: 600; letter-spacing: -.055em; line-height: 1.08; }
+.account-intro { margin: 0 0 27px; color: #737d74; font-size: 14px; line-height: 1.65; }
+.account-form-content form { display: grid; gap: 17px; }
+.account-form-content form label { display: grid; gap: 8px; color: #303d33; font-size: 13px; font-weight: 600; }
+.account-form-content form input { width: 100%; min-height: 49px; padding: 0 14px; border: 1px solid #dfe6de; border-radius: 8px; outline: none; color: #202b22; background: #fff; font: inherit; font-size: 14px; transition: border-color .18s ease, box-shadow .18s ease; }
+.account-form-content form input::placeholder { color: #a0a9a1; }
+.account-form-content form input:focus { border-color: #176346; box-shadow: 0 0 0 3px rgba(23,99,70,.1); }
+.account-forgot { margin-top: -6px; justify-self: end; color: #176346; font-size: 12px; font-weight: 600; text-decoration: none; }
+#root .account-form-content .account-submit { min-height: 50px; margin-top: 4px; padding: 0 18px; border: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #fff; background: #176346; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+#root .account-form-content .account-submit:hover { background: #123e2c; transform: translateY(-1px); }
+.account-switch { margin: 22px 0 0; color: #737d74; font-size: 13px; text-align: center; }
+.account-switch a, .account-back { color: #176346; font-weight: 600; text-decoration: none; }
+.account-back { margin-top: 20px; display: inline-block; font-size: 13px; }
+.account-brand-group { width: fit-content; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.account-home-link { width: fit-content; margin: 0; padding: 6px 11px; border: 1px solid #dfe6de; border-radius: 999px; display: inline-flex; align-items: center; color: #176346; background: #fff; font-size: 12px; font-weight: 600; text-decoration: none; transition: color .18s ease, background .18s ease, border-color .18s ease; }
+.account-home-link:hover { color: #fff; border-color: #176346; background: #176346; }
+.account-legal { color: #9aa39b; font-size: 11px; }
+.account-message { margin: 15px 0 0; padding: 11px 13px; border: 1px solid #dce9df; border-radius: 8px; color: #176346; background: #f3f8f3; font-size: 12px; line-height: 1.5; }
+.account-visual { min-height: 100vh; padding: clamp(30px, 5vw, 68px); position: relative; overflow: hidden; order: 1; display: flex; align-items: flex-end; color: #fff; background-color: #315b42; background-position: center; background-size: cover; }
+.account-screen--register .account-visual { order: -1; }
+.account-screen--register .account-form-panel { order: 1; }
+.account-visual-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,31,20,.08) 10%, rgba(12,31,20,.22) 44%, rgba(12,31,20,.83) 100%), linear-gradient(90deg, rgba(12,31,20,.1), transparent 60%); }
+.account-visual-caption { max-width: 500px; position: relative; z-index: 2; }
+.account-visual-caption .eyebrow { color: #d7eadc; font-size: 10px; letter-spacing: .13em; }
+.account-visual-caption h2 { margin: 13px 0 12px; color: #fff; font-size: clamp(32px, 4vw, 52px); font-weight: 500; letter-spacing: -.05em; line-height: 1.06; }
+.account-visual-caption > p { max-width: 440px; margin: 0; color: rgba(255,255,255,.8); font-size: 14px; line-height: 1.7; }
+.account-visual-status { margin-top: 22px; display: flex; align-items: center; gap: 8px; color: #e3f3e7; font-size: 10px; font-weight: 600; letter-spacing: .1em; }
+.account-visual-status i { width: 7px; height: 7px; border-radius: 50%; background: #b9ef89; box-shadow: 0 0 0 5px rgba(185,239,137,.15); }
+.account-drone-mark { width: 74px; height: 74px; position: absolute; top: 28%; left: 57%; z-index: 1; border: 1px solid rgba(255,255,255,.48); border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(23,99,70,.64); box-shadow: 0 0 0 12px rgba(255,255,255,.08), 0 12px 38px rgba(0,0,0,.2); backdrop-filter: blur(6px); animation: account-float 4s ease-in-out infinite; }
+.account-signal-ring { width: 115px; height: 115px; position: absolute; border: 1px solid rgba(223,247,227,.43); border-radius: 50%; animation: account-pulse 2.8s ease-out infinite; }
+.account-signal { padding: 10px 13px; position: absolute; z-index: 2; border: 1px solid rgba(255,255,255,.38); border-radius: 10px; display: flex; align-items: center; gap: 10px; color: #eaf4ec; background: rgba(16,54,35,.68); box-shadow: 0 10px 30px rgba(0,0,0,.15); backdrop-filter: blur(9px); }
+.account-signal span { display: grid; gap: 2px; font-size: 10px; }.account-signal strong { color: #fff; font-size: 12px; }
+.account-signal--one { top: 17%; left: 12%; }.account-signal--two { top: 48%; right: 10%; }
+.account-screen--register .account-drone-mark { left: 48%; }
+@keyframes account-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes account-pulse { 0% { transform: scale(.7); opacity: .8; } 100% { transform: scale(1.35); opacity: 0; } }
+@media (max-width: 900px) { .account-screen { grid-template-columns: minmax(350px, .95fr) minmax(340px, 1.05fr); }.account-form-panel { padding-inline: 30px; }.account-visual { padding: 34px; }.account-signal--two { right: 5%; } }
+@media (max-width: 680px) {
+  .account-screen { min-height: 100dvh; grid-template-columns: 1fr; }
+  .account-form-panel { min-height: 100dvh; padding: 21px 24px 18px; }
+  .account-form-content { margin: 40px auto; }
+  .account-tabs { margin-bottom: 27px; }
+  .account-visual, .account-screen--register .account-visual { min-height: 390px; max-height: 46dvh; padding: 24px; order: -1; }
+  .account-screen--login .account-visual { order: 1; }
+  .account-screen--register .account-form-panel { order: 1; }
+  .account-screen--login .account-form-panel { order: 0; }
+  .account-visual-caption h2 { font-size: 34px; }
+  .account-visual-caption > p { font-size: 12px; }
+  .account-drone-mark { top: 19%; left: 56%; transform: scale(.85); }
+  .account-signal--one { top: 10%; left: 7%; }.account-signal--two { top: 37%; right: 5%; }
+  .account-legal { font-size: 10px; }
+}
