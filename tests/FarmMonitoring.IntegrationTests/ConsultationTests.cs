@@ -100,8 +100,7 @@ public sealed class ConsultationTests(ApiFactory factory)
             images = revision == 0 ? new[] { new { contentType = "image/png", dataBase64 = image } } : [],
             zones = new[] { new { name = "North", crop = "Rice", cropAgeDays = (int?)null, symptoms = "", installationLocation = "Along the irrigation canal" } }
         };
-        Assert.Equal(HttpStatusCode.Forbidden, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Initial"))).StatusCode);
-        (await engineer.PostAsJsonAsync($"/api/consultations/{id}/claim", new { })).EnsureSuccessStatusCode();
+        // Recording the first survey now establishes the engineer context without claiming.
         Assert.Equal(HttpStatusCode.BadRequest, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Invalid image", "not-base64"))).StatusCode);
         var survey = await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Initial"));
         Assert.Equal(HttpStatusCode.Created, survey.StatusCode);
@@ -172,9 +171,11 @@ public sealed class ConsultationTests(ApiFactory factory)
         { expectedRevision = 0, farmName = "Farm", farmLocation = "Can Tho", monitoringNeeds = "Soil moisture", zones = new[] { new { name = "North", installationLocation = "Canal" } } });
         surveyResult.EnsureSuccessStatusCode();
         var survey = (await surveyResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+        int productId;
+        await using (var priceScope = factory.Services.CreateAsyncScope()) { var priceDb=priceScope.ServiceProvider.GetRequiredService<AppDbContext>(); var product=new FarmMonitoring.Domain.Entities.PublicContent { Kind=FarmMonitoring.Domain.Entities.PublicContentKind.DEVICE,Title="Rental sensor",Body="Sensor",Published=true,EstimatedMonthlyRentVnd=100000 };priceDb.PublicContent.Add(product);await priceDb.SaveChangesAsync();productId=product.Id; }
         object Proposal(int revision) => new { expectedRevision = revision, surveyId = survey.GetProperty("id").GetInt32(), rentalMonths = 6,
             requestedInstallationAt = DateTimeOffset.UtcNow.AddDays(7), notes = "Agreed monitoring needs",
-            lines = new[] { new { surveyZoneId = survey.GetProperty("zones")[0].GetProperty("id").GetInt32(), deviceType = "Soil moisture sensor", quantity = 3, installationLocation = "Canal edge" } } };
+            lines = new[] { new { surveyZoneId = survey.GetProperty("zones")[0].GetProperty("id").GetInt32(), deviceType = "Soil moisture sensor", quantity = 3, installationLocation = "Canal edge",publicContentId=productId } } };
         var created = await engineer.PostAsJsonAsync($"/api/consultations/{id}/proposals", Proposal(0));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var first = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
@@ -291,7 +292,7 @@ public sealed class ConsultationTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await secondTech.PostAsJsonAsync(jobPath + "/reports", new { expectedRevision = 5, notes = "Wrong device set",
             devices = nodes.Select(nodeId => new { proposalLineId, sensorNodeId = nodeId + 1000000, installationLocation = "Canal edge", accessoriesChecked = true,
                 connectivityPassed = true, operationPassed = true, testResults = "Reading received" }).ToArray() })).StatusCode);
-        object Report(int revision, bool connectivityPassed = true) => new { expectedRevision = revision, notes = "Devices tested and handover demonstrated", issues = connectivityPassed ? null : "Sensor readings did not reach the gateway",
+        object Report(int revision, bool connectivityPassed = true) => new { expectedRevision = revision,paperwork=new {contract=new[]{new{contentType="image/png",dataBase64=EvidencePng}},handover=new[]{new{contentType="image/png",dataBase64=EvidencePng}}}, notes = "Devices tested and handover demonstrated", issues = connectivityPassed ? null : "Sensor readings did not reach the gateway",
             images = connectivityPassed ? Array.Empty<object>() : new object[] { new { contentType = "image/png", dataBase64 = EvidencePng } },
             devices = nodes.Select(nodeId => new { proposalLineId, sensorNodeId = nodeId, installationLocation = "Canal edge",
                 accessoriesChecked = true, connectivityPassed, operationPassed = true, testResults = connectivityPassed ? "Live sensor reading received" : "Gateway received no readings" }).ToArray() };
@@ -299,7 +300,7 @@ public sealed class ConsultationTests(ApiFactory factory)
         var reportResult = await secondTech.PostAsJsonAsync(jobPath + "/reports", Report(5, connectivityPassed: false));
         Assert.Equal(HttpStatusCode.Created, reportResult.StatusCode);
         var reportId = (await reportResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/approve", new { expectedRevision = 6, reportId, note = "Owner has not confirmed" })).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(jobPath + "/approve", new { expectedRevision = 6, reportId, note = "Failed checks prevent approval despite paper evidence" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await secondTech.PostAsJsonAsync(jobPath + "/confirm-handover", new { expectedRevision = 6, reportId, note = "Cannot self-confirm" })).StatusCode);
         (await owner.PostAsJsonAsync(jobPath + "/confirm-handover", new { expectedRevision = 6, reportId, note = "Handover received" })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(jobPath + "/approve", new { expectedRevision = 7, reportId, note = "Cannot approve failed connectivity" })).StatusCode);
@@ -307,7 +308,8 @@ public sealed class ConsultationTests(ApiFactory factory)
         Assert.Equal("OWNER_CONFIRMED", rejectedJob.GetProperty("status").GetString());
         Assert.Equal(7, rejectedJob.GetProperty("revision").GetInt32());
         var rentalNow = DateTimeOffset.FromUnixTimeMilliseconds(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        var rentalDates = new { startAt = rentalNow.AddHours(-1), endAt = rentalNow.AddMonths(3), note = "Confirmed rental agreement" };
+        var rentalStart=FarmMonitoring.Domain.Entities.OperationalRules.RentalStart(rentalNow);
+        var rentalDates = new { startAt = rentalStart, endAt = rentalStart.AddMonths(6), note = "Confirmed rental agreement" };
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/rental-contract", rentalDates)).StatusCode);
         (await admin.PostAsJsonAsync(jobPath + "/return", new { expectedRevision = 7, reportId, note = "Repeat connectivity checks" })).EnsureSuccessStatusCode();
         var correctedResult = await secondTech.PostAsJsonAsync(jobPath + "/reports", Report(8));
@@ -329,9 +331,9 @@ public sealed class ConsultationTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await technician.GetAsync(jobPath + $"/reports/{reportId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await secondTech.PostAsJsonAsync(jobPath + "/reports", Report(11))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(jobPath + "/rental-contract", rentalDates)).StatusCode);
-        var rentalResult = await admin.PostAsJsonAsync(jobPath + "/rental-contract", rentalDates);
-        Assert.Equal(HttpStatusCode.Created, rentalResult.StatusCode);
-        var rental = (await rentalResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+        int rentalId;
+        await using(var rentalScope=factory.Services.CreateAsyncScope()) rentalId=await rentalScope.ServiceProvider.GetRequiredService<AppDbContext>().RentalContracts.Where(x=>x.InstallationJobId==jobId).Select(x=>x.Id).SingleAsync();
+        var rental=(await admin.GetFromJsonAsync<JsonElement>($"/api/rental-contracts/{rentalId}")).GetProperty("data");
         var rentalPath = $"/api/rental-contracts/{rental.GetProperty("id").GetInt32()}";
         Assert.Equal("DRAFT", rental.GetProperty("status").GetString());
         Assert.Equal(3, rental.GetProperty("devices").GetArrayLength());
@@ -341,8 +343,9 @@ public sealed class ConsultationTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await engineer.GetAsync(rentalPath)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(rentalPath + "/activate", new { expectedRevision = 1, note = "Owner cannot activate" })).StatusCode);
         var activated = await admin.PostAsJsonAsync(rentalPath + "/activate", new { expectedRevision = 1, note = "Start agreed rental" });
-        activated.EnsureSuccessStatusCode();
-        Assert.Equal("ACTIVE", (await activated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.Conflict,activated.StatusCode);
+        await MonitorRentals(rentalStart);
+        Assert.Equal("ACTIVE", (await owner.GetFromJsonAsync<JsonElement>(rentalPath)).GetProperty("data").GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(rentalPath + "/activate", new { expectedRevision = 1, note = "Duplicate activation" })).StatusCode);
         async Task MonitorRentals(DateTimeOffset now)
         {

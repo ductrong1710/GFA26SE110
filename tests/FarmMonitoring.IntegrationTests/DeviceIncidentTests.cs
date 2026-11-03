@@ -64,7 +64,7 @@ public class DeviceIncidentTests(ApiFactory factory)
         var appointment = DateTimeOffset.UtcNow.AddDays(1);
         var assignmentRequest = new { type = "REPAIR", technicianId = techId, scheduledAt = appointment, note = "Inspect failed motor" };
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync($"/api/device-incidents/{id}/jobs", assignmentRequest)).StatusCode);
-        var job = await Data(await admin.PostAsJsonAsync($"/api/device-incidents/{id}/jobs", assignmentRequest));
+        var job = await Data(await admin.PostAsJsonAsync($"/api/device-incidents/{id}/jobs", assignmentRequest with {scheduledAt=appointment.AddDays(5)}));
         var jobPath = $"/api/service-jobs/{job.GetProperty("id").GetInt32()}";
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/device-incidents/{id}/jobs", assignmentRequest)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await engineer.GetAsync(jobPath)).StatusCode);
@@ -85,7 +85,8 @@ public class DeviceIncidentTests(ApiFactory factory)
         using var replacement = await Login(secondEmail);
         Assert.Equal(HttpStatusCode.OK, (await replacement.GetAsync(jobPath)).StatusCode);
         (await replacement.PostAsJsonAsync(jobPath + "/start", new { expectedRevision = 3 })).EnsureSuccessStatusCode();
-        var reportRequest = new { expectedRevision = 4, cause = "Motor connector loosened", work = "Reseated connector", components = "No replacement parts", testResults = "Connection restored; motor still stalls", notes = "Further work required", connectivityPassed = true, operationPassed = false, images = request.images };
+        db.ServicePlans.Add(new ServicePlan{JobId=job.GetProperty("id").GetInt32(),OldAssignmentId=assignment.Id,TechnicianId=secondId,Status=ServicePlanStatus.EXECUTED,Note="Approved fixture method",CreatedAt=DateTimeOffset.UtcNow,EvidenceJson="{}"});await db.SaveChangesAsync();
+        var reportRequest = new { signedHandover=request.images,expectedRevision = 4, cause = "Motor connector loosened", work = "Reseated connector", components = "No replacement parts", testResults = "Connection restored; motor still stalls", notes = "Further work required", connectivityPassed = true, operationPassed = false, images = request.images };
         Assert.Equal(HttpStatusCode.Forbidden, (await technician.PostAsJsonAsync(jobPath + "/reports", reportRequest)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(jobPath + "/reports", reportRequest)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await replacement.PostAsJsonAsync(jobPath + "/reports", reportRequest with { images = new[] { new { contentType = "image/png", dataBase64 = "invalid" } } })).StatusCode);
@@ -101,10 +102,10 @@ public class DeviceIncidentTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await engineer.GetAsync(jobPath + "/reports")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(jobPath + $"/reports/{reportId}")).StatusCode);
         var otherIncident = await Data(await owner.PostAsJsonAsync("/api/device-incidents", request));
-        var otherJob = await Data(await admin.PostAsJsonAsync($"/api/device-incidents/{otherIncident.GetProperty("id").GetInt32()}/jobs", assignmentRequest));
+        var otherJob = await Data(await admin.PostAsJsonAsync($"/api/device-incidents/{otherIncident.GetProperty("id").GetInt32()}/jobs", assignmentRequest with {scheduledAt=appointment.AddDays(5)}));
         Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/service-jobs/{otherJob.GetProperty("id").GetInt32()}/reports/{reportId}")).StatusCode);
         var decision = new { expectedRevision = 5, reportId, note = "Reviewed submitted checks" };
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/approve", decision)).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(jobPath + "/approve", decision)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await replacement.PostAsJsonAsync(jobPath + "/confirm-operation", decision)).StatusCode);
         (await admin.DeleteAsync($"/api/farms/{farm.Id}/members/{ownerId}")).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(jobPath + "/confirm-operation", decision)).StatusCode);
