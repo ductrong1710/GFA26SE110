@@ -1,5 +1,20 @@
 # DATABASE.md
 
+### OperationalWorkflow — 2026-11-03
+
+Migration `20261103084905_OperationalWorkflow` adds service_plans (typed optional
+replacement FKs, status, price/evidence JSONB, total, actors/timestamps, RESTRICT
+relations), public_price_versions, proposal price snapshots, report paper JSONB,
+installation completion time and job/history scheduled-end times. Pending plans
+have filtered unique job/device indexes. Existing appointments backfill +2h;
+existing catalog prices receive one baseline version at deployment time. Historical
+unknown prices/paperwork remain null. DeviceIncident assignment becomes nullable
+for a farm-scoped symptom report. JSON paper payloads are bounded JPEG/PNG evidence,
+not arbitrary URLs or executable documents. Plan finalization and replacement use
+the existing shared advisory lock and commit in the report-approval transaction.
+Downgrade guards against discarding retained plans/papers/unidentified incidents.
+No application database migration has been applied by this implementation task.
+
 Flight-test `status` also supports `CANCELLED` (existing varchar mapping; no schema
 migration). Administrative cancellation stores `ADMIN_CANCELLED:<userId>:<reason>`
 in the existing 100-character `error_code` and uses `reported_at` for its UTC time.

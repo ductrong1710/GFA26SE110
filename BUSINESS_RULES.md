@@ -1,5 +1,40 @@
 # BUSINESS_RULES.md
 
+### Operational workflow — 2026-11-03 (supersedes earlier conflicting checkpoints)
+
+Public consultation forms are contact leads. Admin monitors contact lists/counts;
+no shifts, missing-claim KPI or Admin dispatch for these leads. External quick links
+do not create tracked contacts. Engineer context may be established by first saved
+survey/follow-up without a claim. New surveys discard age and proposed equipment
+position; technicians record the actual surveyed installation position.
+
+Assignment duration defaults to 2h, max24h; 30-minute travel buffer applies across
+open installation/service jobs. Admin may change technician/appointment with audit
+and notifications. Scheduled maintenance keeps its configured technician, finds a
+free slot, then creates assigned work. These are explicit scheduling assumptions,
+not route planning, shift hours or leave management.
+
+Installation/service use signed paper evidence, not mandatory owner online actions.
+Installation approval atomically creates a rental for the next Vietnam calendar
+day after actual completed handover. Worker activates due drafts; historical rentals
+are unchanged. Catalog price edits never mutate snapshotted proposal/service prices.
+Rental total is the initial agreed period, not received revenue or renewal totals.
+
+ServicePlan lifecycle: PROPOSED -> APPROVED -> EXECUTED -> APPLIED, or PROPOSED ->
+REJECTED. Admin reviews before work; final report approval commits the equipment
+exchange. Pending targets are reserved but not installed. Warranty lines cost zero;
+other parts use published snapshotted unit prices. Labour is free. No warehouse or
+accounting. Audit actions add PLAN_PROPOSED/APPROVED/REJECTED/EXECUTED. Final changes
+and job closure rollback together on conflict; repeat approval cannot exchange twice.
+Failed equipment becomes inactive/FAULTY_AWAITING_COLLECTION; contractual assignment
+release is not proof of physical collection. Do not delete assets/history.
+
+An unidentified incident belongs to a currently authorized owner's farm; technician
+or Admin identifies the device, not the customer. No-data symptoms are not automatic
+hardware diagnoses. Dashboard buckets use real creation/open timestamps and current
+statuses; they are not historical transition counts. All new technical reads enforce
+current assignment/role, and the new operations dashboard remains administrator-only.
+
 ### Operational dashboard aggregation
 
 Dashboard jobs remain open until installation APPROVED or service CLOSED. Service counts distinguish MAINTENANCE and REPAIR. A rental is currently active only when its stored status is ACTIVE and its start/end interval contains the current time; expiration counts include stored EXPIRED contracts and ACTIVE contracts whose end has passed. Ended/draft contracts are not active or expiring. The advance-warning window comes from the rental expiration configuration. Owner operational counts and recent cultivation require both current farm access and the corresponding owner identity; Admin can aggregate across farms. Recent cultivation lists at most five actual activities by recorded agricultural date, without estimating missing outcomes.
