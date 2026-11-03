@@ -44,6 +44,27 @@ public class MissionTests(ApiFactory factory)
         waypoints = new[] { new { sequenceNo = 1, latitude = 10.1m, longitude = 106.2m, altitudeM = 10m } }
     };
     [Fact]
+    public async Task Farm_membership_does_not_allow_a_second_owner_to_use_the_renters_equipment()
+    {
+        var setup = await Setup();
+        using var admin = await Login("admin@example.com");
+        var email = $"co-owner-{Guid.NewGuid():N}@example.com";
+        (await admin.PostAsJsonAsync("/api/users", new { email, fullName = "Second owner", password = "Test-password-123!", roles = new[] { "FarmOwner" } })).EnsureSuccessStatusCode();
+        await factory.AssignFarmAsync(setup.farm, email);
+        using var secondOwner = await Login(email);
+        (await secondOwner.GetAsync($"/api/farms/{setup.farm}")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await secondOwner.PostAsJsonAsync("/api/missions", Plan(setup))).StatusCode);
+        using var renter = await Login();
+        var mission = await Data(await renter.PostAsJsonAsync("/api/missions", Plan(setup)));
+        var id = mission.GetProperty("id").GetInt32();
+        Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PutAsJsonAsync($"/api/missions/{id}", Plan(setup))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = "Another owner's note" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PostAsJsonAsync($"/api/missions/{id}/cancel", new { note = "Another owner's cancellation" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PostAsJsonAsync($"/api/missions/{id}/launch/approve", new { planRevision = 1, session = new string('a', 32), confirmAircraftReady = true, confirmAreaClear = true })).StatusCode);
+        (await renter.PutAsJsonAsync($"/api/missions/{id}", Plan(setup))).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Zone_scoped_missions_reject_another_farm_or_targets_outside_the_selected_zone()
     {
         var setup = await Setup();

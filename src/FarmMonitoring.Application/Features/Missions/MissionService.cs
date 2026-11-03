@@ -57,7 +57,7 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
         // Validate and reserve resources before mutating the tracked plan or flushing child replacements.
         var candidate = new Mission
         {
-            Id = mission.Id, Name = request.Name.Trim(), FarmId = request.FarmId, ZoneId = request.ZoneId,
+            Id = mission.Id, CreatedByUserId = mission.CreatedByUserId, Name = request.Name.Trim(), FarmId = request.FarmId, ZoneId = request.ZoneId,
             UavId = request.UavId, GatewayId = request.GatewayId, OperatorNotes = request.OperatorNotes?.Trim(),
             ScheduledStartAt = request.ScheduledStartAt?.ToUniversalTime(), ScheduledEndAt = request.ScheduledEndAt?.ToUniversalTime()
         };
@@ -162,6 +162,8 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
     {
         var mission = await repository.FindAsync(id, write, ct) ?? throw new NotFoundException("Mission not found.");
         await access.EnsureFarmAccessAsync(mission.FarmId, ct);
+        if (write && mission.CreatedByUserId != (await access.GetScopeAsync(ct)).UserId)
+            throw new AccessDeniedException("Only the mission owner can change this mission.");
         return mission;
     }
     private void Log(Mission mission, int actor, string type, string message) => repository.AddLog(new MissionLog
