@@ -10,11 +10,13 @@ public sealed class MaintenanceScheduleConfiguration : IEntityTypeConfiguration<
     {
         b.ToTable("maintenance_schedules", t =>
         {
-            t.HasCheckConstraint("ck_maintenance_schedule_scope", "(rental_device_assignment_id IS NOT NULL AND device_type IS NULL) OR (rental_device_assignment_id IS NULL AND device_type IS NOT NULL AND device_type IN ('SENSOR','GATEWAY','UAV'))");
+            t.HasCheckConstraint("ck_maintenance_schedule_scope", "(farm_id IS NOT NULL AND rental_device_assignment_id IS NULL AND device_type IS NULL) OR (farm_id IS NULL AND NOT enabled)");
             t.HasCheckConstraint("ck_maintenance_schedule_interval", "interval_days BETWEEN 1 AND 3650");
         });
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
+        b.Property(x => x.FarmId).HasColumnName("farm_id");
+        b.HasOne<Farm>().WithMany().HasForeignKey(x => x.FarmId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.RentalDeviceAssignmentId).HasColumnName("rental_device_assignment_id");
         b.Property(x => x.DeviceType).HasColumnName("device_type").HasMaxLength(20);
         b.Property(x => x.Policy).HasColumnName("policy").HasMaxLength(2000).IsRequired();

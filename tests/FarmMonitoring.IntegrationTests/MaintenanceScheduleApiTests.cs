@@ -35,7 +35,10 @@ public sealed class MaintenanceScheduleApiTests(ApiFactory factory)
         var email = $"schedule-tech-{Guid.NewGuid():N}@example.com";
         var tech = await Data(await admin.PostAsJsonAsync("/api/users", new { email, fullName = "Schedule technician", password = "Test-password-123!", roles = new[] { "Technician" } }));
         using var technician = await Login(email);
-        var request = new MaintenanceScheduleRequest(null, "UAV", "Quarterly service", 90, DateTimeOffset.UtcNow.AddDays(1), tech.GetProperty("id").GetInt32(), true, 0);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var farm = new Farm { Name = "Schedule farm" }; db.Farms.Add(farm); await db.SaveChangesAsync();
+        var request = new MaintenanceScheduleRequest(null, null, "Quarterly service", 90, DateTimeOffset.UtcNow.AddDays(1), tech.GetProperty("id").GetInt32(), true, 0, farm.Id);
         Assert.Equal(HttpStatusCode.Forbidden, (await technician.PostAsJsonAsync(path, request)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(path, request with { IntervalDays = 0 })).StatusCode);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(path, request with { TechnicianId = int.MaxValue })).StatusCode);
@@ -67,7 +70,7 @@ public sealed class MaintenanceScheduleApiTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Device_schedule_checks_assignment_and_current_owner_membership()
+    public async Task Farm_schedule_requires_active_farm_and_rejects_legacy_device_scopes()
     {
         using var admin = await Login("admin@example.com");
         var email = $"device-schedule-{Guid.NewGuid():N}@example.com";
@@ -81,13 +84,13 @@ public sealed class MaintenanceScheduleApiTests(ApiFactory factory)
         await factory.AssignFarmAsync(farm.Id, "owner@example.com"); await factory.SeedRentalAsync(farm.Id, uav.Id, gateway.Id);
         var assignment = await db.RentalDeviceAssignments.Include(x => x.Contract).SingleAsync(x => x.UavId == uav.Id);
         const string path = "/api/maintenance-schedules";
-        var request = new MaintenanceScheduleRequest(assignment.Id, null, "Inspect rented UAV", 30, now.AddDays(1), tech.GetProperty("id").GetInt32(), true, 0);
+        var request = new MaintenanceScheduleRequest(null, null, "Inspect all rented equipment", 30, now.AddDays(1), tech.GetProperty("id").GetInt32(), true, 0, farm.Id);
         Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync(path, request)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync(path, request with { RentalDeviceAssignmentId = int.MaxValue })).StatusCode);
-        assignment.ReturnedAt = now; await db.SaveChangesAsync();
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(path, request)).StatusCode);
-        assignment.ReturnedAt = null; await db.SaveChangesAsync();
-        await db.UserFarms.Where(x => x.FarmId == farm.Id).ExecuteDeleteAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync(path, request with { FarmId = int.MaxValue })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(path, request with { RentalDeviceAssignmentId = assignment.Id })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(path, request with { DeviceType = "UAV" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(path, request with { FarmId = null })).StatusCode);
+        farm.IsActive = false; await db.SaveChangesAsync();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(path, request)).StatusCode);
     }
 }

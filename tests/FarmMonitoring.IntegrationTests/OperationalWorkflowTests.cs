@@ -75,7 +75,7 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         using var tech=await Login(emails[1]);
         await using var scope=factory.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var farm=new Farm{Name="Paper installation farm",CreatedAt=DateTimeOffset.UtcNow};var uav=new Uav{Code=Guid.NewGuid().ToString("N"),Name="Installed UAV",CreatedAt=DateTimeOffset.UtcNow};db.Farms.Add(farm);db.Uavs.Add(uav);await db.SaveChangesAsync();await factory.AssignFarmAsync(farm.Id,"owner@example.com");
-        var lead=(await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName="Paper customer",phone="0901234567",farmLocation="Farm",serviceNeed="UAV",content="Rent UAV"}))).GetProperty("id").GetInt32();
+        var lead=(await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName="Paper customer",phone="0901234567",email="customer@example.com",farmLocation="Farm",serviceNeed="UAV",content="Rent UAV"}))).GetProperty("id").GetInt32();
         var survey=await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/surveys",new{expectedRevision=0,farmName="Farm",farmLocation="Address",monitoringNeeds="UAV",zones=new[]{new{name="North",crop="Mango"}}}));
         Assert.Equal("",survey.GetProperty("zones")[0].GetProperty("installationLocation").GetString());Assert.Equal(JsonValueKind.Null,survey.GetProperty("zones")[0].GetProperty("cropAgeDays").ValueKind);
         var ownerId=(await Data(await owner.GetAsync("/api/auth/me"))).GetProperty("id").GetInt32();await Data(await admin.PutAsJsonAsync($"/api/consultations/{lead}/customer-farm",new{ownerId,farmId=farm.Id}));
@@ -96,6 +96,12 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         var rental=await db.RentalContracts.AsNoTracking().SingleAsync(x=>x.InstallationJobId==jobId);Assert.Equal(OperationalRules.RentalStart(report.GetProperty("completedAt").GetDateTimeOffset()),rental.StartAt);
         var detail=await Data(await admin.GetAsync($"/api/rental-contracts/{rental.Id}"));Assert.Equal(3000000,detail.GetProperty("totalRentVnd").GetDecimal());
         await Data(await admin.GetAsync($"/api/operations/calendar?from={from}&to={to}"));
+        var allCalendar = await Data(await admin.GetAsync("/api/operations/calendar"));
+        Assert.Contains(allCalendar.GetProperty("installations").EnumerateArray(), x => x.GetProperty("id").GetInt32() == jobId);
+        var ownCalendar = await Data(await tech.GetAsync("/api/operations/calendar"));
+        Assert.All(ownCalendar.GetProperty("installations").EnumerateArray(), x => Assert.Equal(techIds[1], x.GetProperty("technicianId").GetInt32()));
+        Assert.All(ownCalendar.GetProperty("services").EnumerateArray(), x => Assert.Equal(techIds[1], x.GetProperty("technicianId").GetInt32()));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync($"/api/operations/calendar?from={from}")).StatusCode);
         var incident=await Data(await owner.PostAsJsonAsync("/api/device-incidents",new{rentalDeviceAssignmentId=(await db.RentalDeviceAssignments.SingleAsync(x=>x.ContractId==rental.Id)).Id,description="No data"}));
         // Use a separate open appointment to verify cross-type overlap, then a free technician.
         var blocked= new ServiceJob{RentalDeviceAssignmentId=(await db.RentalDeviceAssignments.SingleAsync(x=>x.ContractId==rental.Id)).Id,TechnicianId=techIds[0],ScheduledAt=start,ScheduledEndAt=end,CreatedAt=DateTimeOffset.UtcNow};db.ServiceJobs.Add(blocked);await db.SaveChangesAsync();
@@ -106,9 +112,16 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
     {
         using var guest=factory.CreateApiClient();using var admin=await Login("admin@example.com");using var owner=await Login("owner@example.com");
         var name="Lead-"+Guid.NewGuid().ToString("N");
-        await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName=name,phone="0901234567",farmLocation="Farm address",serviceNeed="Monitoring",content="Contact me"}));
+        await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName=name,phone="0901234567",email="lead@example.com",farmLocation="Farm address",serviceNeed="Monitoring",content="Contact me"}));
         var from=Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(-1).ToString("O"));var to=Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(1).ToString("O"));
         var leads=await Data(await admin.GetAsync($"/api/operations/consultation-requests?from={from}&to={to}&search={name}"));Assert.Equal(1,leads.GetProperty("total").GetInt32());
+        var all=await Data(await admin.GetAsync("/api/operations/consultation-requests?page=1&pageSize=10"));
+        Assert.True(all.GetProperty("total").GetInt32() >= 1);
+        Assert.Equal(10,all.GetProperty("pageSize").GetInt32());
+        var searched=await Data(await admin.GetAsync($"/api/operations/consultation-requests?page=1&pageSize=10&search={name}"));
+        Assert.Equal(1,searched.GetProperty("total").GetInt32());
+        Assert.Equal("lead@example.com",searched.GetProperty("items")[0].GetProperty("email").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest,(await admin.GetAsync($"/api/operations/consultation-requests?from={from}")).StatusCode);
         await Data(await admin.GetAsync($"/api/operations/dashboard?from={from}&to={to}"));
         Assert.Equal(HttpStatusCode.Forbidden,(await owner.GetAsync($"/api/operations/dashboard?from={from}&to={to}")).StatusCode);
         await using var scope=factory.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();var farm=new Farm{Name="No signal farm",CreatedAt=DateTimeOffset.UtcNow};db.Farms.Add(farm);await db.SaveChangesAsync();await factory.AssignFarmAsync(farm.Id,"owner@example.com");

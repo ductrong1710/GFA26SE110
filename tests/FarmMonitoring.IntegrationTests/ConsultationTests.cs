@@ -72,7 +72,7 @@ public sealed class ConsultationTests(ApiFactory factory)
         using var second = await Login(email);
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Concurrent claim", phone = "0901234567", farmLocation = "Farm", serviceNeed = "Monitoring", content = "Consultation" });
+        { customerName = "Concurrent claim", phone = "0901234567", email = "customer@example.com", farmLocation = "Farm", serviceNeed = "Monitoring", content = "Consultation" });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         var claims = await Task.WhenAll(first.PostAsJsonAsync($"/api/consultations/{id}/claim", new { }), second.PostAsJsonAsync($"/api/consultations/{id}/claim", new { }));
@@ -89,7 +89,7 @@ public sealed class ConsultationTests(ApiFactory factory)
     {
         using var visitor = factory.CreateApiClient();
         var created = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Survey customer", phone = "0901234567", farmLocation = "Can Tho", serviceNeed = "Sensors", content = "Survey needed" });
+        { customerName = "Survey customer", phone = "0901234567", email = "customer@example.com", farmLocation = "Can Tho", serviceNeed = "Sensors", content = "Survey needed" });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         using var engineer = await Login("engineer@example.com");
@@ -129,7 +129,7 @@ public sealed class ConsultationTests(ApiFactory factory)
     {
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Bound customer", phone = "0901234567", farmLocation = "Farm", serviceNeed = "Survey", content = "Please survey" });
+        { customerName = "Bound customer", phone = "0901234567", email = "customer@example.com", farmLocation = "Farm", serviceNeed = "Survey", content = "Please survey" });
         response.EnsureSuccessStatusCode();
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         using var engineer = await Login("engineer@example.com");
@@ -163,7 +163,7 @@ public sealed class ConsultationTests(ApiFactory factory)
     {
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Proposal customer", phone = "0901234567", farmLocation = "Farm", serviceNeed = "Devices", content = "Survey and proposal" });
+        { customerName = "Proposal customer", phone = "0901234567", email = "customer@example.com", farmLocation = "Farm", serviceNeed = "Devices", content = "Survey and proposal" });
         response.EnsureSuccessStatusCode();
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         using var engineer = await Login("engineer@example.com");

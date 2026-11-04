@@ -5,6 +5,18 @@ namespace FarmMonitoring.UnitTests;
 
 public class ConsultationValidationTests
 {
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData("invalid", false)]
+    [InlineData("customer@example.com", true)]
+    public void Consultation_requires_valid_email(string? email, bool valid)
+    {
+        var request = new SubmitConsultationRequest("Customer", "0901234567", email, "Farm", null, "Monitoring", "Contact me");
+        Assert.Equal(valid, new SubmitConsultationValidator().Validate(request).IsValid);
+    }
+
     [Fact]
     public void Allocation_rejects_missing_or_ambiguous_device_identity()
     {
@@ -89,7 +101,7 @@ public class ConsultationValidationTests
     [InlineData("0901234567", true)]
     public void Contact_phone_requires_digits(string phone, bool valid)
     {
-        var request = new SubmitConsultationRequest("Customer", phone, null, "Farm location", null, "Monitoring", "Please contact me");
+        var request = new SubmitConsultationRequest("Customer", phone, "customer@example.com", "Farm location", null, "Monitoring", "Please contact me");
         Assert.Equal(valid, new SubmitConsultationValidator().Validate(request).IsValid);
     }
 }

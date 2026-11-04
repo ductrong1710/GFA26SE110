@@ -24,7 +24,7 @@ public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsul
         RuleFor(x => x.Phone).NotEmpty().MaximumLength(30).Matches(@"^\+?[0-9 ()-]{7,30}$")
             .Must(phone => phone is not null && phone.Count(char.IsAsciiDigit) is >= 7 and <= 15)
             .WithMessage("Phone must contain 7 to 15 digits.");
-        RuleFor(x => x.Email).MaximumLength(255).EmailAddress().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(255).EmailAddress();
         RuleFor(x => x.FarmLocation).NotEmpty().MaximumLength(500);
         RuleFor(x => x.FarmArea).GreaterThan(0).LessThanOrEqualTo(100000000);
         RuleFor(x => x.ServiceNeed).NotEmpty().MaximumLength(500);

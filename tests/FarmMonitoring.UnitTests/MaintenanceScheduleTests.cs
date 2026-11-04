@@ -4,16 +4,16 @@ namespace FarmMonitoring.UnitTests;
 public sealed class MaintenanceScheduleTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 30, 0, 0, 0, TimeSpan.Zero);
-    private static MaintenanceScheduleRequest Valid => new(12, null, "Quarterly inspection", 90, Now.AddDays(1), 7, true, 0);
+    private static MaintenanceScheduleRequest Valid => new(null, null, "Quarterly inspection", 90, Now.AddDays(1), 7, true, 0, 12);
 
     [Fact]
-    public void Requires_one_device_scope_and_valid_recurrence()
+    public void Requires_one_farm_scope_and_valid_recurrence()
     {
         var validator = new MaintenanceScheduleValidator(new FixedClock());
         Assert.True(validator.Validate(Valid).IsValid);
-        Assert.True(validator.Validate(Valid with { RentalDeviceAssignmentId = null, DeviceType = "UAV" }).IsValid);
+        Assert.False(validator.Validate(Valid with { FarmId = null }).IsValid);
         Assert.False(validator.Validate(Valid with { DeviceType = "UAV" }).IsValid);
-        Assert.False(validator.Validate(Valid with { RentalDeviceAssignmentId = null }).IsValid);
+        Assert.False(validator.Validate(Valid with { FarmId = 0 }).IsValid);
         Assert.False(validator.Validate(Valid with { RentalDeviceAssignmentId = 0 }).IsValid);
         Assert.False(validator.Validate(Valid with { RentalDeviceAssignmentId = null, DeviceType = "OTHER" }).IsValid);
         Assert.False(validator.Validate(Valid with { IntervalDays = 0 }).IsValid);

@@ -1801,6 +1801,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
 
+                    b.Property<int?>("FarmId")
+                        .HasColumnType("integer")
+                        .HasColumnName("farm_id");
+
                     b.Property<int>("IntervalDays")
                         .HasColumnType("integer")
                         .HasColumnName("interval_days");
@@ -1839,6 +1843,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedById");
 
+                    b.HasIndex("FarmId");
+
                     b.HasIndex("RentalDeviceAssignmentId");
 
                     b.HasIndex("TechnicianId");
@@ -1851,7 +1857,7 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_maintenance_schedule_interval", "interval_days BETWEEN 1 AND 3650");
 
-                            t.HasCheckConstraint("ck_maintenance_schedule_scope", "(rental_device_assignment_id IS NOT NULL AND device_type IS NULL) OR (rental_device_assignment_id IS NULL AND device_type IS NOT NULL AND device_type IN ('SENSOR','GATEWAY','UAV'))");
+                            t.HasCheckConstraint("ck_maintenance_schedule_scope", "(farm_id IS NOT NULL AND rental_device_assignment_id IS NULL AND device_type IS NULL) OR (farm_id IS NULL AND NOT enabled)");
                         });
                 });
 
@@ -4529,6 +4535,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CreatedById")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.Farm", null)
+                        .WithMany()
+                        .HasForeignKey("FarmId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FarmMonitoring.Domain.Entities.RentalDeviceAssignment", null)
                         .WithMany()

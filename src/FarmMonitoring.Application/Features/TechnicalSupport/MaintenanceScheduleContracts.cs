@@ -3,16 +3,15 @@ using FluentValidation;
 namespace FarmMonitoring.Application.Features.TechnicalSupport;
 
 public sealed record MaintenanceScheduleRequest(int? RentalDeviceAssignmentId, string? DeviceType, string Policy,
-    int IntervalDays, DateTimeOffset NextDueAt, int TechnicianId, bool Enabled, int ExpectedRevision);
+    int IntervalDays, DateTimeOffset NextDueAt, int TechnicianId, bool Enabled, int ExpectedRevision, int? FarmId = null);
 
 public sealed class MaintenanceScheduleValidator : AbstractValidator<MaintenanceScheduleRequest>
 {
     public MaintenanceScheduleValidator(TimeProvider clock)
     {
-        RuleFor(x => x).Must(x => x.RentalDeviceAssignmentId.HasValue != (x.DeviceType is not null))
-            .WithMessage("Choose either a rental device assignment or a device type.");
-        RuleFor(x => x.RentalDeviceAssignmentId).GreaterThan(0).When(x => x.RentalDeviceAssignmentId.HasValue);
-        RuleFor(x => x.DeviceType).Must(x => x is "SENSOR" or "GATEWAY" or "UAV").When(x => x.DeviceType is not null);
+        RuleFor(x => x.FarmId).NotNull().GreaterThan(0).WithMessage("Choose a farm for all-device maintenance.");
+        RuleFor(x => x.RentalDeviceAssignmentId).Null().WithMessage("Maintenance covers all rented devices in the selected farm.");
+        RuleFor(x => x.DeviceType).Null().WithMessage("Do not restrict farm maintenance to one device type.");
         RuleFor(x => x.Policy).NotEmpty().MaximumLength(2000);
         RuleFor(x => x.IntervalDays).InclusiveBetween(1, 3650);
         RuleFor(x => x.NextDueAt).Must(x => x > clock.GetUtcNow() && x < DateTimeOffset.MaxValue.AddDays(-3650))

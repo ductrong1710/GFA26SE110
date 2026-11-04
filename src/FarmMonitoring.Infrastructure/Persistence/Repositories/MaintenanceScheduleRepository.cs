@@ -79,18 +79,11 @@ public sealed partial class MaintenanceScheduleRepository(AppDbContext db) : IMa
             row = new() { CreatedById = actorId, CreatedAt = now };
             db.MaintenanceSchedules.Add(row);
         }
-        if (request.RentalDeviceAssignmentId is int assignmentId)
-        {
-            assignmentId = await CurrentAssignmentIdAsync(assignmentId, ct);
-            var assignment = await db.RentalDeviceAssignments.Include(x => x.Contract).SingleOrDefaultAsync(x => x.Id == assignmentId, ct)
-                ?? throw new NotFoundException("Rental device assignment not found.");
-            if (assignment.ReturnedAt is not null || assignment.Contract.Status == RentalStatus.ENDED)
-                throw new BusinessRuleException("Choose equipment that is still assigned.");
-            if (!await db.Farms.AnyAsync(x => x.Id == assignment.Contract.FarmId && x.IsActive, ct) ||
-                !await FarmAccessQuery.AssignedFarmIds(db, assignment.Contract.OwnerId).ContainsAsync(assignment.Contract.FarmId, ct))
-                throw new BusinessRuleException("An active farm and current linked Owner are required.");
-        }
-        row.RentalDeviceAssignmentId = request.RentalDeviceAssignmentId; row.DeviceType = request.DeviceType;
+        if (request.FarmId is not int farmId || request.RentalDeviceAssignmentId is not null || request.DeviceType is not null)
+            throw new BusinessRuleException("Choose a farm for all-device maintenance.");
+        if (!await db.Farms.AnyAsync(x => x.Id == farmId, ct)) throw new NotFoundException("Farm not found.");
+        if (!await db.Farms.AnyAsync(x => x.Id == farmId && x.IsActive, ct)) throw new BusinessRuleException("Choose an active farm.");
+        row.FarmId = farmId; row.RentalDeviceAssignmentId = null; row.DeviceType = null;
         row.Policy = request.Policy.Trim(); row.IntervalDays = request.IntervalDays; row.NextDueAt = request.NextDueAt.ToUniversalTime();
         row.TechnicianId = request.TechnicianId; row.Enabled = request.Enabled; row.UpdatedById = actorId; row.UpdatedAt = now;
         if (id.HasValue) row.Revision++;

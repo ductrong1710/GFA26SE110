@@ -20,11 +20,12 @@ public sealed class MaintenanceSchedulePersistenceTests(ApiFactory factory)
         db.MaintenanceSchedules.Add(schedule);
         var missing = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         Assert.Equal(PostgresErrorCodes.CheckViolation, ((PostgresException)missing.InnerException!).SqlState);
-        schedule.DeviceType = "UAV"; await db.SaveChangesAsync();
+        schedule.Enabled = false; await db.SaveChangesAsync();
         var farm = new Farm { Name = "Maintenance history", CreatedAt = now };
         var uav = new Uav { Code = Guid.NewGuid().ToString("N"), Name = "Maintenance UAV", CreatedAt = now };
         var gateway = new Gateway { Code = Guid.NewGuid().ToString("N"), Name = "Maintenance gateway", GatewayType = "ESP32", CreatedAt = now };
         db.AddRange(farm, uav, gateway); await db.SaveChangesAsync();
+        schedule.FarmId = farm.Id; schedule.Enabled = true; await db.SaveChangesAsync();
         await factory.AssignFarmAsync(farm.Id, "owner@example.com"); await factory.SeedRentalAsync(farm.Id, uav.Id, gateway.Id);
         var assignment = await db.RentalDeviceAssignments.SingleAsync(x => x.UavId == uav.Id);
         var job = new ServiceJob { RentalDeviceAssignmentId = assignment.Id, Type = ServiceJobType.MAINTENANCE, TechnicianId = admin.Id, ScheduledAt = now, CreatedAt = now };

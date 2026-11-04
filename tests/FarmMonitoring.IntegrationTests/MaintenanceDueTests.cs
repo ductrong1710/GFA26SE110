@@ -9,128 +9,80 @@ namespace FarmMonitoring.IntegrationTests;
 public sealed class MaintenanceDueTests(ApiFactory factory)
 {
     [Fact]
-    public async Task Concurrent_due_processing_creates_one_job_and_notifications_per_device_and_advances_anchor()
+    public async Task Farm_schedule_covers_all_device_types_excludes_other_farms_and_is_transactional_and_idempotent()
     {
-        await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var now = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         var admin = await db.Users.SingleAsync(x => x.Email == "admin@example.com");
         var owner = await db.Users.SingleAsync(x => x.Email == "owner@example.com");
-        var techRole = await db.Roles.SingleAsync(x => x.Name == "Technician");
-        var tech = new User { Email = $"due-tech-{Guid.NewGuid():N}@example.com", FullName = "Due technician", PasswordHash = "unused", IsActive = true, CreatedAt = now };
-        db.Users.Add(tech); await db.SaveChangesAsync(); db.UserRoles.Add(new UserRole { UserId = tech.Id, RoleId = techRole.Id });
-        var farm = new Farm { Name = "Due farm", CreatedAt = now };
-        var uav = new Uav { Code = Guid.NewGuid().ToString("N"), Name = "Due UAV", CreatedAt = now };
-        var gateway = new Gateway { Code = Guid.NewGuid().ToString("N"), Name = "Due gateway", GatewayType = "ESP32", CreatedAt = now };
-        db.AddRange(farm, uav, gateway); await db.SaveChangesAsync();
-        await factory.AssignFarmAsync(farm.Id, owner.Email); await factory.SeedRentalAsync(farm.Id, uav.Id, gateway.Id);
-        var assignment = await db.RentalDeviceAssignments.SingleAsync(x => x.UavId == uav.Id);
+        var role = await db.Roles.SingleAsync(x => x.Name == "Technician");
+        var tech = new User { Email = $"farm-maintenance-{Guid.NewGuid():N}@example.com", FullName = "Farm technician", PasswordHash = "unused", IsActive = true, CreatedAt = now };
+        tech.UserRoles.Add(new UserRole { RoleId = role.Id });
+        db.Users.Add(tech); await db.SaveChangesAsync();
+        async Task<Farm> Seed(string name)
+        {
+            var farm = new Farm { Name = name, CreatedAt = now };
+            var uav = new Uav { Code = Guid.NewGuid().ToString("N"), Name = name + " UAV", CreatedAt = now };
+            var gateway = new Gateway { Code = Guid.NewGuid().ToString("N"), Name = name + " gateway", GatewayType = "ESP32", CreatedAt = now };
+            db.AddRange(farm, uav, gateway); await db.SaveChangesAsync();
+            await factory.AssignFarmAsync(farm.Id, owner.Email);
+            await factory.SeedRentalAsync(farm.Id, uav.Id, gateway.Id);
+            return farm;
+        }
+        var farm = await Seed("Selected farm");
+        var other = await Seed("Other farm");
+        var assignment = await db.RentalDeviceAssignments.Include(x => x.Contract).FirstAsync(x => x.Contract.FarmId == farm.Id);
+        var allocation = await db.InstallationDeviceAllocations.SingleAsync(x => x.Id == assignment.InstallationAllocationId);
+        var zone = new Zone { FarmId = farm.Id, Name = "Sensor zone" };
+        var sensor = new SensorNode { Zone = zone, Name = "Farm sensor", DeviceCode = Guid.NewGuid().ToString("N"), Status = "OFFLINE", CreatedAt = now };
+        db.SensorNodes.Add(sensor); await db.SaveChangesAsync();
+        var sensorAllocation = new InstallationDeviceAllocation { JobId = allocation.JobId, ProposalLineId = allocation.ProposalLineId, SensorNodeId = sensor.Id, Code = sensor.DeviceCode, Name = sensor.Name, AllocatedByUserId = admin.Id, AllocatedAt = now };
+        db.InstallationDeviceAllocations.Add(sensorAllocation); await db.SaveChangesAsync();
+        db.RentalDeviceAssignments.Add(new RentalDeviceAssignment { ContractId = assignment.ContractId, InstallationAllocationId = sensorAllocation.Id, SensorNodeId = sensor.Id, Code = sensor.DeviceCode, Name = sensor.Name, InstallationLocation = "Field" });
+        await db.SaveChangesAsync();
+        var ids = await db.RentalDeviceAssignments.Where(x => x.Contract.FarmId == farm.Id).Select(x => x.Id).ToArrayAsync();
         var due = now.AddDays(-15);
-        var schedule = new MaintenanceSchedule { RentalDeviceAssignmentId = assignment.Id, Policy = "Weekly inspection", IntervalDays = 7, NextDueAt = due,
+        var schedule = new MaintenanceSchedule { FarmId = farm.Id, Policy = "All farm equipment", IntervalDays = 7, NextDueAt = due,
             TechnicianId = tech.Id, CreatedById = admin.Id, UpdatedById = admin.Id, CreatedAt = now, UpdatedAt = now };
         db.MaintenanceSchedules.Add(schedule); await db.SaveChangesAsync();
         async Task<int> Run()
         {
-            await using var runScope = factory.Services.CreateAsyncScope();
-            return await runScope.ServiceProvider.GetRequiredService<IMaintenanceScheduleRepository>().ProcessDueAsync(schedule.Id, now, default);
+            await using var run = factory.Services.CreateAsyncScope();
+            return await run.ServiceProvider.GetRequiredService<IMaintenanceScheduleRepository>().ProcessDueAsync(schedule.Id, now, default);
         }
-        // Fail the notification write after job insertion in the disposable database.
         await db.Database.ExecuteSqlRawAsync("""
-            CREATE FUNCTION test_reject_maintenance_notification() RETURNS trigger LANGUAGE plpgsql AS
-            $$ BEGIN IF NEW.subject = 'Maintenance due' THEN RAISE EXCEPTION 'maintenance-test-failure'; END IF; RETURN NEW; END; $$;
-            CREATE TRIGGER test_reject_maintenance_notification BEFORE INSERT ON notifications
-            FOR EACH ROW EXECUTE FUNCTION test_reject_maintenance_notification();
+            CREATE FUNCTION test_reject_farm_maintenance() RETURNS trigger LANGUAGE plpgsql AS
+            $$ BEGIN IF NEW.subject = 'Maintenance due' THEN RAISE EXCEPTION 'test failure'; END IF; RETURN NEW; END; $$;
+            CREATE TRIGGER test_reject_farm_maintenance BEFORE INSERT ON notifications FOR EACH ROW EXECUTE FUNCTION test_reject_farm_maintenance();
             """);
         try
         {
             await Assert.ThrowsAsync<DbUpdateException>(Run);
-            Assert.False(await db.ServiceJobs.AnyAsync(x => x.RentalDeviceAssignmentId == assignment.Id));
             Assert.False(await db.MaintenanceOccurrences.AnyAsync(x => x.ScheduleId == schedule.Id));
-            Assert.False(await db.Notifications.AnyAsync(x => x.UserId == tech.Id));
-            var unchanged = await db.MaintenanceSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id);
-            Assert.Equal(due, unchanged.NextDueAt); Assert.Equal(1, unchanged.Revision);
+            Assert.False(await db.ServiceJobs.AnyAsync(x => ids.Contains(x.RentalDeviceAssignmentId)));
+            Assert.Equal(due, (await db.MaintenanceSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id)).NextDueAt);
         }
-        finally
-        {
-            await db.Database.ExecuteSqlRawAsync("DROP TRIGGER test_reject_maintenance_notification ON notifications; DROP FUNCTION test_reject_maintenance_notification();");
-        }
-        var results = await Task.WhenAll(Run(), Run()); Assert.Equal(1, results.Sum());
-        var occurrence = await db.MaintenanceOccurrences.AsNoTracking().SingleAsync(x => x.ScheduleId == schedule.Id);
-        var job = await db.ServiceJobs.AsNoTracking().SingleAsync(x => x.Id == occurrence.JobId);
-        Assert.Null(job.IncidentId); Assert.Equal(ServiceJobType.MAINTENANCE, job.Type); Assert.Equal(tech.Id, job.TechnicianId);
-        Assert.Equal(due, occurrence.DueAt); Assert.Equal("Weekly inspection", occurrence.Policy);
+        finally { await db.Database.ExecuteSqlRawAsync("DROP TRIGGER test_reject_farm_maintenance ON notifications; DROP FUNCTION test_reject_farm_maintenance();"); }
+        Assert.Equal(3, (await Task.WhenAll(Run(), Run())).Sum());
+        var occurrences = await db.MaintenanceOccurrences.Where(x => x.ScheduleId == schedule.Id).ToArrayAsync();
+        Assert.Equal(ids.Order(), occurrences.Select(x => x.RentalDeviceAssignmentId).Order());
+        var jobs = await db.ServiceJobs.Where(x => occurrences.Select(o => o.JobId).Contains(x.Id)).ToArrayAsync();
+        Assert.All(jobs, job => { Assert.Equal(tech.Id, job.TechnicianId); Assert.Equal(ServiceJobType.MAINTENANCE, job.Type); });
+        Assert.False(await db.ServiceJobs.AnyAsync(x => x.RentalDeviceAssignment.Contract.FarmId == other.Id));
         var refreshed = await db.MaintenanceSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id);
-        Assert.Equal(due.AddDays(21), refreshed.NextDueAt); Assert.Equal(2, refreshed.Revision);
-        Assert.Equal(2, await db.Notifications.CountAsync(x => x.UserId == tech.Id && x.Subject == "Maintenance due"));
-        Assert.Equal(2, await db.Notifications.CountAsync(x => x.UserId == owner.Id && x.Subject == "Maintenance due" && x.Message.Contains($"#{job.Id}")));
+        Assert.Equal(due.AddDays(21), refreshed.NextDueAt);
         Assert.Equal(0, await Run());
+        // On the next due pass, returned equipment is excluded.
+        await db.RentalDeviceAssignments.Where(x => x.Id == assignment.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.ReturnedAt, now));
+        var nextDue = due.AddDays(7);
+        await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.NextDueAt, nextDue));
+        Assert.Equal(2, await Run());
+        Assert.DoesNotContain(await db.MaintenanceOccurrences.Where(x => x.ScheduleId == schedule.Id && x.DueAt == nextDue).ToArrayAsync(), x => x.RentalDeviceAssignmentId == assignment.Id);
         await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.NextDueAt, due).SetProperty(x => x.Enabled, false));
         Assert.Equal(0, await Run());
         await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Enabled, true));
-        tech.IsActive = false; await db.SaveChangesAsync();
+        await db.UserFarms.Where(x => x.FarmId == farm.Id).ExecuteDeleteAsync();
         Assert.Equal(0, await Run());
-        Assert.Equal(due, (await db.MaintenanceSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id)).NextDueAt);
-        tech.IsActive = true; assignment.ReturnedAt = now; await db.SaveChangesAsync();
-        Assert.Equal(0, await Run());
-        await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.RentalDeviceAssignmentId, (int?)null).SetProperty(x => x.DeviceType, "GATEWAY"));
-        Assert.True(await Run() >= 1);
-        var generated = await db.MaintenanceOccurrences.Where(x => x.ScheduleId == schedule.Id && x.JobId != job.Id)
-            .Join(db.RentalDeviceAssignments, x => x.RentalDeviceAssignmentId, x => x.Id, (o, a) => a).ToArrayAsync();
-        Assert.Contains(generated, x => x.GatewayId == gateway.Id);
-        Assert.All(generated, x => Assert.NotNull(x.GatewayId));
-
-        var successor = new Uav { Code = Guid.NewGuid().ToString("N"), Name = "Successor UAV", CreatedAt = now };
-        db.Uavs.Add(successor); await db.SaveChangesAsync();
-        var originalAllocation = await db.InstallationDeviceAllocations.SingleAsync(x => x.Id == assignment.InstallationAllocationId);
-        originalAllocation.ReleasedAt = now;
-        var newAllocation = new InstallationDeviceAllocation { JobId = originalAllocation.JobId, ProposalLineId = originalAllocation.ProposalLineId,
-            UavId = successor.Id, Code = successor.Code, Name = successor.Name, AllocatedByUserId = admin.Id, AllocatedAt = now };
-        db.InstallationDeviceAllocations.Add(newAllocation); await db.SaveChangesAsync();
-        var newAssignment = new RentalDeviceAssignment { ContractId = assignment.ContractId, InstallationAllocationId = newAllocation.Id,
-            UavId = successor.Id, Code = successor.Code, Name = successor.Name, InstallationLocation = assignment.InstallationLocation };
-        db.RentalDeviceAssignments.Add(newAssignment); await db.SaveChangesAsync();
-        db.ServiceDeviceReplacements.Add(new() { JobId = job.Id, OldAssignmentId = assignment.Id, NewAssignmentId = newAssignment.Id,
-            OldDeviceCode = assignment.Code, NewDeviceCode = successor.Code, TechnicianId = tech.Id, CreatedAt = now, Note = "Replacement fixture" });
-        await db.SaveChangesAsync();
-        var nextDue = now.AddDays(-1);
-        await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.RentalDeviceAssignmentId, assignment.Id).SetProperty(x => x.DeviceType, (string?)null).SetProperty(x => x.NextDueAt, nextDue));
-        Assert.Equal(1, await Run());
-        var successorOccurrence = await db.MaintenanceOccurrences.AsNoTracking().SingleAsync(x => x.ScheduleId == schedule.Id && x.DueAt == nextDue);
-        Assert.Equal(newAssignment.Id, successorOccurrence.RentalDeviceAssignmentId);
-        Assert.Equal(newAssignment.Id, (await db.ServiceJobs.AsNoTracking().SingleAsync(x => x.Id == successorOccurrence.JobId)).RentalDeviceAssignmentId);
-        Assert.Equal(assignment.Id, (await db.MaintenanceSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id)).RentalDeviceAssignmentId);
-        Assert.Equal(assignment.Id, (await db.ServiceJobs.AsNoTracking().SingleAsync(x => x.Id == job.Id)).RentalDeviceAssignmentId);
-        var ownerRole = await db.Roles.SingleAsync(x => x.Name == "FarmOwner");
-        db.UserRoles.Add(new UserRole { UserId = tech.Id, RoleId = ownerRole.Id });
-        db.UserFarms.Add(new UserFarm { UserId = tech.Id, FarmId = farm.Id });
-        var contract = await db.RentalContracts.SingleAsync(x => x.Id == assignment.ContractId);
-        contract.OwnerId = tech.Id; await db.SaveChangesAsync();
-        await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.NextDueAt, now.AddDays(-2)));
-        var notificationCount = await db.Notifications.CountAsync(x => x.UserId == tech.Id && x.Subject == "Maintenance due");
-        Assert.Equal(1, await Run());
-        Assert.Equal(notificationCount + 2, await db.Notifications.CountAsync(x => x.UserId == tech.Id && x.Subject == "Maintenance due"));
-        await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Policy, "New future policy"));
-        var repository = scope.ServiceProvider.GetRequiredService<IMaintenanceScheduleRepository>();
-        var history = await repository.OccurrencesAsync(schedule.Id, admin.Id, new() { PageSize = 100 }, default);
-        Assert.Equal("Weekly inspection", Assert.Single(history.Items, x => x.JobId == job.Id).Policy);
-        Assert.Equal(assignment.Code, Assert.Single(history.Items, x => x.JobId == job.Id).DeviceCode);
-        Assert.Contains(history.Items, x => x.JobId == successorOccurrence.JobId && x.RentalDeviceAssignmentId == newAssignment.Id);
-        var firstPage = await repository.OccurrencesAsync(schedule.Id, admin.Id, new() { PageSize = 1 }, default);
-        var secondPage = await repository.OccurrencesAsync(schedule.Id, admin.Id, new() { PageSize = 1, Page = 2 }, default);
-        Assert.Single(firstPage.Items); Assert.Single(secondPage.Items);
-        Assert.NotEqual(firstPage.Items[0].Id, secondPage.Items[0].Id);
-        await using var editScope = factory.Services.CreateAsyncScope();
-        var editor = editScope.ServiceProvider.GetRequiredService<IMaintenanceScheduleRepository>();
-        var current = await editor.GetAsync(schedule.Id, admin.Id, default);
-        var edited = await editor.SaveAsync(schedule.Id, admin.Id, new(assignment.Id, null, "Updated successor inspection", 30,
-            now.AddDays(30), tech.Id, true, current.Revision), now, default);
-        Assert.Equal(assignment.Id, edited.RentalDeviceAssignmentId);
-        Assert.Equal("Updated successor inspection", edited.Policy);
-        await db.RentalDeviceAssignments.Where(x => x.Id == newAssignment.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.ReturnedAt, now));
-        await using var rejectedScope = factory.Services.CreateAsyncScope();
-        var rejectedEditor = rejectedScope.ServiceProvider.GetRequiredService<IMaintenanceScheduleRepository>();
-        await Assert.ThrowsAsync<FarmMonitoring.Application.Common.BusinessRuleException>(() => rejectedEditor.SaveAsync(schedule.Id, admin.Id,
-            new(assignment.Id, null, "Must reject returned successor", 30, now.AddDays(30), tech.Id, true, edited.Revision), now, default));
     }
 }

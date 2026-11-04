@@ -30,7 +30,7 @@ public sealed class InstallationDossierTests(ApiFactory factory)
     {
         using var guest = factory.CreateApiClient();
         var lead = (await Data(await guest.PostAsJsonAsync("/api/consultations", new {
-            customerName = "External customer", phone = "0901234567", farmLocation = "Can Tho", serviceNeed = "Rent sensors", content = "Call outside"
+            customerName = "External customer", phone = "0901234567", email = "customer@example.com", farmLocation = "Can Tho", serviceNeed = "Rent sensors", content = "Call outside"
         }))).GetProperty("id").GetInt32();
         var survey = await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/surveys", new {
             expectedRevision = 0, farmName = "External garden", farmLocation = "Garden address", farmArea = 2,

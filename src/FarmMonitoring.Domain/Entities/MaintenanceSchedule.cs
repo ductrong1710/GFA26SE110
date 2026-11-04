@@ -3,6 +3,7 @@ namespace FarmMonitoring.Domain.Entities;
 public sealed class MaintenanceSchedule
 {
     public int Id { get; set; }
+    public int? FarmId { get; set; }
     public int? RentalDeviceAssignmentId { get; set; }
     public string? DeviceType { get; set; }
     public string Policy { get; set; } = "";

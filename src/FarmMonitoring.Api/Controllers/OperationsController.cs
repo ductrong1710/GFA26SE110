@@ -18,8 +18,12 @@ public sealed class OperationsController(OperationsService repository, ICurrentU
             throw new ValidationException("Choose a period up to 366 days with end after start.");
     }
     [HttpGet("calendar")]
-    public async Task<object> Calendar(DateTimeOffset from, DateTimeOffset to, int? technicianId, CancellationToken ct)
-    { Period(from,to); return ApiResponse<object>.Ok(await repository.CalendarAsync(Actor,from,to,technicianId,ct)); }
+    public async Task<object> Calendar(DateTimeOffset? from, DateTimeOffset? to, int? technicianId, CancellationToken ct)
+    {
+        if (from.HasValue != to.HasValue) throw new ValidationException("Supply both from and to, or neither.");
+        if (from.HasValue) Period(from.Value,to!.Value);
+        return ApiResponse<object>.Ok(await repository.CalendarAsync(Actor,from,to,technicianId,ct));
+    }
     [HttpGet("available-technicians")]
     public async Task<object> Available(DateTimeOffset from, DateTimeOffset to, string? excludeType, int? excludeId, CancellationToken ct)
     { Period(from,to); return ApiResponse<object>.Ok(await repository.AvailableAsync(Actor,from,to,excludeType,excludeId,ct)); }
@@ -27,8 +31,14 @@ public sealed class OperationsController(OperationsService repository, ICurrentU
     public async Task<object> Dashboard(DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
     { Period(from,to); return ApiResponse<object>.Ok(await repository.DashboardAsync(Actor,from,to,ct)); }
     [HttpGet("consultation-requests")]
-    public async Task<object> Leads(DateTimeOffset from, DateTimeOffset to, [FromQuery] PageQuery query, CancellationToken ct)
-    { Period(from,to); await pages.ValidateAndThrowAsync(query,ct); return ApiResponse<object>.Ok(await repository.LeadsAsync(Actor,from,to,query,ct)); }
+    public async Task<object> Leads(DateTimeOffset? from, DateTimeOffset? to, [FromQuery] PageQuery query, CancellationToken ct)
+    {
+        if (from.HasValue != to.HasValue) throw new ValidationException("Supply both from and to, or neither.");
+        if (from.HasValue && (from == default(DateTimeOffset) || to <= from))
+            throw new ValidationException("End must follow start.");
+        await pages.ValidateAndThrowAsync(query,ct);
+        return ApiResponse<object>.Ok(await repository.LeadsAsync(Actor,from,to,query,ct));
+    }
     [HttpGet("device-history")]
     public async Task<object> History(string code, [FromQuery] PageQuery query, CancellationToken ct)
     { if (string.IsNullOrWhiteSpace(code) || code.Length > 200) throw new ValidationException("Enter device code."); await pages.ValidateAndThrowAsync(query,ct); return ApiResponse<object>.Ok(await repository.DeviceHistoryAsync(Actor,code,query,ct)); }

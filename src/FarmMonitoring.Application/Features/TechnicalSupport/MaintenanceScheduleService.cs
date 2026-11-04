@@ -6,10 +6,10 @@ using FluentValidation;
 namespace FarmMonitoring.Application.Features.TechnicalSupport;
 public sealed record MaintenanceScheduleResponse(int Id, int? RentalDeviceAssignmentId, string? DeviceType, string Policy,
     int IntervalDays, DateTimeOffset NextDueAt, int TechnicianId, bool Enabled, int Revision,
-    int CreatedById, int UpdatedById, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+    int CreatedById, int UpdatedById, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, int? FarmId = null)
 {
     public static MaintenanceScheduleResponse From(MaintenanceSchedule x) => new(x.Id, x.RentalDeviceAssignmentId, x.DeviceType,
-        x.Policy, x.IntervalDays, x.NextDueAt, x.TechnicianId, x.Enabled, x.Revision, x.CreatedById, x.UpdatedById, x.CreatedAt, x.UpdatedAt);
+        x.Policy, x.IntervalDays, x.NextDueAt, x.TechnicianId, x.Enabled, x.Revision, x.CreatedById, x.UpdatedById, x.CreatedAt, x.UpdatedAt, x.FarmId);
 }
 public sealed record DisableMaintenanceScheduleRequest(int ExpectedRevision);
 public sealed record MaintenanceOccurrenceResponse(int Id, int JobId, int RentalDeviceAssignmentId, string DeviceCode,

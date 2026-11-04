@@ -1,6 +1,6 @@
 namespace FarmMonitoring.Domain.Entities;
 
-public enum PublicContentKind { SERVICE, DEVICE, INSTALLATION, WARRANTY, MAINTENANCE, RETURN, CONTACT, COMPONENT }
+public enum PublicContentKind { SERVICE, DEVICE, INSTALLATION, WARRANTY, MAINTENANCE, RETURN, CONTACT, COMPONENT, POLICY }
 
 public sealed class PublicContent
 {

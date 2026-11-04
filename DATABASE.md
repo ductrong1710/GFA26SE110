@@ -1,5 +1,8 @@
 # DATABASE.md
 
+### Farm maintenance schedules — 2026-11-04
+Migration 20261104054424_FarmMaintenanceSchedules adds nullable maintenance_schedules.farm_id with an index and RESTRICT FK. Enabled/new schedules use a farm and null legacy assignment/type fields. Legacy schedules and occurrence history are preserved, but enabled legacy schedules are disabled and their revisions/timestamps updated until Admin explicitly chooses a farm. The worker ignores unscoped schedules. Downgrade refuses to discard any configured farm scope.
+
 ### ExternalConsultationDossier — 2026-11-03
 
 Migration `20261103153523_ExternalConsultationDossier` adds nullable

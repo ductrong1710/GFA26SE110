@@ -28,17 +28,17 @@ public sealed partial class OperationsRepository(AppDbContext db, TimeProvider c
     { if (revision != job.Revision) throw new ConflictException("Job changed. Reload the current revision."); }
     private static void History(ServiceJob job,int actor,ServiceJobAction action,string note,DateTimeOffset now) =>
         job.History.Add(new() {UserId=actor,TechnicianId=job.TechnicianId,Action=action,Note=note,ScheduledAt=job.ScheduledAt,ScheduledEndAt=job.ScheduledEndAt,CreatedAt=now});
-    public async Task<object> CalendarAsync(int actor, DateTimeOffset from, DateTimeOffset to, int? technicianId, CancellationToken ct)
+    public async Task<object> CalendarAsync(int actor, DateTimeOffset? from, DateTimeOffset? to, int? technicianId, CancellationToken ct)
     {
         var roles = await Roles(actor,ct); var admin = roles.Contains(RoleNames.FarmAdministrator);
         if (!admin && !roles.Contains(RoleNames.Technician)) throw new AccessDeniedException("Calendar access denied.");
         if (!admin && technicianId.HasValue && technicianId != actor) throw new AccessDeniedException("Own calendar only.");
         technicianId = admin ? technicianId : actor;
-        var installations = await db.InstallationJobs.AsNoTracking().Where(x => (!technicianId.HasValue || x.TechnicianId == technicianId) && x.ScheduledAt < to &&
-            (x.ScheduledEndAt > x.ScheduledAt ? x.ScheduledEndAt : x.ScheduledAt.AddHours(2)) > from)
+        var installations = await db.InstallationJobs.AsNoTracking().Where(x => (!technicianId.HasValue || x.TechnicianId == technicianId) && (!to.HasValue || x.ScheduledAt < to.Value) &&
+            (!from.HasValue || (x.ScheduledEndAt > x.ScheduledAt ? x.ScheduledEndAt : x.ScheduledAt.AddHours(2)) > from.Value))
             .Select(x => new { x.Id, Type = "INSTALLATION", x.TechnicianId, x.ScheduledAt, EndAt = x.ScheduledEndAt > x.ScheduledAt ? x.ScheduledEndAt : x.ScheduledAt.AddHours(2), Status = x.Status.ToString(), x.InstallationRequest.FarmId, FarmName = x.InstallationRequest.Farm.Name, Address = x.InstallationRequest.Proposal.Survey.FarmLocation, Customer = x.InstallationRequest.Proposal.Consultation.CustomerName, Phone = x.InstallationRequest.Proposal.Consultation.Phone, x.Revision }).ToArrayAsync(ct);
-        var services = await db.ServiceJobs.AsNoTracking().Where(x => (!technicianId.HasValue || x.TechnicianId == technicianId) && x.ScheduledAt < to &&
-            (x.ScheduledEndAt > x.ScheduledAt ? x.ScheduledEndAt : x.ScheduledAt.AddHours(2)) > from)
+        var services = await db.ServiceJobs.AsNoTracking().Where(x => (!technicianId.HasValue || x.TechnicianId == technicianId) && (!to.HasValue || x.ScheduledAt < to.Value) &&
+            (!from.HasValue || (x.ScheduledEndAt > x.ScheduledAt ? x.ScheduledEndAt : x.ScheduledAt.AddHours(2)) > from.Value))
             .Select(x => new { x.Id, Type = x.Type.ToString(), x.TechnicianId, x.ScheduledAt, EndAt = x.ScheduledEndAt > x.ScheduledAt ? x.ScheduledEndAt : x.ScheduledAt.AddHours(2), Status = x.Status.ToString(), x.RentalDeviceAssignment.Contract.FarmId, FarmName = x.RentalDeviceAssignment.Contract.InstallationJob.InstallationRequest.Farm.Name, Address = x.RentalDeviceAssignment.Contract.InstallationJob.InstallationRequest.Proposal.Survey.FarmLocation, Customer = x.RentalDeviceAssignment.Contract.InstallationJob.InstallationRequest.Proposal.Consultation.CustomerName, Phone = x.RentalDeviceAssignment.Contract.InstallationJob.InstallationRequest.Proposal.Consultation.Phone, x.Revision }).ToArrayAsync(ct);
         return new { From = from, To = to, TravelBufferMinutes = 30, Installations = installations, Services = services };
     }
@@ -53,14 +53,16 @@ public sealed partial class OperationsRepository(AppDbContext db, TimeProvider c
             if (!await TechnicianCalendar.BusyAsync(db,tech.Id,from,to,excludeType == "INSTALLATION" ? excludeId : null,excludeType == "SERVICE" ? excludeId : null,ct)) free.Add(tech);
         return new { From = from, To = to, Recommended = free.FirstOrDefault(), Technicians = free };
     }
-    public async Task<object> LeadsAsync(int actor, DateTimeOffset from, DateTimeOffset to, PageQuery query, CancellationToken ct)
+    public async Task<object> LeadsAsync(int actor, DateTimeOffset? from, DateTimeOffset? to, PageQuery query, CancellationToken ct)
     {
         var roles = await Roles(actor,ct);
         if (!roles.Contains(RoleNames.FarmAdministrator) && !roles.Contains(RoleNames.FarmEngineer)) throw new AccessDeniedException("Consultation list access denied.");
-        var rows = db.Consultations.AsNoTracking().Where(x => x.CreatedAt >= from && x.CreatedAt < to);
+        var rows = db.Consultations.AsNoTracking();
+        if (from.HasValue) rows = rows.Where(x => x.CreatedAt >= from.Value);
+        if (to.HasValue) rows = rows.Where(x => x.CreatedAt < to.Value);
         if (!string.IsNullOrWhiteSpace(query.Search)) rows = rows.Where(x => x.CustomerName.Contains(query.Search) || x.Phone.Contains(query.Search));
         return new { Total = await rows.CountAsync(ct), query.Page, query.PageSize, Items = await rows.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
-            .Skip((query.Page-1)*query.PageSize).Take(query.PageSize).Select(x => new { x.Id, x.CustomerName, x.Phone, x.FarmLocation, x.ServiceNeed, x.Content, x.CreatedAt }).ToArrayAsync(ct) };
+            .Skip((query.Page-1)*query.PageSize).Take(query.PageSize).Select(x => new { x.Id, x.CustomerName, x.Phone, x.Email, x.FarmLocation, x.ServiceNeed, x.Content, x.CreatedAt }).ToArrayAsync(ct) };
     }
     public async Task<object> PlansAsync(int actor, int jobId, CancellationToken ct)
     { await Job(actor,jobId,false,ct); return await db.ServicePlans.AsNoTracking().Where(x => x.JobId == jobId).OrderByDescending(x => x.Id).Select(x => new { x.Id, x.JobId, Status = x.Status.ToString(), x.Note, x.ReviewNote, x.TechnicianId, x.ReviewerId, x.CreatedAt, x.ReviewedAt, x.SensorNodeId, x.UavId, x.GatewayId, x.TotalVnd, x.PriceLinesJson, x.EvidenceJson }).ToArrayAsync(ct); }
