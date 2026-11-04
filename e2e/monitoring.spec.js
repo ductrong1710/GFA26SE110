@@ -15,13 +15,13 @@ test('owner reads synchronized measurements and compares sensors while admin mai
   const owner = await post('/api/users', { email: 'monitoring-owner@example.com', fullName: 'Monitoring owner', password, roles: ['FarmOwner'] })
   const farm = await post('/api/farms', { name: 'Sensor comparison farm' })
   await post('/api/farms/' + farm.id + '/members', { userId: owner.id })
-  const zone = await post('/api/farms/' + farm.id + '/zones', { name: 'Sensor comparison zone' })
   const type = await post('/api/sensor-types', { code: 'BROWSER-TEMP', name: 'Orchard temperature', unit: 'C' })
   const devices = []
-  for (const [code, value] of [['SOUTH-1', 21], ['SOUTH-2', 27]]) {
+  for (const [code, value, zoneName] of [['SOUTH-1', 21, 'South orchard'], ['NORTH-1', 27, 'North orchard']]) {
+    const zone = await post('/api/farms/' + farm.id + '/zones', { name: zoneName })
     const node = await post('/api/sensor-nodes', { zoneId: zone.id, deviceCode: code, name: code + ' thermometer', status: 'ONLINE' })
     await post('/api/sensor-nodes/' + node.id + '/channels', { sensorTypeId: type.id, channelCode: 'temperature', name: 'Temperature' })
-    devices.push({ id: node.id, code, value })
+    devices.push({ id: node.id, code, value, zoneName })
   }
   const gateway = await post('/api/gateways', { code: 'MONITOR-GATEWAY', name: 'Monitoring gateway', gatewayType: 'ESP32', status: 'ONLINE' })
   const credential = await post('/api/gateways/' + gateway.id + '/credential')
@@ -41,12 +41,16 @@ test('owner reads synchronized measurements and compares sensors while admin mai
   }
   await login(page, owner.email, password)
   await page.goto('/app/sensors/' + devices[0].id)
+  await expect(page.getByRole('table', { name: 'Sensor channels and latest readings' }).getByRole('cell', { name: '21', exact: true })).toBeVisible()
   await expect(page.getByRole('table', { name: 'Channel history' }).getByRole('cell', { name: '21', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Configure Threshold' })).toHaveCount(0)
   await page.goto('/app/sensor-data/compare-zones')
   await page.getByRole('combobox', { name: 'Sensor Type' }).selectOption(String(type.id))
   const comparison = page.getByRole('table', { name: 'Sensor comparison summary' })
   for (const d of devices) {
+    const zone = page.getByRole('table', { name: 'Zone comparison summary' }).getByRole('row').filter({ hasText: d.zoneName })
+    await expect(zone.getByRole('cell', { name: String(d.value), exact: true })).toHaveCount(3)
+    await expect(zone.getByRole('cell', { name: '1', exact: true })).toBeVisible()
     const row = comparison.getByRole('row').filter({ hasText: d.code })
     await expect(row.getByRole('cell', { name: String(d.value), exact: true })).toHaveCount(3)
     await expect(row.getByRole('cell', { name: '1', exact: true })).toBeVisible()
