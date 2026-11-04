@@ -76,7 +76,7 @@ function ConsultationDetail({ id }) {
         {item.userId && <span> · User #{item.userId}</span>}<p>{item.notes}</p><p>{item.contactResult}</p><p>{item.nextAction}</p></li>)}</ol></SectionCard>
       {can(P.USERS_MANAGE) && <ConsultationBinding consultation={row} onSaved={query.replaceData} />}
       <SurveyPanel key={id} consultationId={id} editable={editable && !locked} />
-      <ProposalPanel key={`proposal:${id}`} consultationId={id} linked={Boolean(row.ownerId && row.farmId)} onSubmitted={() => setSubmitted(true)} editable={editable && !locked} canConfirmDeposit={editable || can(P.USERS_MANAGE)} />
+      <ProposalPanel key={`proposal:${id}`} consultationId={id} linked={Boolean(row.ownerId && row.farmId)} customerName={row.customerName} customerEmail={row.email ?? ''} onSubmitted={() => setSubmitted(true)} editable={editable && !locked} canConfirmDeposit={editable || can(P.USERS_MANAGE)} />
       {editable && <SectionCard title="Record follow-up"><form className="management-form" onSubmit={followUp}>
         <fieldset disabled={pending} className="management-form">{[['notes', 'Notes', 4000], ['contactResult', 'Contact result', 1000], ['nextAction', 'Next action', 1000]].map(([name, label, max]) =>
           <label key={name}>{label}<textarea required maxLength={max} value={values[name]} onChange={event => setValues({ ...values, [name]: event.target.value })} /></label>)}

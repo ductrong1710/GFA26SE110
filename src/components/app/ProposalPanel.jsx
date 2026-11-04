@@ -10,12 +10,14 @@ import { displayTime, parseVietnamDateTime } from '../../utils/display'
 const emptyLine = () => ({ surveyZoneId: '', publicContentId: '', deviceType: '', quantity: 1, installationLocation: '' })
 const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 })
 
-export default function ProposalPanel({ consultationId, editable = false, canConfirmDeposit = editable, onSubmitted, linked = true }) {
+export default function ProposalPanel({ consultationId, editable = false, canConfirmDeposit = editable, onSubmitted, linked = true, customerName = '', customerEmail = '' }) {
   const [page, setPage] = useState(1)
   const [draft, setDraft] = useState(null)
   const [selected, setSelected] = useState(null)
   const [pending, setPending] = useState(false)
   const [note, setNote] = useState('')
+  const [name, setName] = useState(customerName)
+  const [email, setEmail] = useState(customerEmail)
   const [bills, setBills] = useState([])
   const [reading, setReading] = useState(false)
   const [error, setError] = useState('')
@@ -47,7 +49,7 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     try {
       if (action === 'submit-installation') {
         const dossier = await api.request('/api/installation-dossiers/' + selected.id + '/submit', {
-          method: 'POST', body: { expectedRevision: selected.revision, note, bills },
+          method: 'POST', body: { expectedRevision: selected.revision, note, bills, ...(!linked && { customer: { fullName: name.trim(), email: email.trim() } }) },
         })
         setSelected({ ...selected, status: dossier.status, depositBills: bills }); setBills([])
         setNotice(`Dossier #${dossier.proposalId} submitted for administrator review.`)
@@ -106,12 +108,15 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
       </fieldset></form>}
       {selected.dossierReviewNote && <p>Administrator review: {selected.dossierReviewNote}</p>}
       <EvidenceImages images={selected.depositBills} />
-      {editable && selected.status === 'DEPOSIT_CONFIRMED' && (linked ? <form onSubmit={event => { event.preventDefault(); transition('submit-installation') }}>
+      {editable && selected.status === 'DEPOSIT_CONFIRMED' && (<form onSubmit={event => { event.preventDefault(); transition('submit-installation') }}>
         <fieldset disabled={pending}><legend>Installation dossier</legend>
+          {!linked && <><p>The administrator will verify these details before creating or linking the owner account and farm.</p>
+            <label>Customer account name<input required maxLength={150} value={name} onChange={e => setName(e.target.value)} /></label>
+            <label>Customer account email<input required maxLength={255} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label></>}
           <label>Dossier note<textarea required maxLength={2000} value={note} onChange={e => setNote(e.target.value)} /></label>
           <EvidenceImages images={bills} onChange={setBills} onBusyChange={setReading} />
           <button disabled={reading || !bills.length}>Submit installation request</button>
-        </fieldset></form> : <p>An administrator must link the customer and farm before submission.</p>)}
+        </fieldset></form>)}
     </section>}
     <DataTable caption="Proposal revisions" loading={query.loading} rows={query.data?.items ?? []} columns={[
       { key: 'revision', header: 'Revision' }, { key: 'status', header: 'Status', render: value => <StatusBadge status={value} /> },

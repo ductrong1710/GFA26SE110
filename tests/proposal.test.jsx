@@ -38,7 +38,7 @@ it('creates a proposal against the selected survey and its zone', async () => {
   expect(await screen.findByText('Proposal revision 1 saved.')).toBeTruthy()
 })
 
-it('records plan and deposit evidence before submitting installation', async () => {
+it.each([true, false])('submits the confirmed installation dossier (linked customer: %s)', async linked => {
   let row = { id: 7, revision: 1, surveyId: 3, rentalMonths: 6, status: 'DRAFT', lines: [] }
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
     if (options.method === 'POST') {
@@ -48,7 +48,7 @@ it('records plan and deposit evidence before submitting installation', async () 
     }
     return path.endsWith('/7') ? row : { items: [row], pagination: { totalItems: 1 } }
   })
-  render(<ProposalPanel consultationId={42} editable />)
+  render(<ProposalPanel consultationId={42} editable linked={linked} customerName="Garden owner" customerEmail="owner@example.com" />)
   fireEvent.click(await screen.findByRole('button', { name: 'View proposal revision 1' }))
   for (const [button, evidence] of [['Record customer plan confirmation', 'Customer accepted by phone'], ['Record external deposit confirmation', 'Bank receipt REF-42']]) {
     const action = await screen.findByRole('button', { name: button })
@@ -62,7 +62,7 @@ it('records plan and deposit evidence before submitting installation', async () 
   await screen.findByAltText('Evidence image 1')
   fireEvent.click(submit)
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/installation-dossiers/7/submit', {
-    method: 'POST', body: { expectedRevision: 1, note: 'Receipt attached', bills: [expect.objectContaining({ contentType: 'image/png' })] },
+    method: 'POST', body: { expectedRevision: 1, note: 'Receipt attached', ...(!linked && { customer: { fullName: 'Garden owner', email: 'owner@example.com' } }), bills: [expect.objectContaining({ contentType: 'image/png' })] },
   }))
   expect(await screen.findByText('Dossier #7 submitted for administrator review.')).toBeTruthy()
   expect(request).toHaveBeenCalledWith('/api/consultations/42/proposals/7/confirm-deposit', { method: 'POST', body: { note: 'Bank receipt REF-42' } })

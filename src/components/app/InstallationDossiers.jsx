@@ -43,6 +43,7 @@ export default function InstallationDossiers({ onApproved }) {
     <ApiState {...detail} />
     {proposal && <form onSubmit={decide}><fieldset disabled={busy}><legend>Dossier #{proposal.id}</legend>
       <p>{selected.customerName} · {selected.phone} · {selected.farmName} · {selected.farmLocation}</p>
+      {proposal.dossierCustomerEmail && <p>Owner account for approval: {proposal.dossierCustomerName} · {proposal.dossierCustomerEmail}</p>}
       <p>Installation {displayTime(proposal.requestedInstallationAt)} · Rental {proposal.rentalMonths} months</p>
       <ul>{proposal.lines.map(line => <li key={line.id}>{line.quantity} × {line.productName || line.deviceType} · {line.installationLocation}</li>)}</ul>
       <p>Plan confirmation: {proposal.planConfirmationNote}</p><p>Deposit confirmation: {proposal.depositConfirmationNote}</p>
