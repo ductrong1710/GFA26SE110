@@ -46,7 +46,7 @@ export default function InstallationJobsPage() {
       <InstallationReports key={selected.id} job={selected} canConfirm={can(P.INSTALLATIONS_CONFIRM)} canReview={can(P.INSTALLATIONS_REVIEW)} onUpdated={row => { setSelected(row); query.reload() }} />
       {can(P.INSTALLATIONS_REVIEW) && ['ASSIGNED', 'IN_PROGRESS', 'REWORK'].includes(selected.status) && <InstallationDeviceAllocation key={`devices:${selected.id}:${selected.revision}`} job={selected} onSaved={() => open(selected.id)} />}
       {can(P.INSTALLATIONS_WORK) && selected.technicianId === user?.id && ['IN_PROGRESS', 'REWORK'].includes(selected.status) && <InstallationReportForm key={`report:${selected.id}:${selected.revision}`} job={selected} onSaved={() => open(selected.id)} />}
-      {can(P.RENTALS_MANAGE) && selected.status === 'APPROVED' && <p>Approval creates the rental draft from the signed handover. <Link to="/app/rental-contracts">Open rental contracts</Link> to review the period and activate it when due.</p>}
+      {can(P.RENTALS_MANAGE) && selected.status === 'APPROVED' && <p>Approval creates the rental draft from the signed handover. <Link to="/app/rental-contracts">Open rental contracts</Link> to confirm the agreed start date.</p>}
     </SectionCard>}
     <DataTable caption="Installation jobs" loading={query.loading} rows={query.data?.items ?? []} columns={[
       { key: 'id', header: 'Job' }, { key: 'farmId', header: 'Farm' }, { key: 'technicianId', header: 'Technician' },

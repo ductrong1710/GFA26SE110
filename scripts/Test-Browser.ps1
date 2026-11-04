@@ -1,4 +1,4 @@
-param([string]$Configuration = 'Release', [Parameter(Mandatory = $true)][string]$PostgresBin)
+param([string]$Configuration = 'Release')
 $ErrorActionPreference = 'Stop'
 foreach ($port in @(5179, 5189)) {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
@@ -21,11 +21,13 @@ $settings = @{
     SEED_ADMIN_PASSWORD = 'Browser-' + [Guid]::NewGuid().ToString('N') + '-1!'
     Monitoring__Enabled = 'false'
     Email__Enabled = 'false'
-    MaintenanceScheduler__Enabled = 'false'
+    MaintenanceScheduler__Enabled = 'true'
+    MaintenanceScheduler__IntervalSeconds = '1'
     Cors__AllowedOrigins__0 = 'http://127.0.0.1:5179'
     VITE_API_BASE_URL = 'http://127.0.0.1:5189'
     E2E_API_URL = 'http://127.0.0.1:5189'
-    E2E_PSQL = Join-Path $PostgresBin 'psql.exe'
+    RentalExpiration__Enabled = 'true'
+    RentalExpiration__IntervalSeconds = '1'
 }
 $previous = @{}
 $apiProcess = $null

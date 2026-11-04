@@ -1,6 +1,7 @@
+import { verifyMaintenance } from './verify-maintenance'
 import { runMission } from './run-mission'
 import { repairDevice } from './repair-device'
-import { makeRentalDue } from './rental-fixture'
+import { vietnamDateTimeInput } from '../src/utils/display.js'
 import { expect } from '@playwright/test'
 
 export async function installAndActivate(browser, admin, seed, requestId, owner, password, farm) {
@@ -83,19 +84,21 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
     await expect(region.getByText('Rental start', { exact: true }).locator('xpath=following-sibling::dd[1]')).toHaveText(displayedStart)
     await admin.getByRole('button', { name: 'Record contract action' }).click()
     await expect(admin.getByRole('alert').filter({ hasText: /Activation requires/ }).first()).toBeVisible()
-    makeRentalDue(contractId)
-    await admin.reload()
-    await admin.getByRole('button', { name: button, exact: true }).click()
-    await admin.getByLabel('Decision note').fill('Agreed rental period has started')
+    await admin.getByLabel('Contract action').selectOption('confirm-start')
+    await admin.getByLabel('Agreed rental start').fill(vietnamDateTimeInput(new Date()))
+    await admin.getByLabel('Decision note').fill('Customer agreed to begin at handover today')
     await admin.getByRole('button', { name: 'Record contract action' }).click()
     await expect(admin.getByText('Rental contract updated.')).toBeVisible()
-    await ownerPage.goto('/app/rental-contracts')
-    await ownerPage.getByRole('button', { name: button, exact: true }).click()
     const contract = ownerPage.getByRole('region', { name: 'Rental contract #' + contractId, exact: true })
-    await expect(contract.getByText(/^active$/i)).toBeVisible()
+    await expect(async () => {
+      await ownerPage.goto('/app/rental-contracts')
+      await ownerPage.getByRole('button', { name: button, exact: true }).click()
+      await expect(contract.getByText(/^active$/i)).toBeVisible({ timeout: 1000 })
+    }).toPass({ timeout: 20000 })
     await expect(contract.getByText(uav.code + ' · ' + uav.name)).toBeVisible()
     await runMission(ownerPage, farm, uav, gateway, sensor, true)
     await runMission(ownerPage, farm, uav, gateway, sensor)
     await repairDevice(ownerPage, admin, work, contractId, uav, tech.id)
+    await verifyMaintenance(admin, work, contractId, uav, tech.id)
   } finally { await employee.close(); await customer.close() }
 }

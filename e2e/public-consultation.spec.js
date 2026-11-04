@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test'
 test.use({ actionTimeout: 15000 })
 
 test('consultation reaches active rental and the assigned device is repaired', async ({ page: admin, browser, request }) => {
+  test.setTimeout(300000) // Includes one real maintenance recurrence.
   if (process.env.E2E_API_URL !== 'http://127.0.0.1:5189' || !process.env.TEST_POSTGRES_CONNECTION) throw new Error('Use the disposable PostgreSQL harness.')
   await admin.goto('/dang-nhap')
   await admin.getByLabel('Email', { exact: true }).fill('admin@sep.local')

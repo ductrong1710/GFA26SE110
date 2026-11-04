@@ -5,6 +5,11 @@ import { api } from '../src/services/api'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 const job = { id: 8, revision: 4, status: 'IN_PROGRESS' }
+test('reopened work requires a new plan after the previous plan was applied', async () => {
+  setup([{ id: 12, status: 'APPLIED', priceLinesJson: '[]', evidenceJson: '{}' }])
+  expect(await screen.findByLabelText('Service plan note')).toBeTruthy()
+  expect(screen.queryByText('Report enabled')).toBeNull()
+})
 function setup(plans = [], props = {}) {
   vi.spyOn(api, 'get').mockResolvedValue({ items: [], pagination: { totalPages: 1 } })
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {

@@ -8,6 +8,21 @@ import { PERMISSIONS as P } from '../src/config/permissions'
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 3 }, can: permission => permission === P.SERVICE_JOBS_WORK }) }))
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
+test('administrator explicitly reopens closed work with a new appointment and revision', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ items: [{ id: 3, fullName: 'Assigned technician' }], pagination: { totalPages: 1 } })
+  const request = vi.spyOn(api, 'request').mockResolvedValue({ id: 8, status: 'ASSIGNED' })
+  const saved = vi.fn()
+  render(<ServiceJobAssignmentForm job={{ id: 8, type: 'REPAIR', status: 'CLOSED', technicianId: 3, revision: 12 }} onSaved={saved} />)
+  await screen.findByRole('option', { name: 'Assigned technician' })
+  fireEvent.change(screen.getByLabelText('Appointment'), { target: { value: '2027-01-01T10:00' } })
+  fireEvent.change(screen.getByLabelText('Assignment note'), { target: { value: 'Fault returned' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Reopen service work' }))
+  await vi.waitFor(() => expect(saved).toHaveBeenCalled())
+  expect(request).toHaveBeenCalledWith('/api/service-jobs/8/assignment', { method: 'POST', body: {
+    type: 'REPAIR', technicianId: 3, expectedRevision: 12, note: 'Fault returned', scheduledAt: '2027-01-01T03:00:00.000Z', reopen: true,
+  } })
+})
+
 test('administrator creates a typed service appointment linked to the incident', async () => {
   vi.spyOn(api, 'get').mockResolvedValue({ items: [{ id: 3, fullName: 'Assigned technician' }], pagination: { totalPages: 1 } })
   const request = vi.spyOn(api, 'request').mockImplementation(async (_, options) => options?.method === 'POST' ? { id: 8 } : { items: [{ id: 3, fullName: 'Assigned technician' }], pagination: { totalItems: 1 } })

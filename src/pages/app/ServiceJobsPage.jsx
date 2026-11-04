@@ -51,7 +51,7 @@ export default function ServiceJobsPage() {
       <p>Technician #{selected.technicianId} · {displayTime(selected.scheduledAt)}</p>
       <p style={{ whiteSpace: 'pre-wrap' }}>{selected.description}</p><EvidenceImages images={selected.images} />
       {can(P.SERVICE_JOBS_WORK) && selected.technicianId === user?.id && selected.status === 'ASSIGNED' && <button disabled={pending} onClick={start}>Start service work</button>}
-      {can(P.SERVICE_JOBS_MANAGE) && ['ASSIGNED', 'IN_PROGRESS', 'REWORK'].includes(selected.status) && <ServiceJobAssignmentForm key={`${selected.id}:${selected.revision}`} job={selected} onSaved={row => { setSelected(row); query.reload() }} />}
+      {can(P.SERVICE_JOBS_MANAGE) && ['ASSIGNED', 'IN_PROGRESS', 'REWORK', 'CLOSED'].includes(selected.status) && <ServiceJobAssignmentForm key={`${selected.id}:${selected.revision}`} job={selected} onSaved={row => { setSelected(row); query.reload() }} />}
       <h3>Job history</h3><ol>{selected.history.map(item => <li key={item.id}><strong>{item.action}</strong> · {displayTime(item.createdAt)} · User #{item.userId}
         <p>Technician #{item.technicianId} · {displayTime(item.scheduledAt)}</p><p>{item.note}</p></li>)}</ol>
       <ServiceReports key={selected.id} job={selected} canConfirm={can(P.SERVICE_JOBS_CONFIRM)} canReview={can(P.SERVICE_JOBS_MANAGE)} onUpdated={row => { setSelected(row); query.reload() }} />

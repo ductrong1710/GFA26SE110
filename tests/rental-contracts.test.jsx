@@ -49,6 +49,18 @@ it('requires explicit physical return confirmation before ending the current rev
   expect(await screen.findByText('Rental contract updated.')).toBeTruthy()
   expect(request).toHaveBeenCalledWith('/api/rental-contracts/6/end', { method: 'POST', body: { expectedRevision: 2, note: 'All equipment retrieved', devicesReturned: true } })
 })
+it('records the agreed start in Vietnam time with the current draft revision', async () => {
+  const request = mockRental({ ...row, status: 'DRAFT' })
+  render(<RentalContractsPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Open contract #6' }))
+  fireEvent.change(await screen.findByLabelText('Contract action'), { target: { value: 'confirm-start' } })
+  fireEvent.change(screen.getByLabelText('Agreed rental start'), { target: { value: '2027-02-01T00:00' } })
+  fireEvent.change(screen.getByLabelText('Decision note'), { target: { value: 'Start agreed with owner' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Record contract action' }))
+  expect(await screen.findByText('Rental contract updated.')).toBeTruthy()
+  expect(request).toHaveBeenCalledWith('/api/rental-contracts/6/confirm-start', { method: 'POST',
+    body: { expectedRevision: 2, startAt: '2027-01-31T17:00:00.000Z', note: 'Start agreed with owner' } })
+})
 it('preserves an extension agreement when a concurrent change rejects it', async () => {
   const request = mockRental()
   request.mockImplementation(async (path, options = {}) => {

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { PERMISSIONS as P } from '../../config/permissions'
 import ApiState from '../../components/app/ApiState'
 import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
-import { displayTime, parseVietnamDateTime } from '../../utils/display'
+import { displayTime, parseVietnamDateTime, vietnamDateTimeInput } from '../../utils/display'
 
 export default function RentalContractsPage() {
   const { can } = useAuth()
@@ -18,7 +18,7 @@ export default function RentalContractsPage() {
   const query = useApiQuery(`rental-contracts:${page}`, signal => api.request('/api/rental-contracts', { query: { page }, signal }))
   function select(row) {
     setSelected(row)
-    setValues({ action: row.status === 'DRAFT' ? 'activate' : 'extend', note: '', endAt: '', devicesReturned: false })
+    setValues({ action: row.status === 'DRAFT' ? 'activate' : 'extend', startAt: vietnamDateTimeInput(row.startAt), note: '', endAt: '', devicesReturned: false })
   }
   async function open(id) {
     setPending(true); setError(''); setNotice(''); setSelected(null)
@@ -30,6 +30,7 @@ export default function RentalContractsPage() {
     setPending(true); setError(''); setNotice('')
     try {
       const body = { expectedRevision: selected.revision, note: values.note }
+      if (values.action === 'confirm-start') body.startAt = parseVietnamDateTime(values.startAt).toISOString()
       if (values.action === 'extend') {
         const end = parseVietnamDateTime(values.endAt)
         if (!Number.isFinite(end.getTime()) || end <= new Date(selected.endAt)) throw new Error('Choose a rental end later than the current end.')
@@ -54,10 +55,11 @@ export default function RentalContractsPage() {
       {can(P.RENTALS_MANAGE) && ['DRAFT', 'ACTIVE', 'EXPIRED'].includes(selected.status) && <form className="management-form" onSubmit={decide} aria-label="Manage rental contract">
         <fieldset disabled={pending} className="management-form"><legend>Manage contract</legend>
           <label>Contract action<select {...field('action')}>
-            {selected.status === 'DRAFT' ? <option value="activate">Activate agreed rental</option> : <option value="extend">Record confirmed extension</option>}
+            {selected.status === 'DRAFT' ? <><option value="activate">Activate agreed rental</option><option value="confirm-start">Confirm or change rental start</option></> : <option value="extend">Record confirmed extension</option>}
             <option value="end">End after device return</option>
           </select></label>
-          {values.action === 'activate' && <p>Activation is available once the agreed rental start has arrived and before the rental end.</p>}
+          {values.action === 'confirm-start' && <label>Agreed rental start<input type="datetime-local" required {...field('startAt')} /></label>}
+          {values.action === 'activate' && <p>Activate now if the displayed rental dates are agreed and the start has arrived. To schedule activation, choose “Confirm or change rental start”.</p>}
           {values.action === 'extend' && <><p>Record the extension confirmed outside the system.</p><label>New rental end<input type="datetime-local" required {...field('endAt')} /></label></>}
           {values.action === 'end' && <label><input type="checkbox" required checked={values.devicesReturned} onChange={event => setValues({ ...values, devicesReturned: event.target.checked })} />All assigned devices have been physically returned</label>}
           <label>Decision note<textarea required maxLength={2000} {...field('note')} /></label>
