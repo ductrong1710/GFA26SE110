@@ -88,6 +88,25 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         Assert.Equal(next.Code, reopened.GetProperty("currentDeviceCode").GetString());
         Assert.Single(await db.ServiceDeviceReplacements.Where(x => x.JobId == job.Id).ToArrayAsync());
         Assert.True((await Data(await owner.GetAsync(path + $"/reports/{reportId}"))).GetProperty("approved").GetBoolean());
+        var revision = reopened.GetProperty("revision").GetInt32();
+        await Data(await technician.PostAsJsonAsync(path + "/start", new { expectedRevision = revision++ }));
+        var inspection = await Data(await technician.PostAsJsonAsync($"/api/operations/service-jobs/{job.Id}/plans",
+            new { expectedRevision = revision++, note = "Inspect the new UAV without replacing it", lines = Array.Empty<object>() }));
+        var inspectionPath = $"/api/operations/service-plans/{inspection[0].GetProperty("id").GetInt32()}";
+        await Data(await admin.PostAsJsonAsync(inspectionPath + "/review", new { expectedRevision = revision++, approve = true, note = "Inspect only" }));
+        await Data(await technician.PostAsJsonAsync(inspectionPath + "/execute", new { expectedRevision = revision++, signedAgreement = new[] { Image } }));
+        var inspectionReport = await Data(await technician.PostAsJsonAsync(path + "/reports", new {
+            expectedRevision = revision++, cause = "Follow-up inspection", work = "Checked replacement antenna", components = "None",
+            testResults = "Passed", notes = "No additional parts", connectivityPassed = true, operationPassed = true, signedHandover = new[] { Image }
+        }));
+        var replacementId = (await Data(await owner.GetAsync(path + $"/reports/{reportId}"))).GetProperty("replacement").GetProperty("id").GetInt32();
+        Assert.Equal(replacementId, inspectionReport.GetProperty("replacement").GetProperty("id").GetInt32());
+        var inspectionId = inspectionReport.GetProperty("id").GetInt32();
+        await Data(await owner.PostAsJsonAsync(path + "/confirm-operation", new { expectedRevision = revision++, reportId = inspectionId, note = "Confirmed inspection" }));
+        await Data(await admin.PostAsJsonAsync(path + "/approve", new { expectedRevision = revision, reportId = inspectionId, note = "Inspection complete" }));
+        Assert.Equal(replacementId, (await Data(await owner.GetAsync(path + $"/reports/{inspectionId}"))).GetProperty("replacement").GetProperty("id").GetInt32());
+        Assert.Single(await db.ServiceDeviceReplacements.Where(x => x.JobId == job.Id).ToArrayAsync());
+        Assert.Equal(next.Code, (await Data(await owner.GetAsync(path + $"/reports/{reportId}"))).GetProperty("replacement").GetProperty("newDeviceCode").GetString());
     }
     [Fact]
     public async Task Installation_uses_paper_contract_next_day_rental_and_admin_can_change_busy_technician()
