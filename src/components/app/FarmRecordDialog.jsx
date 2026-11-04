@@ -38,7 +38,7 @@ export default function FarmRecordDialog({ kind, record, farm, farms, onSave, on
     <form onSubmit={submit}>
       <header><div><p className="farm-dialog-eyebrow">FARM WORKSPACE</p><h2 id={titleId}>{title}</h2></div><button type="button" className="app-ui-button" aria-label="Close dialog" onClick={onClose}>×</button></header>
       <div className="farm-dialog-fields">
-        {kind === 'zone' && <label>Farm<select aria-label="Farm" name="farmId" value={values.farmId} onChange={change} disabled={Boolean(record)} required>{farms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {kind === 'zone' && <label>Farm<select aria-label="Farm" name="farmId" value={values.farmId} onChange={change} disabled={Boolean(record)} required><option value="" disabled>Select a farm</option>{farms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         {field('name', 'Name', { required: true, maxLength: 120 })}
         <label>Description<textarea name="description" value={values.description} onChange={change} maxLength={500} rows={3} /></label>
         <BoundaryEditorMap boundary={values.boundary} parentBoundary={kind === 'zone' ? parentFarm?.boundary : null}

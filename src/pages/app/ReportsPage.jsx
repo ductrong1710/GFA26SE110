@@ -75,7 +75,7 @@ function ReportsWorkspace() {
   const { activeRole, can } = useAuth()
   const { currentFarm, farmWorkspace } = useOutletContext()
   const types = can(PERMISSIONS.REPORTS_VIEW) ? REPORT_TYPES : []
-  const [filters, setFilters] = useState({ ...REPORT_DEFAULT_RANGE, farmId: currentFarm.id, zoneId: '', type: types[0]?.id ?? '', metricId: '1' })
+  const [filters, setFilters] = useState({ ...REPORT_DEFAULT_RANGE, farmId: currentFarm.id, zoneId: '', type: '', metricId: '1' })
   const [preview, setPreview] = useState(null)
   const [revision, setRevision] = useState(0)
   const [error, setError] = useState('')
@@ -102,9 +102,9 @@ function ReportsWorkspace() {
   if (!types.length) return <EmptyState title={t('Reports unavailable')} description={t('Your active role does not have report access.')} />
   return <div className="app-ui analytics-page reports-page">
     <PageHeader eyebrow={t('FARM INSIGHTS')} title={t('Reports')} description={t('Build a report preview from backend farm records.')} actions={<StatusBadge status="INFO" label={t(can(PERMISSIONS.REPORTS_GENERATE) ? 'Report workspace' : 'Read-only report preview')} />} />
-    <FilterBar label={t('Report filters')} onSubmit={generate} actions={<button type="submit" disabled={busy} className="app-ui-button app-ui-button--primary">{t(can(PERMISSIONS.REPORTS_GENERATE) ? 'Generate Report' : 'Update Preview')}</button>}>
-      <label>{t('Report Type')}<select aria-label={t('Report Type')} value={filters.type} onChange={(event) => change({ type: event.target.value })}>{types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
-      <label>{t('Farm')}<select aria-label={t('Farm')} value={filters.farmId} onChange={(event) => change({ farmId: Number(event.target.value), zoneId: '' })}>{farmWorkspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
+    <FilterBar label={t('Report filters')} onSubmit={generate} actions={<button type="submit" disabled={busy || !filters.type} className="app-ui-button app-ui-button--primary">{t(can(PERMISSIONS.REPORTS_GENERATE) ? 'Generate Report' : 'Update Preview')}</button>}>
+      <label>{t('Report Type')}<select required aria-label={t('Report Type')} value={filters.type} onChange={(event) => change({ type: event.target.value })}><option value="" disabled>{t('Select report type')}</option>{types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+      <label>{t('Farm')}<select required aria-label={t('Farm')} value={filters.farmId} onChange={(event) => change({ farmId: Number(event.target.value), zoneId: '' })}><option value="" disabled>{t('Select a farm')}</option>{farmWorkspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
       <label>{t('Zone')}<select disabled={['mission', 'device'].includes(filters.type)} aria-label={t('Zone')} value={filters.zoneId} onChange={(event) => change({ zoneId: event.target.value })}><option value="">{t('All zones')}</option>{farmWorkspace.zones.filter(({ farmId }) => farmId === Number(filters.farmId)).map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
       <label>{t('From')}<input aria-label={t('From')} type="datetime-local" disabled={filters.type === 'device'} required value={filters.from} onChange={(event) => change({ from: event.target.value })} /></label><label>{t('To')}<input aria-label={t('To')} type="datetime-local" required value={filters.to} onChange={(event) => change({ to: event.target.value })} /></label>
       

@@ -52,6 +52,8 @@ test('sensor map displays selected boundaries, removes old outlines and precedes
     expect(locationMap.compareDocumentPosition(screen.getByLabelText('Latitude')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     fireEvent.change(screen.getByRole('combobox', { name: 'Farm' }), { target: { value: '2' } })
     expect(polygons()).toHaveLength(0)
+    expect(screen.getByRole('combobox', { name: 'Zone' }).value).toBe('')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Zone' }), { target: { value: '22' } })
     expect(screen.getByText('The selected zone has no recorded boundary.')).toBeTruthy()
     expect(screen.getByLabelText('Latitude').value).toBe('')
   } finally { spy.mockRestore() }
@@ -62,10 +64,11 @@ test('editing a sensor can move to a zone in another farm', async () => {
   const farm = screen.getByRole('combobox', { name: 'Farm' })
   expect(farm.disabled).toBe(false)
   fireEvent.change(farm, { target: { value: '2' } })
-  expect(screen.getByRole('combobox', { name: 'Zone' }).value).toBe('22')
+  expect(screen.getByRole('combobox', { name: 'Zone' }).value).toBe('')
+  fireEvent.change(screen.getByRole('combobox', { name: 'Zone' }), { target: { value: '22' } })
   expect(screen.queryByRole('option', { name: 'Zone A' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ farmId: '2', zoneId: 22, deviceCode: 'NODE-5' })))
+  await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ farmId: '2', zoneId: '22', deviceCode: 'NODE-5' })))
 })
 test('farm without zones clears the old zone and prevents saving', () => {
   const save = vi.fn()

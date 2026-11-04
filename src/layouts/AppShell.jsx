@@ -7,6 +7,7 @@ import { useFarmWorkspace } from '../services/api/useFarmWorkspace'
 import ApiState from '../components/app/ApiState'
 import { useAuth } from '../context/AuthContext'
 import { ROLES } from '../config/roles'
+import { PageHeaderContext } from '../context/PageHeaderContext'
 import '../styles/app-shell.css'
 import '../styles/app-tokens.css'
 
@@ -20,6 +21,7 @@ export default function AppShell() {
   const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [farmId, setFarmId] = useState(null)
+  const [pageHeader, setPageHeader] = useState(null)
   const sidebarRef = useRef(null)
   const menuButtonRef = useRef(null)
   const mainRef = useRef(null)
@@ -31,7 +33,7 @@ export default function AppShell() {
     setDrawerOpen(false)
   }
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
-  const currentFarm = farms.find((farm) => farm.id === farmId) ?? farms[0] ?? { id: '', name: 'No farms' }
+  const currentFarm = farms.find((farm) => farm.id === farmId) ?? { id: '', name: farms.length ? 'Select a farm' : 'No farms' }
   const changeFarmRecord = real.changeFarmRecord
   const showDrawer = mobile && drawerOpen
 
@@ -70,13 +72,13 @@ export default function AppShell() {
     }
   }, [showDrawer, closeDrawer])
 
-  return <div className="app-shell">
+  return <PageHeaderContext.Provider value={setPageHeader}><div className="app-shell">
     <AppSidebar sidebarRef={sidebarRef} mobile={mobile} open={showDrawer} onClose={closeDrawer} />
     {showDrawer && <button type="button" className="app-sidebar-backdrop" tabIndex={-1} aria-label={activeRole === ROLES.FARM_OWNER ? 'Đóng lớp phủ điều hướng' : 'Close navigation overlay'} onClick={closeDrawer} />}
     <div className="app-workspace" inert={showDrawer}>
       <a className="app-skip-link" href="#app-main">{activeRole === ROLES.FARM_OWNER ? 'Bỏ qua để đến nội dung' : 'Skip to content'}</a>
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
-        farms={farms} currentFarm={currentFarm} onFarmChange={setFarmId} />
+        farms={farms} currentFarm={currentFarm} onFarmChange={setFarmId} pageTitle={pageHeader?.title} />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
         <ApiState key={real.key} loading={real.loading} error={real.error} reload={real.reload} />
         <AppPageBoundary key={`${location.pathname}:${activeRole}`}>
@@ -84,5 +86,5 @@ export default function AppShell() {
         </AppPageBoundary>
       </main>
     </div>
-  </div>
+  </div></PageHeaderContext.Provider>
 }

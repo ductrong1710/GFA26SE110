@@ -1,3 +1,4 @@
+import { useWorkflowText } from '../../utils/useWorkflowText'
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { api } from '../../services/api'
@@ -8,6 +9,8 @@ import EvidenceUpload from './EvidenceUpload'
 import AssignmentForm from './AssignmentForm'
 
 export function NewSupportForm({ type, onDone }) {
+  const t = useWorkflowText()
+
   const { farmWorkspace } = useOutletContext()
   const [farmId, setFarmId] = useState('')
   const [images, setImages] = useState([])
@@ -24,24 +27,26 @@ export function NewSupportForm({ type, onDone }) {
       ...(type === 'device' ? { rentalDeviceAssignmentId: null } : { crop: form.get('crop'), zoneId: null, sensorChannelIds: channels }),
     }))
   }}>
-    <Field title="Nông trại"><select required value={farmId} onChange={e => { setFarmId(e.target.value); setChannels([]) }}><option value="">Chọn nông trại</option>{farmWorkspace.farms.map(farm => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></Field>
-    {type === 'crop' && <Field title="Loại cây" name="crop" required maxLength={200} />}
-    {type === 'crop' && farmId && <fieldset><legend>Cảm biến liên quan (nếu có, tối đa 50 kênh)</legend><State query={sensors}>{sensors.data?.map(channel => <label key={channel.id}><input type="checkbox" checked={channels.includes(channel.id)} disabled={!channels.includes(channel.id) && channels.length >= 50} onChange={e => setChannels(old => e.target.checked ? [...old, channel.id] : old.filter(id => id !== channel.id))} />{channel.nodeName} · {channel.name ?? channel.channelCode}</label>)}{!sensors.data?.length && <p>Chưa có cảm biến thuộc nông trại này.</p>}</State></fieldset>}
-    <Field title={type === 'device' ? 'Hiện tượng bạn đang gặp' : 'Triệu chứng và tình trạng cây'}><textarea name="description" required maxLength={4000} rows={4} placeholder={type === 'device' ? 'Ví dụ: cảm biến không cập nhật dữ liệu, UAV không gửi thông tin…' : ''} /></Field>
-    {type === 'device' && <p className="wf-muted">Không cần mã máy hay số serial. Bộ phận kỹ thuật sẽ xác định thiết bị và nguyên nhân.</p>}
-    <EvidenceUpload title="Ảnh minh họa (không bắt buộc)" value={images} onChange={setImages} />{action.errorView}<Button primary type="submit" disabled={action.busy}>Gửi báo cáo hỗ trợ</Button>
+    <Field title={t("Nông trại")}><select required value={farmId} onChange={e => { setFarmId(e.target.value); setChannels([]) }}><option value="">{t("Chọn nông trại")}</option>{farmWorkspace.farms.map(farm => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></Field>
+    {type === 'crop' && <Field title={t("Loại cây")} name="crop" required maxLength={200} />}
+    {type === 'crop' && farmId && <fieldset><legend>{t("Cảm biến liên quan (nếu có, tối đa 50 kênh)")}</legend><State query={sensors}>{sensors.data?.map(channel => <label key={channel.id}><input type="checkbox" checked={channels.includes(channel.id)} disabled={!channels.includes(channel.id) && channels.length >= 50} onChange={e => setChannels(old => e.target.checked ? [...old, channel.id] : old.filter(id => id !== channel.id))} />{channel.nodeName} · {channel.name ?? channel.channelCode}</label>)}{!sensors.data?.length && <p>{t("Chưa có cảm biến thuộc nông trại này.")}</p>}</State></fieldset>}
+    <Field title={type === 'device' ? t("Hiện tượng bạn đang gặp") : t("Triệu chứng và tình trạng cây")}><textarea name="description" required maxLength={4000} rows={4} placeholder={type === 'device' ? t("Ví dụ: cảm biến không cập nhật dữ liệu, UAV không gửi thông tin…") : ''} /></Field>
+    {type === 'device' && <p className="wf-muted">{t("Không cần mã máy hay số serial. Bộ phận kỹ thuật sẽ xác định thiết bị và nguyên nhân.")}</p>}
+    <EvidenceUpload title={t("Ảnh minh họa (không bắt buộc)")} value={images} onChange={setImages} />{action.errorView}<Button primary type="submit" disabled={action.busy}>{t("Gửi báo cáo hỗ trợ")}</Button>
   </form>
 }
 export function IncidentAssignment({ incident, onDone }) {
+  const t = useWorkflowText()
+
   const [assignmentId, setAssignmentId] = useState(incident.rentalDeviceAssignmentId ?? '')
-  const [type, setType] = useState('REPAIR')
+  const [type, setType] = useState('')
   const query = useApiQuery(`incident-equipment:${incident.farmId}`, async signal => {
     const rentals = (await allPages('/api/rental-contracts', {}, signal)).filter(row => row.farmId === incident.farmId && row.status !== 'ENDED')
     const details = await Promise.all(rentals.map(row => api.get(`/api/rental-contracts/${row.id}`, {}, signal)))
     return details.flatMap(row => row.devices).filter(row => !row.returnedAt)
   }, !incident.rentalDeviceAssignmentId)
-  return <><Field title="Loại công việc"><select value={type} onChange={e => setType(e.target.value)}><option value="REPAIR">Sửa chữa</option><option value="MAINTENANCE">Bảo trì</option></select></Field>
-    {!incident.rentalDeviceAssignmentId && <State query={query}><Field title="Thiết bị được xác định qua kiểm tra"><select required value={assignmentId} onChange={e => setAssignmentId(e.target.value)}><option value="">Chọn thiết bị thực tế</option>{query.data?.map(row => <option key={row.id} value={row.id}>{row.name} · {row.code}</option>)}</select></Field></State>}
-    {assignmentId ? <AssignmentForm path={`/api/device-incidents/${incident.id}/jobs`} type={type} kind="service" assignmentId={assignmentId} onDone={onDone} /> : <p>Chọn thiết bị để tiếp tục phân công.</p>}
+  return <><Field title={t("Loại công việc")}><select required value={type} onChange={e => setType(e.target.value)}><option value="" disabled>Select work order type</option><option value="REPAIR">{t("Sửa chữa")}</option><option value="MAINTENANCE">{t("Bảo trì")}</option></select></Field>
+    {!incident.rentalDeviceAssignmentId && <State query={query}><Field title={t("Thiết bị được xác định qua kiểm tra")}><select required value={assignmentId} onChange={e => setAssignmentId(e.target.value)}><option value="">{t("Chọn thiết bị thực tế")}</option>{query.data?.map(row => <option key={row.id} value={row.id}>{row.name} · {row.code}</option>)}</select></Field></State>}
+    {assignmentId && type ? <AssignmentForm path={`/api/device-incidents/${incident.id}/jobs`} type={type} kind="service" assignmentId={assignmentId} onDone={onDone} /> : <p>{t("Chọn thiết bị để tiếp tục phân công.")}</p>}
   </>
 }

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useUiText } from '../../utils/useUiText'
 import { api } from '../../services/api'
 import AppIcon from '../../components/app/AppIcon'
+import { PageHeader } from '../../components/app/ui'
 import '../../styles/profile.css'
 
 export default function ProfilePage() {
@@ -70,11 +71,7 @@ export default function ProfilePage() {
   const initials = user.fullName.trim().split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase()
 
   return <div className="app-ui profile-page">
-    <header className="profile-heading">
-      <p className="app-ui-eyebrow">{t('ACCOUNT')}</p>
-      <h1>{t('Profile')}</h1>
-      <p className="app-ui-description">{t('Your account information and security settings.')}</p>
-    </header>
+    <PageHeader className="profile-heading" eyebrow={t('ACCOUNT')} title={t('Profile')} description={t('Your account information and security settings.')} />
 
     <section className="profile-card profile-overview" aria-labelledby="profile-overview-title">
       <div className="profile-avatar" aria-hidden="true">{initials}</div>

@@ -8,7 +8,7 @@ import '../../styles/management.css'
 
 function UserDialog({ mode, record, onSave, onClose }) {
   const [pending, setPending] = useState(false)
-  const [values, setValues] = useState(() => ({ fullName: record?.fullName ?? '', email: record?.email ?? '', roles: [record?.roles?.find(role => USER_ASSIGNABLE_ROLES.includes(role)) ?? ROLES.FARM_OWNER], status: mode === 'status' ? record.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' : record?.status ?? 'ACTIVE' }))
+  const [values, setValues] = useState(() => ({ fullName: record?.fullName ?? '', email: record?.email ?? '', roles: record?.roles?.filter(role => USER_ASSIGNABLE_ROLES.includes(role)) ?? [], status: mode === 'status' ? record.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' : record?.status ?? 'ACTIVE' }))
   const [error, setError] = useState('')
   const statusAction = values.status === 'ACTIVE' ? 'Activate' : 'Deactivate'
   const title = mode === 'status' ? `${statusAction} User` : mode === 'edit' ? 'Edit User' : 'Add User'
@@ -29,7 +29,7 @@ function UserDialog({ mode, record, onSave, onClose }) {
           <label>Name<input value={values.fullName} required maxLength={120} onChange={(event) => setValues({ ...values, fullName: event.target.value })} /></label>
           <label>Email<input type="email" value={values.email} required maxLength={254} onChange={(event) => setValues({ ...values, email: event.target.value })} /></label>
           {mode === 'add' && <label>Initial password<input type="password" required minLength={6} autoComplete="new-password" value={values.password ?? ''} onChange={event => setValues({ ...values, password: event.target.value })} /></label>}
-          <fieldset><legend>Available roles</legend>{USER_ASSIGNABLE_ROLES.map((role) => <label key={role} className="management-check"><input type="radio" name="user-role" checked={values.roles[0] === role} onChange={() => setValues({ ...values, roles: [role] })} />{ROLE_LABELS[role]}</label>)}</fieldset>
+          <fieldset><legend>Available roles</legend>{USER_ASSIGNABLE_ROLES.map((role) => <label key={role} className="management-check"><input type="radio" name="user-role" required checked={values.roles[0] === role} onChange={() => setValues({ ...values, roles: [role] })} />{ROLE_LABELS[role]}</label>)}</fieldset>
         </>}
         {error && <p className="management-error" role="alert">{error}</p>}
       </div>

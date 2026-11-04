@@ -3,16 +3,20 @@ import { useNotifications } from '../../services/api/useNotifications'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getNavigationForRole } from '../../config/navigation'
+import { getTopbarContext } from '../../config/topbarContext'
 import { useAuth } from '../../context/AuthContext'
-import { ROLE_LABELS, ROLES } from '../../config/roles'
+import { ROLES } from '../../config/roles'
 import AppIcon from './AppIcon'
 
-export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms, currentFarm, onFarmChange }) {
+export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms, currentFarm, onFarmChange, pageTitle }) {
   const { user, logout, activeRole, activeRoleLabel, canAny } = useAuth()
   const isOwner = activeRole === ROLES.FARM_OWNER
   const notifications = useNotifications(user.id, activeRole)
   const navigate = useNavigate()
   const location = useLocation()
+  const pageContext = getTopbarContext(location.pathname, activeRole)
+  const title = pageTitle ?? pageContext.title
+  const showFarmSelector = pageContext.usesFarm && farms.length > 0
   const [query, setQuery] = useState('')
   const [popover, setPopover] = useState(null)
   const [lastLocationKey, setLastLocationKey] = useState(location.key)
@@ -63,14 +67,15 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
     <div className="app-topbar-context">
       <button ref={menuButtonRef} type="button" className="app-icon-button app-menu-toggle" onClick={onOpenMenu}
         aria-label={isOwner ? 'Mở điều hướng' : 'Open navigation'} aria-controls="app-sidebar" aria-expanded={drawerOpen}><AppIcon name="menu" /></button>
-      <div className="app-farm-control" hidden={![ROLES.ADMINISTRATOR, ROLES.FARM_OWNER].includes(activeRole)}>
-        <span className="app-farm-icon"><AppIcon name="map" /></span>
-        <label className="app-farm-label"><span>{isOwner ? 'Nông trại hiện tại' : 'Current farm'}</span>
+      {showFarmSelector ? <div className="app-farm-control">
+        <span className="app-farm-icon"><AppIcon name={pageContext.icon} size={28} /></span>
+        <label className="app-farm-label"><span role="heading" aria-level={1} title={typeof title === 'string' ? title : undefined}>{title}</span>
           <select aria-label={isOwner ? 'Nông trại hiện tại' : 'Current farm'} value={currentFarm.id} onChange={(event) => onFarmChange(Number(event.target.value))}>
+            <option value="" disabled>{isOwner ? 'Chọn nông trại' : 'Select a farm'}</option>
             {farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}
           </select>
         </label>
-      </div>
+      </div> : <div className="app-page-context"><AppIcon name={pageContext.icon} size={28} /><strong role="heading" aria-level={1} title={typeof title === 'string' ? title : undefined}>{title}</strong></div>}
     </div>
     <form className="app-search" role="search" onSubmit={submitSearch}>
       <AppIcon name="search" size={18} />
@@ -102,7 +107,7 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
           <AppIcon name="down" size={15} />
         </button>
         {popover === 'account' && <section id="app-account-panel" className="app-popover app-account-panel" aria-label={isOwner ? 'Tài khoản của bạn' : 'Your account'}>
-          <p className="app-popover-label">{isOwner ? 'Tài khoản của bạn' : 'Your account'}</p><strong>{user.fullName}</strong><p>{user.email}</p><p>{isOwner ? (activeRole === ROLES.FARM_OWNER ? 'Chủ trang trại' : ROLE_LABELS[activeRole] ?? activeRoleLabel) : activeRoleLabel}</p>
+          <p className="app-popover-label">{isOwner ? 'Tài khoản của bạn' : 'Your account'}</p><strong>{user.fullName}</strong>
           <Link to="/app/profile" onClick={() => setPopover(null)}><AppIcon name="profile" size={17} />{isOwner ? 'Hồ sơ cá nhân' : 'Profile'}</Link>
           <button type="button" onClick={handleLogout}><AppIcon name="logout" size={17} />{isOwner ? 'Đăng xuất' : 'Sign out'}</button>
         </section>}

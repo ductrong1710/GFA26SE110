@@ -12,6 +12,20 @@
 .wf-two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
 .wf-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .wf-toolbar .wf-field { min-width: 160px; }
+.wf-work-empty { overflow: hidden; border: 1px solid var(--ui-border); border-radius: 10px; background: white; }
+.wf-work-empty table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.wf-work-empty th { padding: 16px; border-bottom: 1px solid var(--ui-border); text-align: left; color: var(--ui-muted); font-size: 12px; font-weight: 500; }
+.wf-work-empty td { padding: 24px; }
+.wf-work-empty-message { min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.wf-work-empty-message > svg { color: #81998c; }
+.workflow .wf-work-empty-message h3 { margin: 0; font-size: 17px; }
+.workflow .wf-work-empty-message p { max-width: 440px; margin: 0; color: var(--ui-muted); font-size: 13px; }
+@media (max-width: 760px) { .wf-work-empty th { padding: 12px 6px; font-size: 11px; overflow-wrap: anywhere; } .wf-work-empty-message { min-height: 200px; } }
+.workflow.operations-dashboard { gap: 16px; }
+.wf-dashboard-toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.wf-dashboard-toolbar > .wf-toolbar { flex: 1; }
+.wf-dashboard-toolbar > a { flex-shrink: 0; }
+@media (max-width: 760px) { .wf-dashboard-toolbar > .wf-toolbar { flex-basis: 100%; } }
 .wf-form { display: grid; gap: 16px; margin-top: 16px; }
 .wf-field { display: grid; gap: 7px; min-width: 0; font-size: 13px; color: #3d5146; }
 .wf-field input, .wf-field select, .wf-field textarea { width: 100%; padding: 10px 12px; border: 1px solid #d4dfd8; border-radius: 6px; background: white; color: #203b2c; font: inherit; }
@@ -77,15 +91,18 @@
 .wf-booking[data-kind='MAINTENANCE'] { background: #fff; border: 1px dashed #81978a; }
 .wf-booking[data-kind='REPAIR'] { background: #f9f1e1; }
 .wf-mobile-jobs { display: none; }
-.app-shell:has(.workflow) .app-sidebar { background: #f0f5f1; color: #2f4a39; border-right: 1px solid #dce5df; }
-.app-shell:has(.workflow) .app-nav-label, .app-shell:has(.workflow) .app-sidebar-footer, .app-shell:has(.workflow) .app-workspace-label { color: #64796b; }
-.app-shell:has(.workflow) .app-nav-link { color: #52685b; }
-.app-shell:has(.workflow) .app-nav-link.is-active { background: #dfece3; color: #176346; }
-.app-shell:has(.workflow) .app-nav-link:hover { background: #e5eee7; color: #176346; }
-.app-shell:has(.workflow) .app-sidebar-brand { color: #176346; }
-.app-shell:has(.workflow) .app-brand { color: #244b34; }
-.app-shell:has(.workflow) .app-brand-mark i { background: #176346; }
-.app-shell:has(.workflow) .app-brand-mark i:nth-child(2) { background: #6da17e; }
+.wf-file-picker { position: relative; display: inline-flex; width: fit-content; min-height: 42px; padding: 10px 16px; border: 1px solid #d4dfd8; border-radius: 6px; background: white; color: #176346; }
+.wf-file-picker input[type='file'] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; opacity: 0; cursor: pointer; }
+.wf-file-picker:focus-within { outline: 2px solid #278c65; outline-offset: 3px; }
+.wf-contact-editor { width: 100%; max-width: 860px; }
+.wf-contact-settings { margin-top: 20px; }
+.wf-contact-stack { display: grid; gap: 10px; margin-top: 14px; }
+.wf-contact-item { padding: 0 16px; border: 1px solid var(--ui-border); border-radius: 6px; }
+.workflow .wf-contact-item > summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0; }
+.wf-contact-item > summary::after { content: '+'; font-size: 20px; }
+.wf-contact-item[open] > summary::after { content: '−'; }
+.wf-contact-item > summary span { margin-left: auto; color: var(--ui-muted); font-size: 12px; font-weight: 400; }
+.wf-contact-item > form { margin-top: 0; padding: 4px 0 18px; }
 .app-farm-control[hidden] { display: none; }
 @media (max-width: 1250px) {
   .wf-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 0; }

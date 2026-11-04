@@ -88,12 +88,12 @@ function SensorDataView({ currentFarm, selectFarm, farmWorkspace, compareOnly })
   const { activeRole, can } = useAuth()
   const simplified = activeRole === ROLES.FARM_OWNER
   const technical = activeRole === ROLES.UAV_DEVICE_OPERATOR
-  const [filters, setFilters] = useState({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '1', includeBuffered: false })
+  const [filters, setFilters] = useState({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '', includeBuffered: false })
   const [page, setPage] = useState(0)
   const query = useAnalytics(currentFarm.id, filters)
   const operations = query.data ?? demoOperations
   const analyticsTypes = operations.sensorTypes ?? []
-  const selectedType = analyticsTypes.some(t => t.id === Number(filters.typeId)) ? filters.typeId : analyticsTypes[0]?.id ?? ''
+  const selectedType = analyticsTypes.some(t => t.id === Number(filters.typeId)) ? filters.typeId : ''
   const effective = { ...filters, typeId: selectedType, farmId: currentFarm.id, includeBuffered: technical && filters.includeBuffered }
   const data = selectAnalytics(operations, farmWorkspace, effective)
   const metric = (value, type) => value === null || value === undefined ? t('Unavailable') : formatMetric(value, type)
@@ -104,15 +104,15 @@ function SensorDataView({ currentFarm, selectFarm, farmWorkspace, compareOnly })
   const update = (values) => { setFilters({ ...filters, ...values }); setPage(0) }
   const pages = Math.max(1, Math.ceil(data.rows.length / 20)), currentPage = Math.min(page, pages - 1)
   return <div className="app-ui analytics-page"><ApiState {...query} /><PageHeader eyebrow={t(technical ? 'SENSOR TECHNICAL DATA' : 'ENVIRONMENTAL DATA')} title={t(compareOnly ? 'Compare Zones' : 'Sensor Data')} description={`${currentFarm.name} · ${t(simplified ? 'A clear view of farm conditions.' : 'Explore recorded measurements and configured threshold bands.')}`} actions={<StatusBadge status="INFO" label={t('Read-only data')} />} />
-    <FilterBar label={t('Sensor data filters')} actions={<button className="app-ui-button" onClick={() => update({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '1', includeBuffered: false })}>{t('Reset filters')}</button>}>
-      <label>{t('Farm')}<select aria-label={t('Farm')} value={currentFarm.id} onChange={(event) => selectFarm(Number(event.target.value))}>{farmWorkspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
+    <FilterBar label={t('Sensor data filters')} actions={<button className="app-ui-button" onClick={() => update({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '', includeBuffered: false })}>{t('Reset filters')}</button>}>
+      <label>{t('Farm')}<select aria-label={t('Farm')} value={currentFarm.id} onChange={(event) => selectFarm(Number(event.target.value))}><option value="" disabled>{t('Select a farm')}</option>{farmWorkspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
       {!compareOnly && <><label>{t('Zone')}<select aria-label={t('Zone')} value={filters.zoneId} onChange={(event) => update({ zoneId: event.target.value, sensorId: '' })}><option value="">{t('All zones')}</option>{data.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label><label>{t('Sensor')}<select aria-label={t('Sensor')} value={filters.sensorId} onChange={(event) => update({ sensorId: event.target.value })}><option value="">{t('All sensors')}</option>{data.nodes.map((node) => <option key={node.id} value={node.id}>{node.deviceCode} · {node.name}</option>)}</select></label></>}
-      <label>{t('Sensor Type')}<select aria-label={t('Sensor Type')} value={selectedType} onChange={(event) => update({ typeId: event.target.value })}>{analyticsTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+      <label>{t('Sensor Type')}<select aria-label={t('Sensor Type')} value={selectedType} onChange={(event) => update({ typeId: event.target.value })}><option value="" disabled>{t('Select sensor type')}</option>{analyticsTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
       <label>{t('From')}<input type="datetime-local" aria-label={t('From')} value={filters.from} onChange={(event) => update({ from: event.target.value })} /></label><label>{t('To')}<input type="datetime-local" aria-label={t('To')} value={filters.to} onChange={(event) => update({ to: event.target.value })} /></label>
       {technical && <label className="analytics-check"><input type="checkbox" checked={filters.includeBuffered} onChange={(event) => update({ includeBuffered: event.target.checked })} />{t('Include buffered gateway readings')}</label>}
     </FilterBar>
     <p className="analytics-note">{t('Date range uses measurement time in Vietnam (UTC+7), up to 31 days.')}  {t(effective.includeBuffered ? 'Includes local, unsynchronized measurements for technical inspection.' : 'Only synchronized, valid measurements are shown.')} {t('Historical data can include currently offline sensors.')}</p>
-    {data.error ? <p role="alert" className="analytics-error">{t(data.error)}</p> : <>
+    {!selectedType ? <EmptyState title={t('Select sensor type')} description={t('Choose a sensor type to view readings and charts.')} /> : data.error ? <p role="alert" className="analytics-error">{t(data.error)}</p> : <>
       {!compareOnly && <><SectionCard title={t('Latest Readings')} description={`${t('Latest reading per channel within the selected date range')} · ${data.type.name} (${data.type.unit})`}>
         <div className="analytics-latest">{data.latest.length ? data.latest.map((row) => <article key={row.id}><strong>{row.node.deviceCode}</strong><span className="analytics-reading-value">{metric(row.value, row.type)} <small>{row.type.unit}</small></span><small>{row.zone.name}</small><time dateTime={row.measuredAt}>{displayTime(row.measuredAt)}</time><StatusBadge status={row.node.isActive && row.node.status === 'ONLINE' ? 'ONLINE' : 'WARNING'} label={!row.node.isActive ? t('Sensor disabled') : row.node.status === 'ONLINE' ? t('Sensor online') : t('Sensor offline')} />{row.stale && <StatusBadge status="WARNING" label={t('Stale measurement')} />}{!row.receivedAt && <StatusBadge status="PENDING" label={t('Buffered locally')} />}</article>) : <EmptyState title={t('No readings match these filters')} description={t('Choose another range, zone, sensor or sensor type.')} />}</div>
       </SectionCard>

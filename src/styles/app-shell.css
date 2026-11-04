@@ -66,12 +66,17 @@
 .app-topbar { position: relative; z-index: 30; flex-shrink: 0; min-height: 86px; padding: 16px 30px; display: flex; align-items: center; gap: 24px; border-bottom: 1px solid var(--app-border); background: white; }
 .app-topbar-context, .app-farm-control, .app-topbar-actions { display: flex; align-items: center; }
 .app-topbar-context { flex-shrink: 0; gap: 12px; }
+.app-page-context { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--app-ink); }
+.app-page-context strong { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 22px; font-weight: 600; letter-spacing: -.4px; }
+@media (max-width: 767px) { .app-page-context strong { max-width: 210px; font-size: 18px; } .app-page-context > svg { width: 24px; height: 24px; } }
 .app-farm-control { gap: 10px; }
-.app-farm-icon { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #e4ede7; border-radius: 9px; color: var(--app-primary); background: #f4f8f5; }
+.app-farm-icon { width: 44px; height: 44px; display: grid; place-items: center; color: var(--app-primary); }
 .app-farm-label { display: grid; gap: 2px; }
-.app-farm-label > span { color: var(--app-muted); font-size: 10px; }
+.app-farm-label > span { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--app-ink); font-size: 22px; font-weight: 600; letter-spacing: -.4px; }
 .app-farm-label select { width: 152px; max-width: 100%; padding: 0 6px 0 0; border: 0; border-radius: 3px; color: var(--app-ink); background: white; font-size: 12px; font-weight: 600; }
-.app-search { position: relative; width: min(290px, 100%); min-width: 120px; margin-right: auto; display: flex; align-items: center; gap: 9px; color: #8b9790; }
+.app-search { position: relative; width: 180px; max-width: 100%; min-width: 100px; margin-right: auto; display: flex; align-items: center; gap: 9px; color: #8b9790; }
+.app-page-tools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.app-page-tools > .app-ui-actions { margin-left: auto; }
 .app-search input { min-width: 0; width: 100%; height: 38px; padding: 8px 0; border: 0; border-radius: 5px; color: var(--app-ink); background: transparent; font-size: 12px; }
 .app-search input::placeholder { color: #8b9790; }
 .app-topbar-actions { margin-left: auto; gap: 19px; }
@@ -107,6 +112,8 @@
 .app-placeholder p { margin: 10px 0 0; color: var(--app-muted); font-size: 13px; }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
+  .app-page-context strong, .app-farm-label > span { max-width: 210px; font-size: 18px; }
+  .app-search { width: 140px; }
   .app-topbar { padding-inline: 22px; gap: 16px; }
   .app-topbar-actions { gap: 12px; }
   .app-farm-icon { display: none; }
@@ -136,7 +143,8 @@
   .app-topbar { min-height: 130px; padding: 14px 16px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 12px; }
   .app-topbar-context { gap: 8px; min-width: 0; }
   .app-farm-label select { width: 125px; }
-  .app-search { width: 100%; grid-row: 2; grid-column: 1 / -1; padding: 0 10px; border: 1px solid #e8ede9; border-radius: 7px; background: #f7f9f7; }
+  .app-farm-label > span { max-width: 210px; font-size: 18px; }
+  .app-search { width: min(240px, 100%); grid-row: 2; grid-column: 1 / -1; padding: 0 10px; border: 1px solid #e8ede9; border-radius: 7px; background: #f7f9f7; }
   .app-search input { height: 34px; }
   .app-search-results { width: 100%; }
   .app-topbar-actions { display: contents; }

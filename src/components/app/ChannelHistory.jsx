@@ -27,11 +27,11 @@ export default function ChannelHistory({ channels }) {
   })
   const [channel, setChannel] = useState('')
   const [range, setRange] = useState(ANALYTICS_DEFAULT_RANGE)
-  const id = channels.some(c => c.id === Number(channel)) ? channel : channels[0]?.id
+  const id = channels.some(c => c.id === Number(channel)) ? channel : ''
   const query = useApiQuery(`channel-history:${user.id}:${activeRole}:${id}:${range.from}:${range.to}`, async signal => {
     const error = validateAnalyticsRange(range)
     if (error) throw new Error(error)
     return listAll(`/api/sensor-channels/${id}/history`, { from: new Date(parseAnalyticsTime(range.from)).toISOString(), to: new Date(parseAnalyticsTime(range.to)).toISOString() }, signal)
   }, Boolean(id))
-  return <SectionCard title={t('Channel reading history')}><label>{t('Channel')}<select value={id ?? ''} onChange={e => setChannel(e.target.value)}>{channels.map(c => <option key={c.id} value={c.id}>{c.channelCode}</option>)}</select></label><label>{t('From')}<input type="datetime-local" value={range.from} onChange={e => setRange({ ...range, from: e.target.value })} /></label><label>{t('To')}<input type="datetime-local" value={range.to} onChange={e => setRange({ ...range, to: e.target.value })} /></label><ApiState {...query} /><DataTable caption={t('Channel history')} rows={query.data ?? []} columns={[{ key: 'value', header: t('Value') }, { key: 'unit', header: t('Unit') }, { key: 'measuredAt', header: t('Measured At'), render: displayTime }, { key: 'receivedAt', header: t('Received At'), render: displayTime }, { key: 'isValid', render: v => v ? t('Yes') : t('No'), header: t('Valid') }, { key: 'validationError', header: t('Validation Details') }]} /></SectionCard>
+  return <SectionCard title={t('Channel reading history')}><label>{t('Channel')}<select value={id ?? ''} onChange={e => setChannel(e.target.value)}><option value="" disabled>Select a channel</option>{channels.map(c => <option key={c.id} value={c.id}>{c.channelCode}</option>)}</select></label><label>{t('From')}<input type="datetime-local" value={range.from} onChange={e => setRange({ ...range, from: e.target.value })} /></label><label>{t('To')}<input type="datetime-local" value={range.to} onChange={e => setRange({ ...range, to: e.target.value })} /></label><ApiState {...query} /><DataTable caption={t('Channel history')} rows={query.data ?? []} columns={[{ key: 'value', header: t('Value') }, { key: 'unit', header: t('Unit') }, { key: 'measuredAt', header: t('Measured At'), render: displayTime }, { key: 'receivedAt', header: t('Received At'), render: displayTime }, { key: 'isValid', render: v => v ? t('Yes') : t('No'), header: t('Valid') }, { key: 'validationError', header: t('Validation Details') }]} /></SectionCard>
 }

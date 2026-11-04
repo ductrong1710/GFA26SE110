@@ -7,7 +7,7 @@ import AppIcon from './AppIcon'
 export default function AppSidebar({ sidebarRef, mobile, open, onClose }) {
   const { activeRole, canAny } = useAuth()
   const isOwner = activeRole === ROLES.FARM_OWNER
-  const navigation = getNavigationForRole(activeRole, canAny)
+  const navigation = getNavigationForRole(activeRole, canAny).filter(item => item.path !== '/app/profile')
   const groups = [...new Set(navigation.map(item => isOwner ? item.ownerGroup ?? item.group : item.group))]
 
   return <aside ref={sidebarRef} id="app-sidebar" className={`app-sidebar${open ? ' is-open' : ''}`}

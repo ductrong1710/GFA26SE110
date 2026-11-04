@@ -1,27 +1,50 @@
 import { useState } from 'react'
-import { api } from '../../services/api'
-import { useApiQuery } from '../../services/api/useApiQuery'
-import { allPages, iso, localInput, time } from '../../services/api/workflow'
-import { Workspace, Panel, Field, Button, State, Badge, JobLink, useAction } from '../../components/workflow/WorkflowUi'
+import { Workspace, Button } from '../../components/workflow/WorkflowUi'
+import MaintenanceDrawer from '../../components/workflow/MaintenanceDrawer'
+import SchedulingSettings from '../../components/workflow/SchedulingSettings'
+import { createVisits, dateLabel, dayOffset, deviceCount } from '../../components/workflow/maintenanceDemo'
+import '../../styles/maintenance.css'
 
-const empty = { policy: '', intervalDays: 30, nextDueAt: '', technicianId: '', deviceType: 'SENSOR', enabled: true }
+const tabs = [['upcoming', 'Upcoming maintenance'], ['overdue', 'Overdue'], ['completed', 'Completed']]
 export default function MaintenancePage() {
-  const query = useApiQuery('maintenance-schedules', async signal => ({ rows: await allPages('/api/maintenance-schedules', {}, signal), technicians: await allPages('/api/installation-jobs/technicians', {}, signal) }))
-  const [record, setRecord] = useState(empty)
-  const [historyId, setHistoryId] = useState(null)
-  const history = useApiQuery(`maintenance-history:${historyId}`, signal => allPages(`/api/maintenance-schedules/${historyId}/occurrences`, {}, signal), Boolean(historyId))
-  const action = useAction(() => { query.reload(); setRecord(empty) })
-  const change = (key, value) => setRecord(old => ({ ...old, [key]: value }))
-  return <Workspace title="Bảo trì định kỳ" description="Đến hạn, hệ thống tạo ca và giao KTV đã đặt trong lịch. Đổi người của ca đã sinh tại chi tiết công việc."><div className="wf-two-col">
-    <Panel title={record.id ? `Chỉnh lịch #${record.id}` : 'Thêm lịch định kỳ'}><State query={query}><form className="wf-form" onSubmit={e => { e.preventDefault(); action.run(() => api.request(`/api/maintenance-schedules${record.id ? `/${record.id}` : ''}`, { method: record.id ? 'PUT' : 'POST', body: {
-      policy: record.policy, intervalDays: Number(record.intervalDays), nextDueAt: iso(record.nextDueAt), technicianId: Number(record.technicianId), enabled: record.enabled, expectedRevision: record.revision ?? 0,
-      rentalDeviceAssignmentId: record.rentalDeviceAssignmentId ? Number(record.rentalDeviceAssignmentId) : null, deviceType: record.rentalDeviceAssignmentId ? null : record.deviceType,
-    } })) }}>
-      <Field title="Chính sách / nội dung bảo trì" required maxLength={2000} value={record.policy} onChange={e => change('policy', e.target.value)} /><Field title="Loại thiết bị"><select value={record.deviceType ?? 'SENSOR'} onChange={e => change('deviceType', e.target.value)}><option value="SENSOR">Cảm biến</option><option value="GATEWAY">Gateway</option><option value="UAV">UAV</option></select></Field>
-      <Field title="ID liên kết thiết bị thuê cụ thể (để trống áp dụng theo loại)" type="number" min="1" value={record.rentalDeviceAssignmentId ?? ''} onChange={e => change('rentalDeviceAssignmentId', e.target.value)} /><Field title="Chu kỳ ngày" type="number" min="1" max="3650" required value={record.intervalDays} onChange={e => change('intervalDays', e.target.value)} /><Field title="Lần đến hạn tiếp theo" type="datetime-local" required value={record.nextDueAt} onChange={e => change('nextDueAt', e.target.value)} />
-      <Field title="Kỹ thuật viên phụ trách"><select required value={record.technicianId} onChange={e => change('technicianId', e.target.value)}><option value="">Chọn KTV</option>{query.data?.technicians.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select></Field><label><input type="checkbox" checked={record.enabled} onChange={e => change('enabled', e.target.checked)} /> Bật lịch định kỳ</label>{action.errorView}<Button primary type="submit" disabled={action.busy}>Lưu lịch</Button>{record.id && <Button onClick={() => setRecord(empty)}>Hủy chỉnh sửa</Button>}
-    </form></State></Panel>
-    <Panel title="Lịch đã cấu hình"><State query={query}><ul className="wf-list">{query.data?.rows.map(row => <li key={row.id}><div><h3>{row.policy}</h3><p>{row.intervalDays} ngày/lần · KTV #{row.technicianId}</p><small>{time(row.nextDueAt)} · {row.enabled ? 'Đang bật' : 'Đã tắt'}</small><div className="wf-toolbar"><Button onClick={() => setRecord({ ...row, nextDueAt: localInput(row.nextDueAt) })}>Chỉnh lịch</Button><Button onClick={() => setHistoryId(row.id)}>Lịch sử phát sinh</Button>{row.enabled && <Button disabled={action.busy} onClick={() => action.run(() => api.post(`/api/maintenance-schedules/${row.id}/disable`, { expectedRevision: row.revision }))}>Tắt lịch</Button>}</div></div></li>)}</ul>{!query.data?.rows.length && <p className="wf-empty">Chưa có lịch định kỳ.</p>}</State></Panel></div>
-    {historyId && <Panel title={`Lịch sử phát sinh từ lịch #${historyId}`}><State query={history}><ul className="wf-list">{history.data?.map(row => <li key={row.id}><div><strong>{row.deviceCode}</strong><p>{time(row.dueAt)}</p><Badge value={row.status} /></div><JobLink kind="service" id={row.jobId} /></li>)}</ul>{!history.data?.length && <p>Chưa phát sinh công việc.</p>}</State></Panel>}
+  const [visits, setVisits] = useState(createVisits)
+  const [tab, setTab] = useState('upcoming')
+  const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState(null)
+  const [message, setMessage] = useState('')
+  const [settings, setSettings] = useState({ installation: 7, maintenance: 7 })
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const group = key => visits.filter(v => key === 'completed' ? v.completed : !v.completed && (key === 'overdue' ? dayOffset(v.due) < 0 : dayOffset(v.due) >= 0 && dayOffset(v.due) <= 7))
+  const upcoming = group('upcoming')
+  const unassigned = upcoming.filter(v => !v.assignment).length
+  const rows = group(tab).filter(v => (filter === 'all' || Boolean(v.assignment) === (filter === 'assigned')) && `${v.farm} ${v.address}`.toLowerCase().includes(search.toLowerCase()))
+  function save(assignment) {
+    setVisits(old => old.map(v => v.id === selected.id ? { ...v, assignment } : v))
+    setMessage(`Schedule confirmed for ${selected.farm}. Saved in this demo only.`)
+    setSelected(null)
+  }
+  return <Workspace title="Scheduled maintenance" className="maintenance-workspace">
+    <div className="mt-demo"><span>Interactive preview · Sample data</span><span>Changes stay in this page until you reload.</span></div>
+    <div className="mt-intro"><div><h2>Plan the visit. Arrive on time.</h2><p>Fixed customer appointments · Default maintenance reservation: {settings.maintenance} days from departure.</p></div><Button onClick={() => setSettingsOpen(true)}>Scheduling settings</Button></div>
+    <div className="mt-summary" aria-label="Maintenance summary">
+      {[[upcoming.length, 'Farms due within 7 days', 'All rented devices at each farm', 'upcoming', 'all', ''], [unassigned, 'Awaiting assignment', 'Choose a technician and travel dates', 'upcoming', 'unassigned', 'mt-amber'], [upcoming.length - unassigned, 'Assigned visits', 'Departure and return time reserved', 'upcoming', 'assigned', ''], [group('overdue').length, 'Overdue farms', 'Review these visits first', 'overdue', 'all', 'mt-red']].map(([count, label, hint, key, choice, tone]) => <button key={label} onClick={() => { setTab(key); setFilter(choice) }}><span>{label}</span><strong className={tone}>{count}</strong><small>{hint}</small></button>)}
+    </div>
+    {message && <div className="mt-success" role="status">{message}<button aria-label="Dismiss confirmation" onClick={() => setMessage('')}>×</button></div>}
+    <section className="mt-queue" aria-label="Maintenance visits">
+      <div className="mt-tabs" role="tablist" aria-label="Visit status">{tabs.map(([key, title]) => <button key={key} role="tab" aria-selected={tab === key} onClick={() => { setTab(key); setFilter('all') }}>{title}<span>{group(key).length}</span></button>)}</div>
+      <div className="mt-filters"><label className="mt-search">Search farms<input placeholder="Farm name or location" value={search} onChange={e => setSearch(e.target.value)} /></label><label>Assignment<select value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All assignments</option><option value="unassigned">Unassigned</option><option value="assigned">Assigned</option></select></label><p>{rows.length} {rows.length === 1 ? 'farm' : 'farms'} · Vietnam time (UTC+7)</p></div>
+      <div className="mt-table-scroll"><table className="mt-table"><thead><tr><th>Farm / location</th><th>Maintenance due</th><th>Devices</th><th>Technician</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map(v => <tr key={v.id}>
+        <td><strong>{v.farm}</strong><small>{v.address}</small><small>Contract {v.contract} · Ends {dateLabel(v.ends)}</small></td>
+        <td><strong>{dateLabel(v.due)}</strong><small className={dayOffset(v.due) < 0 && !v.completed ? 'mt-red' : ''}>{v.completed ? 'Visit completed' : dayOffset(v.due) < 0 ? `${-dayOffset(v.due)} days overdue` : dayOffset(v.due) === 0 ? 'Due today' : `In ${dayOffset(v.due)} days`}</small></td>
+        <td><strong>{deviceCount(v)}</strong><small>All rented devices</small></td>
+        <td>{v.assignment ? <><strong>{v.assignment.technician}</strong><small>Reserved: {dateLabel(v.assignment.departure)} → {dateLabel(v.assignment.reservedUntil)}</small></> : <span className="mt-muted">Not assigned</span>}</td>
+        <td><span className={`mt-status ${v.completed ? 'completed' : v.assignment ? 'assigned' : 'unassigned'}`}>{v.completed ? 'Completed' : v.assignment ? 'Assigned' : 'Unassigned'}</span></td>
+        <td><Button onClick={() => setSelected(v)}>{v.completed ? 'View details' : v.assignment ? 'View / reschedule' : 'Assign technician'}</Button></td>
+      </tr>)}</tbody></table>{!rows.length && <div className="mt-empty"><strong>No maintenance visits found</strong><p>Try another status or clear your search and assignment filter.</p><Button onClick={() => { setSearch(''); setFilter('all') }}>Clear filters</Button></div>}</div>
+      <div className="mt-foot">Reminders start 7 days before maintenance is due. Assigned farms remain visible until the visit is completed.</div>
+    </section>
+    {selected && <MaintenanceDrawer visit={selected} visits={visits} defaultDays={settings.maintenance} onClose={() => setSelected(null)} onSave={save} />}
+    {settingsOpen && <SchedulingSettings settings={settings} onClose={() => setSettingsOpen(false)} onSave={next => { setSettings(next); setSettingsOpen(false); setMessage('Scheduling defaults updated for new assignments. Existing assignments are unchanged. Demo only.') }} />}
   </Workspace>
 }

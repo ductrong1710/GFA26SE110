@@ -88,7 +88,7 @@ describe('Users page role selection', () => {
     const owner = screen.getByRole('radio', { name: 'Farm Owner' })
     const engineer = screen.getByRole('radio', { name: 'Agricultural Engineer' })
     const password = screen.getByLabelText('Initial password')
-    expect(owner.checked).toBe(true)
+    expect(owner.checked).toBe(false)
     expect(engineer.checked).toBe(false)
     expect(password.minLength).toBe(6)
 

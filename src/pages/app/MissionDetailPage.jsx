@@ -118,14 +118,14 @@ const translations = {
 function MissionReportDialog({ mission, statuses, onSave, onClose, mode }) {
   const t = useUiText(translations)
   const [note, setNote] = useState('')
-  const [status, setStatus] = useState(statuses[0] ?? '')
+  const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const submit = async (event) => { event.preventDefault(); setPending(true); try { await onSave({ note, status: mode === 'status' ? status : undefined }); onClose() } catch (cause) { setError(cause.message) } finally { setPending(false) } }
   return <ManagementDialog title={t(mode === 'status' ? 'Report Mission Status' : 'Add Operational Note')} onClose={onClose}><form className="monitor-report-form" onSubmit={submit}>
     <p>{mission.code} · {t('This updates the mission through the authorized backend workflow.')}</p>
     {error && <p role="alert" className="mission-error">{error}</p>}
-    {mode === 'status' && <><label>{t('Reported status')}<select aria-label={t('Reported status')} value={status} onChange={(event) => setStatus(event.target.value)} required>{statuses.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label><p className="mission-muted">{t('The backend validates lifecycle transitions and completion requirements.')}</p></>}
+    {mode === 'status' && <><label>{t('Reported status')}<select aria-label={t('Reported status')} value={status} onChange={(event) => setStatus(event.target.value)} required><option value="" disabled>{t('Select status')}</option>{statuses.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label><p className="mission-muted">{t('The backend validates lifecycle transitions and completion requirements.')}</p></>}
     <label>{t('Operational note')}<textarea autoFocus required maxLength={2000} rows={5} value={note} onChange={(event) => setNote(event.target.value)} placeholder={t(mode === 'status' ? 'Describe the observed outcome and reason for this update.' : 'Add field observations or handover details.')} /></label>
     <div className="mission-actions"><button className="app-ui-button" type="button" onClick={onClose}>{t('Cancel')}</button><button className="app-ui-button app-ui-button--primary" type="submit" disabled={pending}>{t(mode === 'status' ? 'Save Status Report' : 'Save Note')}</button></div>
   </form></ManagementDialog>
