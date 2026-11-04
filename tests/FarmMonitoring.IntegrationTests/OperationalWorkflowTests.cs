@@ -64,6 +64,9 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         var attempts=await Task.WhenAll(admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Signed papers, price and tests verified"}),admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Concurrent approval"}));
         Assert.Single(attempts,x=>x.IsSuccessStatusCode);Assert.Single(attempts,x=>x.StatusCode==HttpStatusCode.Conflict);
         var approved=await Data(attempts.Single(x=>x.IsSuccessStatusCode));
+        var replacementEvent = approved.GetProperty("history").EnumerateArray().Single(x => x.GetProperty("action").GetString() == "DEVICE_REPLACED");
+        Assert.Equal(techId, replacementEvent.GetProperty("technicianId").GetInt32());
+        Assert.Equal((await Data(await admin.GetAsync("/api/auth/me"))).GetProperty("id").GetInt32(), replacementEvent.GetProperty("userId").GetInt32());
         Assert.Equal("CLOSED",approved.GetProperty("status").GetString());Assert.Equal(next.Code,approved.GetProperty("currentDeviceCode").GetString());
         Assert.NotNull((await db.RentalDeviceAssignments.AsNoTracking().SingleAsync(x=>x.Id==assignment.Id)).ReturnedAt);
         Assert.False((await db.Uavs.AsNoTracking().SingleAsync(x=>x.Id==old.Id)).IsActive);

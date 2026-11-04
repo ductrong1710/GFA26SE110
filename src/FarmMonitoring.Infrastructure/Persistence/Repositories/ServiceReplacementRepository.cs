@@ -93,7 +93,7 @@ public sealed class ServiceReplacementRepository(AppDbContext db) : IServiceRepl
             var replacement = new ServiceDeviceReplacement { JobId = jobId, OldAssignment = old, NewAssignment = next, OldDeviceCode = old.Code, NewDeviceCode = next.Code, TechnicianId = job.TechnicianId, CreatedAt = now, Note = request.Note.Trim() };
             db.ServiceDeviceReplacements.Add(replacement);
             old.Contract.Revision++;
-            job.History.Add(new() { Action = ServiceJobAction.DEVICE_REPLACED, UserId = actorId, TechnicianId = actorId, ScheduledAt = job.ScheduledAt, Note = $"{old.Code} -> {next.Code}: {request.Note.Trim()}", CreatedAt = now });
+            job.History.Add(new() { Action = ServiceJobAction.DEVICE_REPLACED, UserId = actorId, TechnicianId = job.TechnicianId, ScheduledAt = job.ScheduledAt, Note = $"{old.Code} -> {next.Code}: {request.Note.Trim()}", CreatedAt = now });
             old.Contract.History.Add(new() { Action = "DEVICE_REPLACED", UserId = actorId, Note = $"Service job #{jobId}: {old.Code} -> {next.Code}", CreatedAt = now, StartAt = old.Contract.StartAt, EndAt = old.Contract.EndAt });
             await WorkflowNotifications.AddForUserAsync(db, old.Contract.OwnerId, "Service device replaced", $"Device {old.Code} replaced by {next.Code} for service job #{jobId}; review the subsequent service report.", now, ct);
             await WorkflowNotifications.AddForRoleAsync(db, RoleNames.FarmAdministrator, "Service device replaced", $"Service job #{jobId}: {old.Code} replaced by {next.Code}.", now, ct);

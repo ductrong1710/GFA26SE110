@@ -1,0 +1,57 @@
+# Current functional evidence
+
+Compared with section 2.2.4 of Report3_Software_Requirement_Specification_Updated_Flow. The original October gap analysis records the baseline. This table describes November verification on backend 477cbd1 and frontend 0ede115. The Release browser harness used Edge, Kestrel and disposable PostgreSQL. Its five passing scenarios exercise the named business chains. Integration and component checks are identified separately so a passing suite does not imply every branch ran in a browser.
+
+| UC | Actor and entry point | Path to stored state | Executed evidence and remaining checks |
+|---|---|---|---|
+| 01 | Visitor / homepage | PublicContent → published entries | Public browser sees published device, prices and removal after withdrawal. PublicContentApiTests checks visibility. |
+| 02 | Visitor / consultation form | Consultations → consultation and staff notifications | Public browser submits and receives request ID. ConsultationTests rejects invalid intake. |
+| 03 | Admin / settings | PublicContentAdmin → public content revision | Browser creates draft, publishes and withdraws it. Independent visitor session verifies visibility. |
+| 04 | Engineer / consultations | ConsultationService → assignment and follow-up history | Browser claims and follows up. ConsultationTests exercises competing claims and other-engineer denial. |
+| 05 | Assigned engineer / survey | ConsultationService → survey revisions, zones and evidence | Browser saves survey revision. ConsultationTests checks nullable values, history, scope and stale revisions. |
+| 06 | Assigned engineer / proposal | Proposals → proposal revision and device lines | Browser stores proposed devices and confirms customer plan. |
+| 07 | Engineer or Admin / proposal | Proposals → external deposit confirmation | Engineer browser records external confirmation. ConsultationTests checks original confirmation survives dossier submission. |
+| 08 | Assigned engineer / dossier | InstallationDossierService → submitted request and bill | Browser submits. InstallationDossierTests rejects missing evidence and unauthorized actors. |
+| 09 | Admin / dossier review | InstallationDossierService → request, customer, farm and membership | Browser approves bound dossier. Integration tests cover return and deferred account provisioning for unbound customers. |
+| 10 | Admin / installation requests | InstallationJobs → job and assignment history | Browser assigns technician. OperationalWorkflowTests exercises schedule conflicts. |
+| 11 | Assigned technician / installation jobs | InstallationReports → checks, report and evidence | Browser starts assigned job, submits tests and handover images. |
+| 12 | Owner / installation jobs | InstallationReports → owner confirmation | Browser confirms handover before final review. |
+| 13 | Admin / installation jobs | InstallationReports → decision and rental draft | Browser approves. Integration suite rejects approval without owner confirmation and preserves returned reports. |
+| 14 | Admin / rental contracts | RentalService and worker → contracts, dates, assignments and history | Browser confirms agreed start and waits for activation. ConsultationTests covers extension, expiration and ending. |
+| 15 | Owner / rental contracts | RentalContracts → scoped contract and assignments | Browser opens active contract and sees the assigned UAV. |
+| 16 | Admin / installation allocation and service review | InstallationDevices and service plans → allocation and replacement records | Browser saves allocation. OperationalWorkflowTests verifies replacement commits only at final approval. |
+| 17 | Owner / rental and device pages | RentalContracts and equipment reads → scoped assignment | Browser sees assigned equipment under contract. FarmScopeSecurityTests and MissionTests exercise owner boundaries. |
+| 18 | Owner or Admin / sensor detail | SensorData → stored readings by channel | Synced real readings reach history. Dedicated browser assertion for latest-value display outstanding. |
+| 19 | Owner or Admin / channel history | SensorData → chronological stored readings | Monitoring browser reads 21 from the seeded channel history. |
+| 20 | Owner or Admin / comparison | SensorData and analytics → type-filtered readings | Browser compares two sensors. Verify alignment across separate zones and mismatched units separately. |
+| 21 | Admin / sensor configuration | ThresholdService → thresholds and change history | Browser writes maximum 35 and sees persisted history. Owner has no write control. ThresholdTests checks API boundaries. |
+| 22 | Owner or Admin / alerts | AlertService → alert, state history and private notifications | AlertTests verifies deduplication, timeout, battery and lifecycle. Admin/owner handling screens lack a dedicated browser scenario. |
+| 23 | Owner / incidents | DeviceIncidents → incident and evidence | Browser reports actual rented UAV fault. DeviceIncidentTests covers lost membership, returned equipment and report history. |
+| 24 | Admin / incident detail | ServiceJobService → incident-linked assignment | Browser assigns repair. Scheduler creates maintenance assignment independently. |
+| 25 | Assigned technician / service jobs | ServiceJobService and ServiceReportService → maintenance job and report | Browser sees generated maintenance job ready to start. Full submission for a MAINTENANCE job still needs direct browser evidence. |
+| 26 | Assigned technician / service plan and report | Operations and ServiceReports → plan, signed evidence, replacement and report | Browser completes repair twice. Actual replacement and old-device history verified by OperationalWorkflowTests and ServiceReplacementTests. |
+| 27 | Linked owner / service report | ServiceReports → owner confirmation | Browser confirms operation in both cycles. |
+| 28 | Admin / service review and assignment | ServiceReports and ServiceJobRepository → closure, reopening, incident state and history | Browser closes, reopens and closes again. Integration tests reject stale revision, returned successor and ended contract. |
+| 29 | Admin / maintenance schedules | MaintenanceScheduleService and worker → schedule, occurrence and job | Browser waits for real due job. MaintenanceDueTests verifies one occurrence and notifications under concurrency. |
+| 30 | Owner / crop support | CropSupport → report, zone, crop, sensor references and evidence | Browser submits abnormal symptoms. CropSupportApiTests covers access restrictions. |
+| 31 | Assigned engineer / crop support | CropSupport → consultation updates and recommendations | Browser requests information, reads owner reply, recommends survey and resolves. |
+| 32 | Owner / mission creation | MissionService → farm, zone, mission, waypoints and targets | Browser plans mission. MissionTests rejects inactive rental, another owner's equipment and incorrect zone. |
+| 33 | Mission owner / detail | Missions → state history and notes | Browser updates progress and terminal status. MissionTests checks conflicting schedules and invalid edits. |
+| 34 | Owner or Admin / mission monitor | Telemetry and Missions → mission-scoped samples | Browser checks missing live stream. TelemetryTests verifies ingestion, assignment and ordered history. Live position rendering still needs direct browser evidence. |
+| 35 | Owner or Admin / mission results | Missions → terminal outcome, logs and targets | Browser verifies manual completion, pending target and failure reason. MissionTests covers collected, failed and skipped target results. |
+| 36 | Owner / failed mission and incident form | DeviceIncidents → mission-linked incident | Browser follows failure to linked incident using the same rented device. |
+| 37 | Owner / crop seasons | CropSeasons → scoped season | Browser creates season. CropSeasonApiTests verifies current-owner rights and revision conflicts. |
+| 38 | Owner / cultivation log | CropSeasons → activity and evidence | Browser records activity. API tests check evidence and revision scope. |
+| 39 | Owner / season completion | CropSeasons → end date and recorded financial/yield values | Browser completes seasons. API tests check unknown values. |
+| 40 | Owner / comparison | CropSeasons → comparison of authorized selected seasons | Browser compares completed harvest results. API tests reject inaccessible selected seasons. |
+| 41 | Admin / user management | Users → account, roles and active flag | UserManagementTests covers replacement, duplicate email, lock and secret exposure. User-management component suite passed. Full browser account-management cycle outstanding. |
+| 42 | All human roles / login | Auth → session and refresh token | Browser authenticates operational roles. AuthFlowTests and AccountLifecycleTests exercise invalid credentials and disabled accounts. |
+| 43 | Account owner / password pages | Auth → password hash, reset token and session revocation | Browser changes password and verifies subsequent login. PasswordTests exercises private one-use reset, expiration and concurrency. Browser reset from actual email outstanding. |
+| 44 | Authenticated user / notification panel | Notifications → user-scoped WEB notification read state | Crop-support browser marks one and all read, reloads and verifies persistence. AlertTests covers notification privacy. |
+| 45 | Admin or owner / dashboard | ReportService → scoped aggregates over persisted events | Admin browser sees repair, alert and mission meters. ReportTests checks current owner/farm scope. Audit each role's required chart and missing values. |
+| 46 | Registered gateway / sync API | Sync → batch, per-record outcomes and readings | SyncTests verifies retry and partial records. Monitoring browser setup sends real authenticated batch and checks resulting values. |
+| 47 | Registered UAV gateway / telemetry API | Telemetry → mission samples | TelemetryTests exercises identity, assignment and ordered history. Physical device path unverified. |
+| 48 | Email service / worker | EmailDeliveryService → notification delivery state and SMTP transport | EmailTests verifies worker and failure handling using a substitute sender. Actual SMTP acceptance outstanding. |
+
+Deployment availability, backup recovery, TLS, production response times, physical hardware and compatibility with Firefox and Chrome still require environment-specific evidence. The sample administrator provisioning remains the requested exception.
+
