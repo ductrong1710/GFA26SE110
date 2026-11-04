@@ -5,7 +5,8 @@ param(
     [switch]$NoRestore,
     [string]$Filter,
     [ValidatePattern('^[a-zA-Z0-9_.-]+\.log$')][string]$LogName = 'test-latest.log',
-    [switch]$BrowserTests
+    [switch]$BrowserTests,
+    [ValidatePattern('^[a-z0-9-]+\.spec\.js$')][string]$BrowserSpec
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,7 +54,9 @@ try {
     & $Dotnet build --no-restore --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw 'dotnet build failed.' }
     if ($BrowserTests) {
-        & (Join-Path $backendRoot '../frontend/scripts/Test-Browser.ps1') -Configuration $Configuration
+        $browserArgs = @{ Configuration = $Configuration }
+        if ($BrowserSpec) { $browserArgs.Spec = $BrowserSpec }
+        & (Join-Path $backendRoot '../frontend/scripts/Test-Browser.ps1') @browserArgs
         return
     }
     $filterArguments = if ($Filter) { @('--filter', $Filter) } else { @() }
