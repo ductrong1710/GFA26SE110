@@ -60,7 +60,7 @@ function render(component) { return renderComponent(<MemoryRouter>{component}</M
 
 test('opens the service job linked from maintenance history', async () => {
   const job = { id: 8, technicianId: 3, revision: 1, type: 'MAINTENANCE', status: 'ASSIGNED', history: [], images: [] }
-  const request = vi.spyOn(api, 'request').mockImplementation(async path => path === '/api/service-jobs/8' ? job : { items: [], pagination: { totalItems: 0 } })
+  const request = vi.spyOn(api, 'request').mockImplementation(async path => path.endsWith('/plans') ? [] : path === '/api/service-jobs/8' ? job : { items: [], pagination: { totalItems: 0 } })
   renderComponent(<MemoryRouter initialEntries={['/app/service-jobs?jobId=8']}><ServiceJobsPage /></MemoryRouter>)
   expect(await screen.findByRole('button', { name: 'Start service work' })).toBeTruthy()
   expect(request).toHaveBeenCalledWith('/api/service-jobs/8', expect.objectContaining({ signal: expect.any(AbortSignal) }))
