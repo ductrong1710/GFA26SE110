@@ -47,12 +47,14 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
     public async Task<int> AssignAsync(int id, bool create, int actorId, ServiceJobAssignmentRequest request, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (request.Reopen) await FlightReservation.LockAsync(db, ct);
         await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id IN ({actorId}, {request.TechnicianId}) ORDER BY id FOR UPDATE").ToArrayAsync(ct);
         if (!(await RolesAsync(actorId, ct)).Contains(RoleNames.FarmAdministrator)) throw new AccessDeniedException("Administrator access required.");
         if (!(await RolesAsync(request.TechnicianId, ct)).Contains(RoleNames.Technician)) throw new BusinessRuleException("Choose an active Technician.");
         ServiceJob job;
         if (create)
         {
+            if (request.Reopen) throw new ConflictException("Only an existing closed job can be reopened.");
             var incident = await db.DeviceIncidents.FromSqlInterpolated($"SELECT * FROM device_incidents WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct)
                 ?? throw new NotFoundException("Device incident not found.");
             if (request.ExpectedRevision != 0) throw new ConflictException("A new service job has no prior revision.");
@@ -67,7 +69,20 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
         {
             job = await LockAsync(id, ct);
             if (job.Revision != request.ExpectedRevision) throw new ConflictException("Service job changed. Reload the latest revision.");
-            if (job.Status is not (ServiceJobStatus.ASSIGNED or ServiceJobStatus.IN_PROGRESS or ServiceJobStatus.REWORK)) throw new ConflictException("This job cannot be reassigned.");
+            if (request.Reopen)
+            {
+                if (job.Status != ServiceJobStatus.CLOSED) throw new ConflictException("Only a closed job can be reopened.");
+                var successor = await db.ServiceDeviceReplacements.Where(x => x.JobId == id).OrderByDescending(x => x.Id).Select(x => (int?)x.NewAssignmentId).FirstOrDefaultAsync(ct);
+                var currentAssignment = successor ?? job.RentalDeviceAssignmentId;
+                if (!await db.RentalDeviceAssignments.AnyAsync(x => x.Id == currentAssignment && x.ReturnedAt == null && x.Contract.Status != RentalStatus.ENDED, ct))
+                    throw new ConflictException("The affected equipment is no longer assigned.");
+                if (job.IncidentId is int incidentId)
+                {
+                    var incident = await db.DeviceIncidents.SingleAsync(x => x.Id == incidentId, ct);
+                    incident.Status = DeviceIncidentStatus.OPEN;
+                }
+            }
+            else if (job.Status is not (ServiceJobStatus.ASSIGNED or ServiceJobStatus.IN_PROGRESS or ServiceJobStatus.REWORK)) throw new ConflictException("This job cannot be reassigned.");
             if (job.Type.ToString() != request.Type) throw new ConflictException("Keep the recorded service type when rescheduling.");
             job.Revision++;
         }
@@ -76,7 +91,7 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
         var previousTechnician = job.TechnicianId;
         job.ScheduledEndAt = end;
         job.TechnicianId = request.TechnicianId; job.ScheduledAt = request.ScheduledAt.ToUniversalTime(); job.Status = ServiceJobStatus.ASSIGNED;
-        History(job, create ? ServiceJobAction.ASSIGNED : ServiceJobAction.REASSIGNED, actorId, request.Note, now);
+        History(job, create ? ServiceJobAction.ASSIGNED : request.Reopen ? ServiceJobAction.REOPENED : ServiceJobAction.REASSIGNED, actorId, request.Note, now);
         await db.SaveChangesAsync(ct);
         await WorkflowNotifications.AddForUserAsync(db, job.TechnicianId, "Service job assigned", $"Service job #{job.Id} is assigned for {job.ScheduledAt:u}.", now, ct);
         if (previousTechnician != 0 && previousTechnician != job.TechnicianId)

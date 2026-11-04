@@ -137,6 +137,33 @@ public class DeviceIncidentTests(ApiFactory factory)
         Assert.False(originalReport.GetProperty("approved").GetBoolean());
         Assert.Equal("Reseated connector", originalReport.GetProperty("work").GetString());
         Assert.Equal(png, originalReport.GetProperty("images")[0].GetProperty("dataBase64").GetString());
+        var revisit = new { type = "REPAIR", technicianId = techId, scheduledAt = appointment.AddDays(8),
+            expectedRevision = closed.GetProperty("revision").GetInt32(), note = "Owner reported the fault again", reopen = true };
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(jobPath + "/assignment", revisit)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await technician.PostAsJsonAsync(jobPath + "/assignment", revisit)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/assignment", revisit with { reopen = false })).StatusCode);
+        var reopened = await Data(await admin.PostAsJsonAsync(jobPath + "/assignment", revisit));
+        Assert.Equal("ASSIGNED", reopened.GetProperty("status").GetString());
+        Assert.Equal("REOPENED", reopened.GetProperty("history").EnumerateArray().Last().GetProperty("action").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/assignment", revisit)).StatusCode);
+        Assert.Equal("OPEN", (await Data(await owner.GetAsync($"/api/device-incidents/{id}"))).GetProperty("status").GetString());
+        Assert.True((await Data(await owner.GetAsync(jobPath + $"/reports/{correctedId}"))).GetProperty("approved").GetBoolean());
+        var revision = reopened.GetProperty("revision").GetInt32();
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/assignment", revisit with { expectedRevision = revision })).StatusCode);
+        await Data(await technician.PostAsJsonAsync(jobPath + "/start", new { expectedRevision = revision++ }));
+        Assert.Equal(HttpStatusCode.Conflict, (await technician.PostAsJsonAsync(jobPath + "/reports", reportRequest with { expectedRevision = revision, operationPassed = true })).StatusCode);
+        var plan = await Data(await technician.PostAsJsonAsync($"/api/operations/service-jobs/{job.GetProperty("id").GetInt32()}/plans",
+            new { expectedRevision = revision++, note = "Inspect recurring connector fault", lines = Array.Empty<object>() }));
+        var planPath = $"/api/operations/service-plans/{plan[0].GetProperty("id").GetInt32()}";
+        await Data(await admin.PostAsJsonAsync(planPath + "/review", new { expectedRevision = revision++, approve = true, note = "Approve repeat inspection" }));
+        await Data(await technician.PostAsJsonAsync(planPath + "/execute", new { expectedRevision = revision++, signedAgreement = request.images }));
+        var repeatReport = await Data(await technician.PostAsJsonAsync(jobPath + "/reports", reportRequest with { expectedRevision = revision++, operationPassed = true, work = "Replaced connector clamp" }));
+        var repeatId = repeatReport.GetProperty("id").GetInt32();
+        await Data(await owner.PostAsJsonAsync(jobPath + "/confirm-operation", decision with { expectedRevision = revision++, reportId = repeatId }));
+        var reclosed = await Data(await admin.PostAsJsonAsync(jobPath + "/approve", decision with { expectedRevision = revision++, reportId = repeatId }));
+        Assert.Equal("CLOSED", reclosed.GetProperty("status").GetString());
+        Assert.Equal("RESOLVED", (await Data(await owner.GetAsync($"/api/device-incidents/{id}"))).GetProperty("status").GetString());
+        Assert.True((await Data(await owner.GetAsync(jobPath + $"/reports/{correctedId}"))).GetProperty("approved").GetBoolean());
         var admins = await db.Users.Where(x => x.IsActive && x.UserRoles.Any(r => r.Role.Name == FarmMonitoring.Domain.Constants.RoleNames.FarmAdministrator)).Select(x => x.Id).ToArrayAsync();
         var notifications = await db.Notifications.Where(x => x.Subject == "Device incident reported" && x.Message.Contains($"#{id} for device")).ToArrayAsync();
         Assert.Equal(admins.Length * 2, notifications.Length);
@@ -148,6 +175,8 @@ public class DeviceIncidentTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync("/api/device-incidents", new { rentalDeviceAssignmentId = assignment.Id, description = "Wrong mission", missionId = int.MaxValue })).StatusCode);
         Assert.Equal(count, await db.DeviceIncidents.CountAsync());
         await db.RentalDeviceAssignments.Where(x => x.Id == assignment.Id).ExecuteUpdateAsync(x => x.SetProperty(r => r.ReturnedAt, DateTimeOffset.UtcNow));
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/assignment", revisit with { expectedRevision = revision })).StatusCode);
+        Assert.Equal("CLOSED", (await Data(await admin.GetAsync(jobPath))).GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync("/api/device-incidents", request)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/api/device-incidents/{id}")).StatusCode);
         (await admin.DeleteAsync($"/api/farms/{farm.Id}/members/{ownerId}")).EnsureSuccessStatusCode();

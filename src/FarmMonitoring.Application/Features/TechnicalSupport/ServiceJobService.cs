@@ -4,7 +4,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.TechnicalSupport;
 
-public sealed record ServiceJobAssignmentRequest(string Type, int TechnicianId, DateTimeOffset ScheduledAt, string Note, int ExpectedRevision = 0, DateTimeOffset? ScheduledEndAt = null, int? RentalDeviceAssignmentId = null);
+public sealed record ServiceJobAssignmentRequest(string Type, int TechnicianId, DateTimeOffset ScheduledAt, string Note, int ExpectedRevision = 0, DateTimeOffset? ScheduledEndAt = null, int? RentalDeviceAssignmentId = null, bool Reopen = false);
 public sealed record ServiceJobStartRequest(int ExpectedRevision);
 public sealed record ServiceJobSummary(int Id, int? IncidentId, int FarmId, string DeviceCode, string Type, int TechnicianId, DateTimeOffset ScheduledAt, string Status, int Revision);
 public sealed record ServiceHistoryResponse(int Id, string Action, int UserId, int TechnicianId, DateTimeOffset ScheduledAt, string Note, DateTimeOffset CreatedAt);

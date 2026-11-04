@@ -70,6 +70,21 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Duplicate"})).StatusCode);
         Assert.Single(await db.ServiceDeviceReplacements.Where(x=>x.JobId==job.Id).ToArrayAsync());
         await Data(await admin.GetAsync($"/api/operations/device-history?code={old.Code}"));
+        var successor = await db.ServiceDeviceReplacements.Where(x => x.JobId == job.Id).Select(x => x.NewAssignmentId).SingleAsync();
+        var reopen = new { type = "REPAIR", technicianId = techId, scheduledAt = DateTimeOffset.UtcNow.AddDays(3),
+            expectedRevision = approved.GetProperty("revision").GetInt32(), note = "Reinspect replacement equipment", reopen = true };
+        await db.RentalDeviceAssignments.Where(x => x.Id == successor).ExecuteUpdateAsync(x => x.SetProperty(a => a.ReturnedAt, DateTimeOffset.UtcNow));
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(path + "/assignment", reopen)).StatusCode);
+        await db.RentalDeviceAssignments.Where(x => x.Id == successor).ExecuteUpdateAsync(x => x.SetProperty(a => a.ReturnedAt, (DateTimeOffset?)null));
+        var rentalStatus = await db.RentalContracts.Where(x => x.Id == assignment.ContractId).Select(x => x.Status).SingleAsync();
+        await db.RentalContracts.Where(x => x.Id == assignment.ContractId).ExecuteUpdateAsync(x => x.SetProperty(c => c.Status, RentalStatus.ENDED));
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(path + "/assignment", reopen)).StatusCode);
+        await db.RentalContracts.Where(x => x.Id == assignment.ContractId).ExecuteUpdateAsync(x => x.SetProperty(c => c.Status, rentalStatus));
+        var reopened = await Data(await admin.PostAsJsonAsync(path + "/assignment", reopen));
+        Assert.Equal("ASSIGNED", reopened.GetProperty("status").GetString());
+        Assert.Equal(next.Code, reopened.GetProperty("currentDeviceCode").GetString());
+        Assert.Single(await db.ServiceDeviceReplacements.Where(x => x.JobId == job.Id).ToArrayAsync());
+        Assert.True((await Data(await owner.GetAsync(path + $"/reports/{reportId}"))).GetProperty("approved").GetBoolean());
     }
     [Fact]
     public async Task Installation_uses_paper_contract_next_day_rental_and_admin_can_change_busy_technician()
