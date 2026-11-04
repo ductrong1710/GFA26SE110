@@ -25,7 +25,7 @@ test('administrator creates a typed service appointment linked to the incident',
 test('technician starts the assigned service job with the current revision', async () => {
   const job = { id: 8, technicianId: 3, revision: 1, type: 'REPAIR', status: 'ASSIGNED', history: [], images: [] }
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => options.method === 'POST'
-    ? { ...job, status: 'IN_PROGRESS', revision: 2 } : path.endsWith('/8') ? job : { items: [job], pagination: { totalItems: 1 } })
+    ? { ...job, status: 'IN_PROGRESS', revision: 2 } : path.endsWith('/plans') ? [] : path.endsWith('/8') ? job : { items: [job], pagination: { totalItems: 1 } })
   render(<ServiceJobsPage />)
   fireEvent.click(await screen.findByRole('button', { name: 'Open service job #8' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Start service work' }))
@@ -37,6 +37,7 @@ test('service report submission refreshes the selected job and removes the submi
   let job = { id: 8, technicianId: 3, revision: 4, type: 'REPAIR', status: 'REWORK', history: [], images: [] }
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
     if (options.method === 'POST') { job = { ...job, revision: 5, status: 'REPORT_SUBMITTED' }; return { id: 20, revision: 2 } }
+    if (path.endsWith('/plans')) return [{ id: 1, status: 'EXECUTED' }]
     if (path.endsWith('/8')) return job
     return { items: path.endsWith('/reports') ? [] : [job], pagination: { totalItems: 1 } }
   })

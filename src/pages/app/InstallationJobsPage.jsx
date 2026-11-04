@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import { useAuth } from '../../context/AuthContext'
@@ -8,7 +9,6 @@ import JobAssignmentForm from '../../components/app/JobAssignmentForm'
 import InstallationReports from '../../components/app/InstallationReports'
 import InstallationReportForm from '../../components/app/InstallationReportForm'
 import InstallationDeviceAllocation from '../../components/app/InstallationDeviceAllocation'
-import RentalContractForm from '../../components/app/RentalContractForm'
 import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
 import { displayTime } from '../../utils/display'
 
@@ -46,7 +46,7 @@ export default function InstallationJobsPage() {
       <InstallationReports key={selected.id} job={selected} canConfirm={can(P.INSTALLATIONS_CONFIRM)} canReview={can(P.INSTALLATIONS_REVIEW)} onUpdated={row => { setSelected(row); query.reload() }} />
       {can(P.INSTALLATIONS_REVIEW) && ['ASSIGNED', 'IN_PROGRESS', 'REWORK'].includes(selected.status) && <InstallationDeviceAllocation key={`devices:${selected.id}:${selected.revision}`} job={selected} onSaved={() => open(selected.id)} />}
       {can(P.INSTALLATIONS_WORK) && selected.technicianId === user?.id && ['IN_PROGRESS', 'REWORK'].includes(selected.status) && <InstallationReportForm key={`report:${selected.id}:${selected.revision}`} job={selected} onSaved={() => open(selected.id)} />}
-      {can(P.RENTALS_MANAGE) && selected.status === 'APPROVED' && <RentalContractForm key={`rental:${selected.id}`} jobId={selected.id} />}
+      {can(P.RENTALS_MANAGE) && selected.status === 'APPROVED' && <p>Approval creates the rental draft from the signed handover. <Link to="/app/rental-contracts">Open rental contracts</Link> to review the period and activate it when due.</p>}
     </SectionCard>}
     <DataTable caption="Installation jobs" loading={query.loading} rows={query.data?.items ?? []} columns={[
       { key: 'id', header: 'Job' }, { key: 'farmId', header: 'Farm' }, { key: 'technicianId', header: 'Technician' },

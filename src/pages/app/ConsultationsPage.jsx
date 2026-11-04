@@ -47,6 +47,7 @@ export function ConsultationDetailPage() {
 }
 
 function ConsultationDetail({ id }) {
+  const [submitted, setSubmitted] = useState(false)
   const { can, user } = useAuth()
   const manages = can(P.CONSULTATIONS_MANAGE)
   const query = useApiQuery(`consultation:${id}`, signal => api.request(`/api/consultations/${id}`, { signal }))
@@ -62,6 +63,8 @@ function ConsultationDetail({ id }) {
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
   const row = query.data
+  const dossierDecision = row?.history.filter(item => ['INSTALLATION_SUBMITTED', 'INSTALLATION_APPROVED', 'INSTALLATION_RETURNED'].includes(item.action)).at(-1)
+  const locked = submitted || (dossierDecision && dossierDecision.action !== 'INSTALLATION_RETURNED')
   const editable = manages && row?.engineerId === user?.id && row?.status === 'IN_PROGRESS'
   return <><Link to="/app/consultations">← Consultations</Link><PageHeader title={`Consultation #${id}`} /><ApiState {...query} />
     {row && <>
@@ -72,8 +75,8 @@ function ConsultationDetail({ id }) {
       <SectionCard title="Follow-up history"><ol>{row.history.map(item => <li key={item.id}><strong>{item.action}</strong> · {displayTime(item.createdAt)}
         {item.userId && <span> · User #{item.userId}</span>}<p>{item.notes}</p><p>{item.contactResult}</p><p>{item.nextAction}</p></li>)}</ol></SectionCard>
       {can(P.USERS_MANAGE) && <ConsultationBinding consultation={row} onSaved={query.replaceData} />}
-      <SurveyPanel key={id} consultationId={id} editable={editable} />
-      <ProposalPanel key={`proposal:${id}`} consultationId={id} editable={editable} canConfirmDeposit={editable || can(P.USERS_MANAGE)} />
+      <SurveyPanel key={id} consultationId={id} editable={editable && !locked} />
+      <ProposalPanel key={`proposal:${id}`} consultationId={id} linked={Boolean(row.ownerId && row.farmId)} onSubmitted={() => setSubmitted(true)} editable={editable && !locked} canConfirmDeposit={editable || can(P.USERS_MANAGE)} />
       {editable && <SectionCard title="Record follow-up"><form className="management-form" onSubmit={followUp}>
         <fieldset disabled={pending} className="management-form">{[['notes', 'Notes', 4000], ['contactResult', 'Contact result', 1000], ['nextAction', 'Next action', 1000]].map(([name, label, max]) =>
           <label key={name}>{label}<textarea required maxLength={max} value={values[name]} onChange={event => setValues({ ...values, [name]: event.target.value })} /></label>)}

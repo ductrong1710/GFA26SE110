@@ -27,6 +27,17 @@ export async function repairDevice(owner, admin, technician, contractId, uav, te
   }
   await openJob(technician)
   await technician.getByRole('button', { name: 'Start service work' }).click()
+  await technician.getByLabel('Service plan note').fill('Reseat dock power terminal and test with the owner')
+  await technician.getByRole('button', { name: 'Submit service plan' }).click()
+  await expect(technician.getByRole('heading', { name: /Plan #\d+ · PROPOSED/ })).toBeVisible()
+  await openJob(admin)
+  await admin.getByLabel('Service plan review note').fill('Repair method checked')
+  await admin.getByRole('button', { name: 'Approve service plan' }).click()
+  await expect(admin.getByRole('heading', { name: /Plan #\d+ · APPROVED/ })).toBeVisible()
+  await openJob(technician)
+  const agreement = technician.getByRole('group', { name: 'Signed service agreement' })
+  await agreement.getByLabel('Add evidence images').setInputFiles({ name: 'agreement.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+  await technician.getByRole('button', { name: 'Record service plan execution' }).click()
   const report = technician.getByRole('region', { name: 'Technician service report' })
   await report.getByLabel('Cause', { exact: true }).fill('Loose terminal at dock')
   await report.getByLabel('Work performed').fill('Reseated the terminal and secured the cable')
@@ -34,6 +45,9 @@ export async function repairDevice(owner, admin, technician, contractId, uav, te
   await report.getByLabel('Test results').fill('Stable power and connection throughout test')
   await report.getByLabel('Notes', { exact: true }).fill('Handed back to owner for operational check')
   for (const name of ['Connectivity', 'Operation']) await report.getByRole('combobox', { name }).selectOption('true')
+  const handover = report.getByRole('group', { name: 'Signed service handover' })
+  await handover.getByLabel('Add evidence images').setInputFiles({ name: 'signed.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+  await expect(handover.getByAltText('Evidence image 1')).toBeVisible()
   await report.getByRole('button', { name: 'Submit service report' }).click()
   const revision = 'View report revision 1'
   await expect(technician.getByRole('button', { name: revision })).toBeVisible()
@@ -50,4 +64,8 @@ export async function repairDevice(owner, admin, technician, contractId, uav, te
   await owner.getByRole('link', { name: 'Device incidents', exact: true }).click()
   await owner.getByRole('button', { name: incidentButton, exact: true }).click()
   await expect(owner.getByRole('region', { name: heading, exact: true }).getByText('Resolved', { exact: true })).toBeVisible()
+  await admin.goto('/app/dashboard')
+  for (const [group, label] of [['Mission outcomes', 'Failed'], ['Mission outcomes', 'Completed'], ['Job progress', 'Repair closed'], ['Alert history', 'Opened']]) {
+    await expect(admin.getByRole('region', { name: group }).getByRole('meter', { name: new RegExp(' · ' + label + '$') }).last()).toBeVisible()
+  }
 }

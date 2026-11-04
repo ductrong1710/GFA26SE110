@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import { listAll } from '../../services/api/resources'
+import EvidenceImages from './EvidenceImages'
 import ApiState from './ApiState'
 import { DataTable, SectionCard, StatusBadge } from './ui'
 import { displayTime, parseVietnamDateTime } from '../../utils/display'
@@ -9,12 +10,14 @@ import { displayTime, parseVietnamDateTime } from '../../utils/display'
 const emptyLine = () => ({ surveyZoneId: '', publicContentId: '', deviceType: '', quantity: 1, installationLocation: '' })
 const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 })
 
-export default function ProposalPanel({ consultationId, editable = false, canConfirmDeposit = editable }) {
+export default function ProposalPanel({ consultationId, editable = false, canConfirmDeposit = editable, onSubmitted, linked = true }) {
   const [page, setPage] = useState(1)
   const [draft, setDraft] = useState(null)
   const [selected, setSelected] = useState(null)
   const [pending, setPending] = useState(false)
   const [note, setNote] = useState('')
+  const [bills, setBills] = useState([])
+  const [reading, setReading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const path = `/api/consultations/${consultationId}/proposals`
@@ -42,10 +45,17 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     if (pending) return
     setPending(true); setError(''); setNotice('')
     try {
-      const result = await api.request(`${path}/${selected.id}/${action}`, { method: 'POST', body: action === 'submit-installation' ? {} : { note } })
       if (action === 'submit-installation') {
-        setSelected({ ...selected, status: 'SUBMITTED' }); setNotice(`Installation request #${result.id} submitted for administrator review.`)
-      } else { setSelected(result); setNotice(action === 'confirm-plan' ? 'Customer plan confirmation recorded.' : 'External deposit confirmation recorded.') }
+        const dossier = await api.request('/api/installation-dossiers/' + selected.id + '/submit', {
+          method: 'POST', body: { expectedRevision: selected.revision, note, bills },
+        })
+        setSelected({ ...selected, status: dossier.status, depositBills: bills }); setBills([])
+        setNotice(`Dossier #${dossier.proposalId} submitted for administrator review.`)
+        onSubmitted?.()
+      } else {
+        setSelected(await api.request(`${path}/${selected.id}/${action}`, { method: 'POST', body: { note } }))
+        setNotice(action === 'confirm-plan' ? 'Customer plan confirmation recorded.' : 'External deposit confirmation recorded.')
+      }
       setNote(''); query.reload()
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
@@ -55,7 +65,7 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
   const confirmation = selected?.status === 'DRAFT' && editable ? 'confirm-plan' : selected?.status === 'PLAN_CONFIRMED' && canConfirmDeposit ? 'confirm-deposit' : null
   return <SectionCard title="Device proposals" description="Each revision records the survey, proposed devices, rental duration and requested installation time.">
     <ApiState {...query} />{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    {editable && !draft && page === 1 && !query.loading && !query.error && <button className="app-ui-button" disabled={pending} onClick={() => {
+    {editable && !draft && page === 1 && !query.loading && !query.error && !['SUBMITTED', 'WAITING_ADMIN'].includes(query.data?.items[0]?.status) && <button className="app-ui-button" disabled={pending} onClick={() => {
       setDraft({ expectedRevision: query.data?.items[0]?.revision ?? 0, surveyId: '', rentalMonths: '', requestedInstallationAt: '', notes: '', lines: [emptyLine()] })
       setSelected(null); setError(''); setNotice('')
     }}>Prepare proposal</button>}
@@ -94,7 +104,14 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
         <label>Confirmation evidence or reference<textarea required maxLength={2000} value={note} onChange={event => setNote(event.target.value)} /></label>
         <button type="submit">{confirmation === 'confirm-plan' ? 'Record customer plan confirmation' : 'Record external deposit confirmation'}</button>
       </fieldset></form>}
-      {editable && selected.status === 'DEPOSIT_CONFIRMED' && <button disabled={pending} onClick={() => transition('submit-installation')}>Submit installation request</button>}
+      {selected.dossierReviewNote && <p>Administrator review: {selected.dossierReviewNote}</p>}
+      <EvidenceImages images={selected.depositBills} />
+      {editable && selected.status === 'DEPOSIT_CONFIRMED' && (linked ? <form onSubmit={event => { event.preventDefault(); transition('submit-installation') }}>
+        <fieldset disabled={pending}><legend>Installation dossier</legend>
+          <label>Dossier note<textarea required maxLength={2000} value={note} onChange={e => setNote(e.target.value)} /></label>
+          <EvidenceImages images={bills} onChange={setBills} onBusyChange={setReading} />
+          <button disabled={reading || !bills.length}>Submit installation request</button>
+        </fieldset></form> : <p>An administrator must link the customer and farm before submission.</p>)}
     </section>}
     <DataTable caption="Proposal revisions" loading={query.loading} rows={query.data?.items ?? []} columns={[
       { key: 'revision', header: 'Revision' }, { key: 'status', header: 'Status', render: value => <StatusBadge status={value} /> },

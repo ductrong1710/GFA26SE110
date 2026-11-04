@@ -9,7 +9,7 @@ import EvidenceImages from '../../components/app/EvidenceImages'
 import ServiceJobAssignmentForm from '../../components/app/ServiceJobAssignmentForm'
 import ServiceReportForm from '../../components/app/ServiceReportForm'
 import ServiceReports from '../../components/app/ServiceReports'
-import ServiceReplacementForm from '../../components/app/ServiceReplacementForm'
+import ServicePlan from '../../components/app/ServicePlan'
 import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
 import { displayTime } from '../../utils/display'
 
@@ -55,10 +55,12 @@ export default function ServiceJobsPage() {
       <h3>Job history</h3><ol>{selected.history.map(item => <li key={item.id}><strong>{item.action}</strong> · {displayTime(item.createdAt)} · User #{item.userId}
         <p>Technician #{item.technicianId} · {displayTime(item.scheduledAt)}</p><p>{item.note}</p></li>)}</ol>
       <ServiceReports key={selected.id} job={selected} canConfirm={can(P.SERVICE_JOBS_CONFIRM)} canReview={can(P.SERVICE_JOBS_MANAGE)} onUpdated={row => { setSelected(row); query.reload() }} />
-      {can(P.SERVICE_JOBS_WORK) && selected.technicianId === user?.id && ['IN_PROGRESS', 'REWORK'].includes(selected.status) &&
-        <ServiceReplacementForm key={`replacement:${selected.id}:${selected.revision}`} job={selected} onSaved={row => { setSelected(row); query.reload() }} />}
-      {can(P.SERVICE_JOBS_WORK) && selected.technicianId === user?.id && ['IN_PROGRESS', 'REWORK'].includes(selected.status) &&
-        <ServiceReportForm key={`report:${selected.id}:${selected.revision}`} job={selected} onSaved={() => { open(selected.id); query.reload() }} />}
+      {(can(P.SERVICE_JOBS_MANAGE) || (can(P.SERVICE_JOBS_WORK) && selected.technicianId === user?.id)) && <ServicePlan key={`plan:${selected.id}:${selected.revision}`} job={selected}
+        canWork={can(P.SERVICE_JOBS_WORK) && selected.technicianId === user?.id} canReview={can(P.SERVICE_JOBS_MANAGE)}
+        onUpdated={row => { setSelected(row); query.reload() }}>
+        {ready => ready && can(P.SERVICE_JOBS_WORK) && selected.technicianId === user?.id && ['IN_PROGRESS', 'REWORK'].includes(selected.status) &&
+          <ServiceReportForm job={selected} onSaved={() => { open(selected.id); query.reload() }} />}
+      </ServicePlan>}
     </SectionCard>}
     <DataTable caption="Service jobs" rows={query.data?.items ?? []} loading={query.loading} columns={[
       { key: 'id', header: 'Job' }, { key: 'deviceCode', header: 'Device' }, { key: 'type', header: 'Type' },

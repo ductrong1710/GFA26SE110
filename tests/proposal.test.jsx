@@ -42,7 +42,7 @@ it('records plan and deposit evidence before submitting installation', async () 
   let row = { id: 7, revision: 1, surveyId: 3, rentalMonths: 6, status: 'DRAFT', lines: [] }
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
     if (options.method === 'POST') {
-      if (path.endsWith('/submit-installation')) return { id: 9, status: 'SUBMITTED' }
+      if (path === '/api/installation-dossiers/7/submit') return { proposalId: 7, status: 'WAITING_ADMIN' }
       row = { ...row, status: path.endsWith('/confirm-plan') ? 'PLAN_CONFIRMED' : 'DEPOSIT_CONFIRMED' }
       return row
     }
@@ -55,8 +55,16 @@ it('records plan and deposit evidence before submitting installation', async () 
     fireEvent.change(screen.getByLabelText('Confirmation evidence or reference'), { target: { value: evidence } })
     fireEvent.click(action)
   }
-  fireEvent.click(await screen.findByRole('button', { name: 'Submit installation request' }))
-  expect(await screen.findByText('Installation request #9 submitted for administrator review.')).toBeTruthy()
+  const submit = await screen.findByRole('button', { name: 'Submit installation request' })
+  expect(submit.disabled).toBe(true)
+  fireEvent.change(screen.getByLabelText('Dossier note'), { target: { value: 'Receipt attached' } })
+  fireEvent.change(screen.getByLabelText('Add evidence images'), { target: { files: [new File(['receipt'], 'receipt.png', { type: 'image/png' })] } })
+  await screen.findByAltText('Evidence image 1')
+  fireEvent.click(submit)
+  await waitFor(() => expect(request).toHaveBeenCalledWith('/api/installation-dossiers/7/submit', {
+    method: 'POST', body: { expectedRevision: 1, note: 'Receipt attached', bills: [expect.objectContaining({ contentType: 'image/png' })] },
+  }))
+  expect(await screen.findByText('Dossier #7 submitted for administrator review.')).toBeTruthy()
   expect(request).toHaveBeenCalledWith('/api/consultations/42/proposals/7/confirm-deposit', { method: 'POST', body: { note: 'Bank receipt REF-42' } })
 })
 

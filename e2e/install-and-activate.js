@@ -1,5 +1,6 @@
 import { runMission } from './run-mission'
 import { repairDevice } from './repair-device'
+import { makeRentalDue } from './rental-fixture'
 import { expect } from '@playwright/test'
 
 export async function installAndActivate(browser, admin, seed, requestId, owner, password, farm) {
@@ -10,8 +11,6 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
   const sensor = await seed('/api/sensor-nodes', { zoneId: zone.id, name: 'Orchard moisture', deviceCode: 'ORCHARD-SOIL', latitude: 10.501, longitude: 105.701, status: 'ONLINE' })
   await admin.getByRole('link', { name: 'Installation requests', exact: true }).click()
   await admin.getByRole('button', { name: 'Open request #' + requestId, exact: true }).click()
-  await admin.getByLabel('Review note or correction reason').fill('Reviewed survey, proposal and deposit')
-  await admin.getByRole('button', { name: 'Approve for scheduling' }).click()
   await admin.getByRole('combobox', { name: 'Technician' }).selectOption(String(tech.id))
   const date = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)
   await admin.getByLabel('Appointment').fill(date + 'T12:00')
@@ -53,6 +52,12 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
       await work.getByLabel('Test evidence for ' + device.code).fill('Connectivity and operating checks passed at the dock')
     }
     await work.getByLabel('Handover and installation notes').fill('Delivered and demonstrated to owner')
+    const image = { name: 'signed.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') }
+    for (const label of ['Signed contract', 'Signed installation handover']) {
+      const group = work.getByRole('group', { name: label, exact: true })
+      await group.getByLabel('Add evidence images').setInputFiles(image)
+      await expect(group.getByAltText('Evidence image 1')).toBeVisible()
+    }
     await work.getByRole('button', { name: 'Submit installation report' }).click()
     await expect(work.getByRole('button', { name: 'View report revision 1' })).toBeVisible()
     const ownerPage = await login(customer, owner.email)
@@ -64,15 +69,22 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
     await admin.getByRole('button', { name: 'View report revision 1' }).click()
     await admin.getByLabel('Decision note').fill('Verified signed handover and report')
     await admin.getByRole('button', { name: 'Approve installation' }).click()
-    const rental = admin.getByRole('form', { name: 'Create rental contract' })
-    await rental.getByLabel('Rental start').fill(new Date(Date.now() - 86400000).toISOString().slice(0, 10) + 'T12:00')
-    await rental.getByLabel('Rental end').fill(new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10) + 'T12:00')
-    await rental.getByLabel('Agreement note').fill('Confirmed seasonal rental')
-    await rental.getByRole('button', { name: 'Create rental draft' }).click()
-    const message = await admin.getByText(/Rental contract #\d+ created as a draft/).innerText()
-    const contractId = Number(message.match(/#(\d+)/)[1])
     await admin.getByRole('link', { name: 'Open rental contracts' }).click()
+    const contractButton = admin.getByRole('button', { name: /^Open contract #/ }).first()
+    const contractId = Number((await contractButton.innerText()).match(/#(\d+)/)[1])
     const button = 'Open contract #' + contractId
+    await admin.getByRole('button', { name: button, exact: true }).click()
+    await admin.getByLabel('Decision note').fill('Agreed rental period has started')
+    const region = admin.getByRole('region', { name: 'Rental contract #' + contractId, exact: true })
+    await expect(region.getByText('Installation job', { exact: true }).locator('xpath=following-sibling::dd[1]')).toHaveText('#' + jobId)
+    const tomorrow = new Date(Date.now() + 7 * 3600000 + 86400000).toISOString().slice(0, 10)
+    const expectedStart = new Date(tomorrow + 'T00:00:00+07:00')
+    const displayedStart = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(expectedStart)
+    await expect(region.getByText('Rental start', { exact: true }).locator('xpath=following-sibling::dd[1]')).toHaveText(displayedStart)
+    await admin.getByRole('button', { name: 'Record contract action' }).click()
+    await expect(admin.getByRole('alert').filter({ hasText: /Activation requires/ }).first()).toBeVisible()
+    makeRentalDue(contractId)
+    await admin.reload()
     await admin.getByRole('button', { name: button, exact: true }).click()
     await admin.getByLabel('Decision note').fill('Agreed rental period has started')
     await admin.getByRole('button', { name: 'Record contract action' }).click()

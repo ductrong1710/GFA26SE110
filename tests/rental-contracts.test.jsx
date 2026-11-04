@@ -1,7 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import RentalContractsPage from '../src/pages/app/RentalContractsPage'
-import RentalContractForm from '../src/components/app/RentalContractForm'
 import { api } from '../src/services/api'
 import { PERMISSIONS as P } from '../src/config/permissions'
 
@@ -17,19 +16,6 @@ function mockRental(detail = row) {
     return path.endsWith('/6') ? detail : { items: [detail], pagination: { totalItems: 1 } }
   })
 }
-it('creates a separate draft contract with agreed UTC dates', async () => {
-  const request = vi.spyOn(api, 'request').mockResolvedValue({ id: 6, status: 'DRAFT' })
-  render(<RentalContractForm jobId={3} />)
-  fireEvent.change(screen.getByLabelText('Rental start'), { target: { value: '2029-01-15T09:00' } })
-  fireEvent.change(screen.getByLabelText('Rental end'), { target: { value: '2030-01-15T09:00' } })
-  fireEvent.change(screen.getByLabelText('Agreement note'), { target: { value: 'Dates agreed with owner' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create rental draft' }))
-  expect(await screen.findByText(/Rental contract #6 created/)).toBeTruthy()
-  expect(request).toHaveBeenCalledWith('/api/installation-jobs/3/rental-contract', { method: 'POST', body: {
-    startAt: '2029-01-15T02:00:00.000Z', endAt: '2030-01-15T02:00:00.000Z', note: 'Dates agreed with owner',
-  } })
-  expect(request).toHaveBeenCalledTimes(1)
-})
 it('shows owner rental and device history without administrative actions', async () => {
   auth.admin = false; mockRental()
   render(<RentalContractsPage />)

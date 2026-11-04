@@ -1,4 +1,4 @@
-param([string]$Configuration = 'Release')
+param([string]$Configuration = 'Release', [Parameter(Mandatory = $true)][string]$PostgresBin)
 $ErrorActionPreference = 'Stop'
 foreach ($port in @(5179, 5189)) {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
@@ -25,6 +25,7 @@ $settings = @{
     Cors__AllowedOrigins__0 = 'http://127.0.0.1:5179'
     VITE_API_BASE_URL = 'http://127.0.0.1:5189'
     E2E_API_URL = 'http://127.0.0.1:5189'
+    E2E_PSQL = Join-Path $PostgresBin 'psql.exe'
 }
 $previous = @{}
 $apiProcess = $null
