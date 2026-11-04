@@ -1,5 +1,7 @@
 # DATABASE.md
 
+Migration `20261104011126_AdminReviewedDossierCustomer` adds nullable customer name and email to each proposal revision. Existing linked dossiers continue to use their owner and farm. Unlinked submissions retain the requested identity until an administrator approves or returns them.
+
 ### ExternalConsultationDossier — 2026-11-03
 
 Migration `20261103153523_ExternalConsultationDossier` adds nullable

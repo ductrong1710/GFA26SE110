@@ -5,15 +5,14 @@
 - `POST /api/installation-dossiers/{proposalId}/submit` (assigned FarmEngineer):
   `{ expectedRevision, note, bills: [{contentType,dataBase64}], customer: {fullName,email} }`.
   Requires the latest proposal to have both plan and deposit confirmations already recorded. Submission preserves their actors, timestamps and references. Requires 1–5 valid
-  JPEG/PNG bills (2 MiB each). For an unlinked lead, creates/reuses a pure active
-  FarmOwner account and creates its farm/membership from the survey, atomically.
+  JPEG/PNG bills (2 MiB each). For an unlinked lead, stores the proposed owner name and email for Admin review.
   `customer` may be omitted for an already linked authorized owner/farm. No online
   payment or customer confirmation occurs. New accounts use an unknown random
   password; the customer sets one through the existing password recovery flow.
 - `GET /api/installation-dossiers` (Admin, standard paging/search): pending complete
   dossiers, with customer and farm information; no date window hides old pending work.
 - `POST /api/installation-dossiers/{proposalId}/review` (Admin):
-  `{expectedRevision,approve,note}`. Approval creates one APPROVED installation
+  `{expectedRevision,approve,note}`. Approval atomically provisions the eligible owner and farm if needed and creates one APPROVED installation
   request and returns `installationRequestId`; assign through the existing jobs API.
   Return preserves the old bill and requires a new proposal revision before resubmission.
 - Proposal detail includes `depositBills`, `dossierSubmittedAt`, `dossierReviewNote`;
@@ -1358,3 +1357,7 @@ Mission requests also accept an optional zoneId. The zone must belong to the sel
 ### Threshold history
 
 Administrators can read GET /api/sensor-channels/{id}/threshold/history with the standard page/pageSize query. Results contain the persisted settings, changedAt and changedByUserId, newest first. Migrated legacy snapshots have a null actor. Each successful threshold update records one immutable history row in the same transaction.
+
+### Mission ownership on shared farms
+
+An owner must be the recorded mission creator and a current member of its farm to read a mission, its launch state, results, telemetry or collection attempts. The same scope applies to mission filters, lists, mission reports and dashboard counts. Admin reads across owners. A device support request may only link a mission created by the reporting owner.

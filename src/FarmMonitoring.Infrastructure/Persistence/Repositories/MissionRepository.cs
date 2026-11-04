@@ -128,7 +128,7 @@ public sealed class MissionRepository(AppDbContext db) : IMissionRepository
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
     public async Task<PagedResult<MissionSummary>> ListAsync(MissionQuery query, FarmAccessScope scope, CancellationToken ct)
     {
-        var missions = db.Missions.AsNoTracking().ForFarms(db, scope, x => x.FarmId);
+        var missions = FarmAccessQuery.VisibleMissions(db, scope);
         if (query.FarmId.HasValue) missions = missions.Where(x => x.FarmId == query.FarmId);
         if (query.UavId.HasValue) missions = missions.Where(x => x.UavId == query.UavId);
         if (query.GatewayId.HasValue) missions = missions.Where(x => x.GatewayId == query.GatewayId);

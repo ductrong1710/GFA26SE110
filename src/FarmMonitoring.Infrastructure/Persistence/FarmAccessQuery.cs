@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using FarmMonitoring.Application.Features.Farms;
 using FarmMonitoring.Domain.Constants;
 using FarmMonitoring.Domain.Entities;
@@ -7,6 +8,14 @@ namespace FarmMonitoring.Infrastructure.Persistence;
 
 internal static class FarmAccessQuery
 {
+    public static IQueryable<Mission> VisibleMissions(AppDbContext db, FarmAccessScope scope)
+    {
+        var missions = db.Missions.AsNoTracking();
+        if (scope.IsAdministrator) return missions;
+        var farms = AssignedFarmIds(db, scope.UserId);
+        return missions.Where(x => x.CreatedByUserId == scope.UserId && farms.Contains(x.FarmId));
+    }
+
     public static IQueryable<RentalDeviceAssignment> RentalAssignments(AppDbContext db, FarmAccessScope scope)
     {
         var farms = AssignedFarmIds(db, scope.UserId);

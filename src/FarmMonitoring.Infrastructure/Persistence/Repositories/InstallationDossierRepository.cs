@@ -39,7 +39,12 @@ public sealed class InstallationDossierRepository(AppDbContext db, DossierCustom
         if (!await db.Set<ProposalLine>().AnyAsync(x => x.ProposalId == id, ct)) throw new BusinessRuleException("Device information is required.");
         if (await db.InstallationRequests.AnyAsync(x => x.Proposal.ConsultationId == consultation.Id && x.Status != InstallationRequestStatus.RETURNED, ct))
             throw new ConflictException("Installation has already been submitted.");
-        await customers.EnsureAsync(consultation, proposal.SurveyId, customer, now, ct);
+        if (!consultation.OwnerId.HasValue)
+        {
+            if (customer is null) throw new BusinessRuleException("Supply customer details for administrator review.");
+            proposal.DossierCustomerName = customer.FullName.Trim();
+            proposal.DossierCustomerEmail = customer.Email.Trim().ToLowerInvariant();
+        }
         proposal.DepositBillsJson = JsonSerializer.Serialize(bills); proposal.DossierSubmittedAt = now;
         proposal.DossierReviewNote = null; proposal.Status = ProposalStatus.WAITING_ADMIN;
         History(consultation, actor, ConsultationAction.INSTALLATION_SUBMITTED, $"Dossier #{id} submitted with external deposit bill: {note}", now);
@@ -59,14 +64,11 @@ public sealed class InstallationDossierRepository(AppDbContext db, DossierCustom
         {
             if (EvidenceImages.Decode(JsonSerializer.Deserialize<EvidenceImageData[]>(proposal.DepositBillsJson ?? "[]")).Count == 0)
                 throw new BusinessRuleException("Deposit bill is required before approval.");
-            if (consultation.OwnerId is not int owner || consultation.FarmId is not int farm ||
-                !await FarmAccessQuery.AssignedFarmIds(db, owner).ContainsAsync(farm, ct) ||
-                !await db.Farms.AnyAsync(x => x.Id == farm && x.IsActive, ct))
-                throw new BusinessRuleException("Link an active customer and authorized farm before approval.");
             if (proposal.RequestedInstallationAt <= now) throw new BusinessRuleException("Requested schedule has passed. Return the dossier for correction.");
             if (await db.InstallationRequests.AnyAsync(x => x.Proposal.ConsultationId == consultation.Id && x.Status != InstallationRequestStatus.RETURNED, ct))
                 throw new ConflictException("Installation has already been approved or submitted.");
-            installation = new InstallationRequest { ProposalId = id, FarmId = farm, OwnerId = owner,
+            await customers.EnsureAsync(consultation, proposal, actor, now, ct);
+            installation = new InstallationRequest { ProposalId = id, FarmId = consultation.FarmId!.Value, OwnerId = consultation.OwnerId!.Value,
                 SubmittedByUserId = proposal.CreatedByUserId, SubmittedAt = proposal.DossierSubmittedAt!.Value,
                 Status = InstallationRequestStatus.APPROVED, ReviewedAt = now, ReviewedByUserId = actor, ReviewNote = request.Note.Trim() };
             db.InstallationRequests.Add(installation); proposal.Status = ProposalStatus.SUBMITTED;

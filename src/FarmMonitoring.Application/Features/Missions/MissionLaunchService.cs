@@ -15,7 +15,7 @@ public sealed class MissionLaunchService(IMissionRepository repository, FarmAcce
     public async Task<MissionLaunchResponse> GetAsync(int id, CancellationToken ct)
     {
         var m = await repository.FindAsync(id, false, ct) ?? throw new NotFoundException("Mission not found.");
-        await access.EnsureFarmAccessAsync(m.FarmId, ct);
+        await access.EnsureAsync(FarmResource.Mission, id, ct);
         return View(m);
     }
 

@@ -47,7 +47,7 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
         {
             if (request.FarmId is not int farmId || !await FarmAccessQuery.AssignedFarmIds(db,actorId).ContainsAsync(farmId,ct)) throw new AccessDeniedException("Choose your farm.");
             if (!await db.Farms.AnyAsync(x => x.Id == farmId && x.IsActive,ct)) throw new BusinessRuleException("Farm must be active.");
-            if (request.MissionId.HasValue && !await db.Missions.AnyAsync(x=>x.Id == request.MissionId && x.FarmId == farmId,ct)) throw new BusinessRuleException("Mission must belong to this farm.");
+            if (request.MissionId.HasValue && !await db.Missions.AnyAsync(x=>x.Id == request.MissionId && x.CreatedByUserId == actorId && x.FarmId == farmId,ct)) throw new BusinessRuleException("Mission must belong to this farm.");
             var unknown = new DeviceIncident { FarmId=farmId,ReporterId=actorId,Description=request.Description.Trim(),ReportedAt=now,MissionId=request.MissionId,Images=images };
             db.DeviceIncidents.Add(unknown); await db.SaveChangesAsync(ct);
             await WorkflowNotifications.AddForRoleAsync(db,RoleNames.FarmAdministrator,"Device data issue reported",$"Incident #{unknown.Id} for farm #{farmId}; device identification required.",now,ct);
@@ -60,7 +60,7 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
             throw new AccessDeniedException("Access to this rental device is denied.");
         if (assignment.ReturnedAt is not null || rental.Status == RentalStatus.ENDED)
             throw new BusinessRuleException("Only unreturned assigned devices can be reported.");
-        if (request.MissionId is int missionId && !await db.Missions.AnyAsync(x => x.Id == missionId && x.FarmId == rental.FarmId &&
+        if (request.MissionId is int missionId && !await db.Missions.AnyAsync(x => x.Id == missionId && x.CreatedByUserId == actorId && x.FarmId == rental.FarmId &&
             (assignment.UavId != null && x.UavId == assignment.UavId || assignment.GatewayId != null && x.GatewayId == assignment.GatewayId ||
              assignment.SensorNodeId != null && x.Targets.Any(t => t.SensorNodeId == assignment.SensorNodeId)), ct))
             throw new BusinessRuleException("The linked mission must belong to this farm and include this device.");

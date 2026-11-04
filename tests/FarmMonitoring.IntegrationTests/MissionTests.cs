@@ -57,6 +57,15 @@ public class MissionTests(ApiFactory factory)
         using var renter = await Login();
         var mission = await Data(await renter.PostAsJsonAsync("/api/missions", Plan(setup)));
         var id = mission.GetProperty("id").GetInt32();
+        var ownList = await Data(await secondOwner.GetAsync($"/api/missions?farmId={setup.farm}"));
+        Assert.Empty(ownList.EnumerateArray());
+        foreach (var route in new[] { $"/api/missions/{id}", $"/api/missions/{id}/results",
+            $"/api/missions/{id}/launch", $"/api/missions/{id}/telemetry", $"/api/missions/{id}/collection-attempts", $"/api/sensor-readings?missionId={id}" })
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.GetAsync(route)).StatusCode);
+            (await renter.GetAsync(route)).EnsureSuccessStatusCode();
+            (await admin.GetAsync(route)).EnsureSuccessStatusCode();
+        }
         Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PutAsJsonAsync($"/api/missions/{id}", Plan(setup))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PostAsJsonAsync($"/api/missions/{id}/notes", new { note = "Another owner's note" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await secondOwner.PostAsJsonAsync($"/api/missions/{id}/cancel", new { note = "Another owner's cancellation" })).StatusCode);

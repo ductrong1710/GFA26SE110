@@ -29,7 +29,7 @@ public sealed class FarmAccessRepository(AppDbContext db) : IFarmAccessRepositor
         FarmResource.Zone => db.Zones.Where(x => x.Id == id).Select(x => new ResourceFarm(x.FarmId)).SingleOrDefaultAsync(ct),
         FarmResource.SensorNode => db.SensorNodes.Where(x => x.Id == id).Select(x => new ResourceFarm(x.Zone.FarmId)).SingleOrDefaultAsync(ct),
         FarmResource.SensorChannel => db.SensorChannels.Where(x => x.Id == id).Select(x => new ResourceFarm(x.SensorNode.Zone.FarmId)).SingleOrDefaultAsync(ct),
-        FarmResource.Mission => db.Missions.Where(x => x.Id == id).Select(x => new ResourceFarm(x.FarmId)).SingleOrDefaultAsync(ct),
+        FarmResource.Mission => db.Missions.Where(x => x.Id == id).Select(x => new ResourceFarm(x.FarmId, x.CreatedByUserId)).SingleOrDefaultAsync(ct),
         FarmResource.Alert => db.Alerts.Where(x => x.Id == id).Select(FarmAccessQuery.AlertFarm).Select(x => new ResourceFarm(x)).SingleOrDefaultAsync(ct),
         _ => throw new ArgumentOutOfRangeException(nameof(resource))
     };

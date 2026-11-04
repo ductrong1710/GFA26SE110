@@ -6,7 +6,7 @@ namespace FarmMonitoring.Application.Features.Farms;
 
 public sealed record FarmAccessScope(int UserId, bool IsAdministrator);
 public enum FarmResource { Farm, Zone, SensorNode, SensorChannel, Mission, Alert }
-public sealed record ResourceFarm(int? FarmId);
+public sealed record ResourceFarm(int? FarmId, int? OwnerId = null);
 public sealed record ResourceFarmReference(int Id, int? FarmId);
 
 public sealed class FarmAccessService(IFarmAccessRepository repository, IAuthRepository users, ICurrentUser current)
@@ -28,7 +28,8 @@ public sealed class FarmAccessService(IFarmAccessRepository repository, IAuthRep
     {
         var scope = await GetScopeAsync(ct);
         var resolved = await repository.ResolveAsync(resource, id, ct) ?? throw new NotFoundException($"{resource} not found.");
-        if (!scope.IsAdministrator && (resolved.FarmId is not int farmId || !await repository.IsUserAssignedToFarmAsync(scope.UserId, farmId, ct)))
+        if (!scope.IsAdministrator && (resolved.OwnerId is int ownerId && ownerId != scope.UserId ||
+            resolved.FarmId is not int farmId || !await repository.IsUserAssignedToFarmAsync(scope.UserId, farmId, ct)))
             throw new AccessDeniedException("Access to this farm is denied.");
     }
 

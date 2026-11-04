@@ -161,7 +161,7 @@ public sealed class MissionService(FarmAccessService access, IMissionRepository 
     private async Task<Mission> Find(int id, bool write, CancellationToken ct)
     {
         var mission = await repository.FindAsync(id, write, ct) ?? throw new NotFoundException("Mission not found.");
-        await access.EnsureFarmAccessAsync(mission.FarmId, ct);
+        await access.EnsureAsync(FarmResource.Mission, id, ct);
         if (write && mission.CreatedByUserId != (await access.GetScopeAsync(ct)).UserId)
             throw new AccessDeniedException("Only the mission owner can change this mission.");
         return mission;

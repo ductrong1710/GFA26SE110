@@ -205,13 +205,10 @@ public sealed class ConsultationTests(ApiFactory factory)
         var submitted = (await engineer.GetFromJsonAsync<JsonElement>(path)).GetProperty("data");
         Assert.Equal("Customer accepted by phone", submitted.GetProperty("planConfirmationNote").GetString());
         Assert.Equal("External bank receipt REF-42 confirmed", submitted.GetProperty("depositConfirmationNote").GetString());
-        var linked = (await admin.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}")).GetProperty("data");
-        var farmId = linked.GetProperty("farmId").GetInt32();
-        Assert.Equal(ownerId, linked.GetProperty("ownerId").GetInt32());
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(dossierPath + "/submit", Dossier(2))).StatusCode);
         var preserved = (await engineer.GetFromJsonAsync<JsonElement>(firstPath)).GetProperty("data");
         Assert.Equal("DRAFT", preserved.GetProperty("status").GetString());
-        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(dossierPath + "/review", new { expectedRevision = 2, approve = true, note = "Owner cannot approve" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(dossierPath + "/review", new { expectedRevision = 2, approve = false, note = " " })).StatusCode);
         (await admin.PostAsJsonAsync(dossierPath + "/review", new { expectedRevision = 2, approve = false, note = "Clarify farm information" })).EnsureSuccessStatusCode();
@@ -227,6 +224,10 @@ public sealed class ConsultationTests(ApiFactory factory)
         (await engineer.PostAsJsonAsync($"/api/installation-dossiers/{revisedId}/submit", Dossier(3))).EnsureSuccessStatusCode();
         var approvedResult = await admin.PostAsJsonAsync($"/api/installation-dossiers/{revisedId}/review", new { expectedRevision = 3, approve = true, note = "Farm and bill verified" });
         approvedResult.EnsureSuccessStatusCode();
+        var linked = (await admin.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}")).GetProperty("data");
+        var farmId = linked.GetProperty("farmId").GetInt32();
+        Assert.Equal(ownerId, linked.GetProperty("ownerId").GetInt32());
+        (await owner.GetAsync(path)).EnsureSuccessStatusCode();
         var newId = (await approvedResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("installationRequestId").GetInt32();
         var requestPath = $"/api/installation-requests/{newId}";
         Assert.Equal("APPROVED", (await admin.GetFromJsonAsync<JsonElement>(requestPath)).GetProperty("data").GetProperty("status").GetString());

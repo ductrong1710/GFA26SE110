@@ -22,6 +22,8 @@ public sealed class DeviceProposal
     public DateTimeOffset? DepositConfirmedAt { get; set; }
     public string? DepositConfirmationNote { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public string? DossierCustomerName { get; set; }
+    public string? DossierCustomerEmail { get; set; }
     public string? DepositBillsJson { get; set; }
     public DateTimeOffset? DossierSubmittedAt { get; set; }
     public string? DossierReviewNote { get; set; }

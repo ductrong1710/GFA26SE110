@@ -85,15 +85,15 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         var sent = await Data(await engineer.PostAsJsonAsync(path + "/submit", Submission(email)));
         Assert.Equal("WAITING_ADMIN", sent.GetProperty("status").GetString());
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var lead = await db.Consultations.AsNoTracking().SingleAsync(x => x.Id == setup.Lead);
-        Assert.NotNull(lead.OwnerId); Assert.NotNull(lead.FarmId);
-        var owner = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).SingleAsync(x => x.Id == lead.OwnerId);
-        Assert.Equal(email, owner.Email); Assert.Equal("FarmOwner", Assert.Single(owner.UserRoles).Role.Name);
-        Assert.True(await db.UserFarms.AnyAsync(x => x.UserId == owner.Id && x.FarmId == lead.FarmId));
+        var pendingLead = await db.Consultations.AsNoTracking().SingleAsync(x => x.Id == setup.Lead);
+        Assert.Null(pendingLead.OwnerId);
+        Assert.Null(pendingLead.FarmId);
+        Assert.False(await db.Users.AnyAsync(x => x.Email == email));
         Assert.False(await db.InstallationRequests.AnyAsync(x => x.ProposalId == setup.Proposal));
         var pending = await Data(await admin.GetAsync("/api/installation-dossiers?pageSize=100"));
         Assert.Contains(pending.EnumerateArray(), x => x.GetProperty("id").GetInt32() == setup.Proposal);
         var detail = await Data(await admin.GetAsync($"/api/consultations/{setup.Lead}/proposals/{setup.Proposal}"));
+        Assert.Equal(email, detail.GetProperty("dossierCustomerEmail").GetString());
         Assert.Equal(Bill.DataBase64, detail.GetProperty("depositBills")[0].GetProperty("dataBase64").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(path + "/submit", Submission(email))).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync($"/api/consultations/{setup.Lead}/proposals", Proposal(1, setup.Survey, setup.Zone, setup.Product))).StatusCode);
@@ -102,6 +102,11 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         Assert.Single(results, x => x.IsSuccessStatusCode); Assert.Single(results, x => x.StatusCode == HttpStatusCode.Conflict);
         var decision = await Data(results.Single(x => x.IsSuccessStatusCode));
         var requestId = decision.GetProperty("installationRequestId").GetInt32();
+        var lead = await db.Consultations.AsNoTracking().SingleAsync(x => x.Id == setup.Lead);
+        Assert.NotNull(lead.OwnerId); Assert.NotNull(lead.FarmId);
+        var owner = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).SingleAsync(x => x.Id == lead.OwnerId);
+        Assert.Equal(email, owner.Email); Assert.Equal("FarmOwner", Assert.Single(owner.UserRoles).Role.Name);
+        Assert.True(await db.UserFarms.AnyAsync(x => x.UserId == owner.Id && x.FarmId == lead.FarmId));
         Assert.Equal(InstallationRequestStatus.APPROVED, (await db.InstallationRequests.AsNoTracking().SingleAsync(x => x.Id == requestId)).Status);
         Assert.Single(await db.InstallationRequests.Where(x => x.ProposalId == setup.Proposal).ToArrayAsync());
         // Existing assignment API is available immediately after this one approval.
@@ -130,13 +135,17 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync($"/api/consultations/{setup.Lead}/proposals/{setup.Proposal}/submit-installation", new { })).StatusCode);
     }
     [Fact]
-    public async Task Existing_admin_email_cannot_be_converted_into_customer_and_submission_rolls_back()
+    public async Task Admin_email_cannot_be_converted_into_a_customer_at_approval()
     {
         using var engineer = await Login("engineer@example.com"); var setup = await Prepare(engineer);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await engineer.PostAsJsonAsync($"/api/installation-dossiers/{setup.Proposal}/submit", Submission("admin@example.com"))).StatusCode);
+        var path = $"/api/installation-dossiers/{setup.Proposal}";
+        await Data(await engineer.PostAsJsonAsync(path + "/submit", Submission("admin@example.com")));
+        using var admin = await Login("admin@example.com");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(path + "/review",
+            new { expectedRevision = 1, approve = true, note = "Check account eligibility" })).StatusCode);
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Null((await db.Consultations.SingleAsync(x => x.Id == setup.Lead)).FarmId);
-        Assert.Equal(ProposalStatus.DEPOSIT_CONFIRMED, (await db.DeviceProposals.SingleAsync(x => x.Id == setup.Proposal)).Status);
+        Assert.Equal(ProposalStatus.WAITING_ADMIN, (await db.DeviceProposals.SingleAsync(x => x.Id == setup.Proposal)).Status);
     }
     [Fact]
     public async Task Returned_dossier_keeps_old_bill_and_requires_a_new_revision()

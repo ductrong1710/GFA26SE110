@@ -14,7 +14,7 @@ public sealed record ProposalResponse(int Id, int ConsultationId, int SurveyId, 
     DateTimeOffset RequestedInstallationAt, string? Notes, string Status, int CreatedByUserId, DateTimeOffset CreatedAt,
     int? PlanConfirmedByUserId, DateTimeOffset? PlanConfirmedAt, string? PlanConfirmationNote,
     int? DepositConfirmedByUserId, DateTimeOffset? DepositConfirmedAt, string? DepositConfirmationNote, IReadOnlyList<ProposalLineResponse> Lines,
-    IReadOnlyList<EvidenceImageData> DepositBills, DateTimeOffset? DossierSubmittedAt, string? DossierReviewNote);
+    IReadOnlyList<EvidenceImageData> DepositBills, DateTimeOffset? DossierSubmittedAt, string? DossierReviewNote, string? DossierCustomerName, string? DossierCustomerEmail);
 public sealed record InstallationRequestResponse(int Id, int ProposalId, int FarmId, int OwnerId, string Status, DateTimeOffset SubmittedAt);
 
 public sealed class ProposalValidator : AbstractValidator<ProposalRequest>

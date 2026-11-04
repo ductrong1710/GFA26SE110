@@ -4,11 +4,7 @@
 
 Consultation, device agreement and travel-deposit payment happen outside the system.
 The engineer records the customer, garden, agreed devices/period/appointment and bill.
-Sending the dossier provisions the customer/farm when needed before notifying Admin.
-Admin only checks the complete dossier, returns it or approves and assigns a technician;
-Admin is not required to re-enter customer/farm data. No customer online confirmation.
-An assigned engineer may provision only a FarmOwner and a new farm within this scoped
-dossier transaction; this exception does not grant general user/farm-management access.
+The engineer submits customer details without granting account or farm access. On approval, Admin creates or reuses an eligible owner account and creates its farm/membership when the consultation was not previously linked. The binding and approved installation are committed together. Returning the dossier does not create an account.
 Existing administrator, engineer, mixed-role or inactive accounts cannot be reused as
 customers by this operation. Account creation does not reveal or overwrite passwords.
 Pending dossiers cannot be superseded by edits; returned versions and bills remain
@@ -1098,3 +1094,7 @@ A Farm Owner can plan a mission for an entire authorized farm or a single zone o
 ### Survey and proposal location preservation
 
 Survey zones retain submitted proposed installation locations and optional nonnegative crop ages. Proposal lines retain submitted installation locations, as required by the updated SRS. These values remain available alongside the published product price snapshot.
+
+### Mission ownership on shared farms
+
+An owner must be the recorded mission creator and a current member of its farm to read a mission, its launch state, results, telemetry or collection attempts. The same scope applies to mission filters, lists, mission reports and dashboard counts. Admin reads across owners. A device support request may only link a mission created by the reporting owner.

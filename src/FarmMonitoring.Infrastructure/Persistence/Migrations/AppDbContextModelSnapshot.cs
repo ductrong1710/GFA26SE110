@@ -819,6 +819,16 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("deposit_confirmed_by_user_id");
 
+                    b.Property<string>("DossierCustomerEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("dossier_customer_email");
+
+                    b.Property<string>("DossierCustomerName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("dossier_customer_name");
+
                     b.Property<string>("DossierReviewNote")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")

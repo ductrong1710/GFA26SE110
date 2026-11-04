@@ -20,7 +20,7 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock, Rental
         var farmRows = db.Farms.AsNoTracking().ForFarms(db, scope, x => x.Id);
         if (farmId.HasValue) farmRows = farmRows.Where(x => x.Id == farmId);
         var farmIds = farmRows.Select(x => x.Id);
-        var missionRows = db.Missions.AsNoTracking().Where(x => farmIds.Contains(x.FarmId));
+        var missionRows = FarmAccessQuery.VisibleMissions(db, scope).Where(x => farmIds.Contains(x.FarmId));
         var alertRows = db.Alerts.AsNoTracking().ForFarms(db, scope, FarmAccessQuery.AlertFarm);
         if (farmId.HasValue) alertRows = AlertsInFarm(alertRows, farmId.Value);
         var gatewayRows = db.Gateways.AsNoTracking();
@@ -102,7 +102,7 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock, Rental
     }
     public async Task<PagedResult<MissionReportRow>> MissionsAsync(ReportQuery query, ReportPeriod period, FarmAccessScope scope, CancellationToken ct)
     {
-        var rows = db.Missions.AsNoTracking().ForFarms(db, scope, x => x.FarmId).Where(x => x.CreatedAt >= period.From && x.CreatedAt <= period.To);
+        var rows = FarmAccessQuery.VisibleMissions(db, scope).Where(x => x.CreatedAt >= period.From && x.CreatedAt <= period.To);
         if (query.FarmId.HasValue) rows = rows.Where(x => x.FarmId == query.FarmId);
         if (!string.IsNullOrWhiteSpace(query.Search)) rows = rows.Where(x => x.Name.Contains(query.Search.Trim()));
         var count = await rows.CountAsync(ct);

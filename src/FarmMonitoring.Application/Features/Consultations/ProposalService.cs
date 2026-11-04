@@ -46,5 +46,5 @@ public sealed class ProposalService(IProposalRepository repository, Consultation
         x.RequestedInstallationAt, x.Notes, x.Status.ToString(), x.CreatedByUserId, x.CreatedAt, x.PlanConfirmedByUserId,
         x.PlanConfirmedAt, x.PlanConfirmationNote, x.DepositConfirmedByUserId, x.DepositConfirmedAt, x.DepositConfirmationNote,
         x.Lines.OrderBy(l => l.Id).Select(l => new ProposalLineResponse(l.Id, l.SurveyZoneId, l.DeviceType, l.Quantity, l.InstallationLocation, l.PublicContentId, l.PriceRevision, l.MonthlyRentVnd, l.ProductName)).ToArray(),
-        System.Text.Json.JsonSerializer.Deserialize<EvidenceImageData[]>(x.DepositBillsJson ?? "[]") ?? [], x.DossierSubmittedAt, x.DossierReviewNote);
+        System.Text.Json.JsonSerializer.Deserialize<EvidenceImageData[]>(x.DepositBillsJson ?? "[]") ?? [], x.DossierSubmittedAt, x.DossierReviewNote, x.DossierCustomerName, x.DossierCustomerEmail);
 }

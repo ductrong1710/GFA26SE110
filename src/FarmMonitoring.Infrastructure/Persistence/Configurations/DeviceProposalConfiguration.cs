@@ -25,6 +25,8 @@ public sealed class DeviceProposalConfiguration : IEntityTypeConfiguration<Devic
         b.Property(x => x.DepositConfirmedAt).HasColumnName("deposit_confirmed_at");
         b.Property(x => x.DepositConfirmationNote).HasColumnName("deposit_confirmation_note").HasMaxLength(2000);
         b.Property(x => x.CreatedAt).HasColumnName("created_at");
+        b.Property(x => x.DossierCustomerName).HasColumnName("dossier_customer_name").HasMaxLength(150);
+        b.Property(x => x.DossierCustomerEmail).HasColumnName("dossier_customer_email").HasMaxLength(255);
         b.Property(x => x.DepositBillsJson).HasColumnName("deposit_bills_json").HasColumnType("jsonb");
         b.Property(x => x.DossierSubmittedAt).HasColumnName("dossier_submitted_at");
         b.Property(x => x.DossierReviewNote).HasColumnName("dossier_review_note").HasMaxLength(2000);

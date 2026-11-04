@@ -754,11 +754,7 @@ Do NOT:
 
 ## Farm-level access control
 
-Scoped dossier exception (2026-11-03): the assigned FarmEngineer may record a
-FarmOwner customer and create that customer's new farm/membership only when sending
-an installation dossier with a valid external deposit bill. This does not grant
-general user/farm management APIs. Admin receives a complete linked dossier to review
-and assign; no Admin customer/farm data-entry step is required by this workflow.
+For installation dossiers the assigned engineer records the customer details and external deposit bill. Only administrator approval may create the owner account, farm and membership from those details. Returning a dossier leaves account access unchanged.
 
 ROLE AUTHORIZATION answers "What is the user allowed to do?" FARM AUTHORIZATION answers "Which farm is the user allowed to do it on?" Both checks apply to human farm-scoped endpoints; the six-role-policy matrix above remains unchanged.
 
@@ -790,3 +786,7 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 Migration `20261028065024_UpdatedOperationalRoles` adds Technician without converting legacy operator accounts. Legacy role rows and memberships remain inert audit data. Only explicit administrator assignment grants Technician. Downgrade preserves assigned Technician rows; re-upgrade is idempotent. No application database migration has been run by this task.
 
 Engineer/Technician job context and rental-based device scoping remain pending subsequent phases; the current generic farm API intentionally denies these roles. Device credentials and sample administrator provisioning are unchanged.
+
+### Mission ownership on shared farms
+
+An owner must be the recorded mission creator and a current member of its farm to read a mission, its launch state, results, telemetry or collection attempts. The same scope applies to mission filters, lists, mission reports and dashboard counts. Admin reads across owners. A device support request may only link a mission created by the reporting owner.
