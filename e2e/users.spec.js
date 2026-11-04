@@ -1,0 +1,40 @@
+import { expect, test } from '@playwright/test'
+
+test('administrator creates, edits, changes roles and locks a user', async ({ page, request }) => {
+  const api = process.env.E2E_API_URL
+  if (api !== 'http://127.0.0.1:5189' || !process.env.TEST_POSTGRES_CONNECTION) throw new Error('Use the disposable PostgreSQL harness.')
+  const email = 'role-change@example.test'
+  const password = process.env.SEED_ADMIN_PASSWORD
+  await page.goto('/dang-nhap')
+  await page.getByLabel('Email', { exact: true }).fill('admin@sep.local')
+  await page.locator('input[name=password]').fill('123456')
+  await page.locator('button[type=submit]').click()
+  await expect(page).toHaveURL(/\/app\/dashboard$/)
+  await page.goto('/app/users')
+  await page.getByRole('button', { name: '+ Add User' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Name', { exact: true }).fill('Orchard inspector')
+  await dialog.getByLabel('Email', { exact: true }).fill(email)
+  await dialog.getByLabel('Initial password').fill(password)
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  const row = page.getByRole('row').filter({ hasText: email })
+  await row.getByRole('button', { name: 'Edit Orchard inspector' }).click()
+  await dialog.getByLabel('Name', { exact: true }).fill('Dock technician')
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await row.getByRole('button', { name: 'Assign role to Dock technician' }).click()
+  await dialog.getByLabel('Farm Owner').uncheck()
+  await dialog.getByLabel('Technician', { exact: true }).check()
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(row.getByText('Technician', { exact: true })).toBeVisible()
+  const login = () => request.post(api + '/api/auth/login', { data: { email, password } })
+  const signedIn = await login()
+  expect(signedIn.ok()).toBeTruthy()
+  const token = (await signedIn.json()).data.accessToken
+  const me = () => request.get(api + '/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
+  expect((await (await me()).json()).data.roles).toEqual(['Technician'])
+  await row.getByRole('button', { name: 'Deactivate Dock technician' }).click()
+  await dialog.getByRole('button', { name: 'Deactivate', exact: true }).click()
+  await expect(row.getByRole('button', { name: 'Activate Dock technician', exact: true })).toBeVisible()
+  expect((await login()).status()).toBe(401)
+  expect((await me()).status()).toBe(401)
+})

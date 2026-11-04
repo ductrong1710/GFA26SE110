@@ -1,4 +1,4 @@
-param([string]$Configuration = 'Release')
+param([string]$Configuration = 'Release', [ValidatePattern('^[a-z0-9-]+\.spec\.js$')][string]$Spec)
 $ErrorActionPreference = 'Stop'
 foreach ($port in @(5179, 5189)) {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
@@ -45,7 +45,8 @@ try {
     }
     if (!$ready) { throw 'Browser API did not become ready.' }
     Set-Location $frontend
-    node node_modules/@playwright/test/cli.js test
+    $specArgs = @(if ($Spec) { "e2e/$Spec" })
+    node node_modules/@playwright/test/cli.js test @specArgs
     if ($LASTEXITCODE -ne 0) { throw 'Browser tests failed. Inspect frontend/test-results.' }
 }
 finally {

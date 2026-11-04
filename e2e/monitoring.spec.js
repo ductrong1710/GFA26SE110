@@ -36,8 +36,10 @@ test('owner reads synchronized measurements and compares sensors while admin mai
     await tab.goto('/dang-nhap')
     await tab.getByLabel('Email', { exact: true }).fill(email)
     await tab.locator('input[name=password]').fill(secret)
+    const signedIn = tab.waitForResponse(res => res.request().method() === 'POST' && res.url().endsWith('/api/auth/login'))
     await tab.locator('button[type=submit]').click()
-    await expect(tab.getByRole('button', { name: /^Account:/ })).toBeVisible()
+    expect((await signedIn).ok()).toBeTruthy()
+    await expect(tab.getByRole('button', { name: /^Account:/ })).toBeVisible({ timeout: 15000 })
   }
   await login(page, owner.email, password)
   await page.goto('/app/sensors/' + devices[0].id)
@@ -67,5 +69,31 @@ test('owner reads synchronized measurements and compares sensors while admin mai
     await admin.reload()
     await admin.getByRole('button', { name: 'Threshold history' }).click()
     await expect(admin.getByRole('table', { name: 'Recorded threshold settings' }).getByRole('cell', { name: '35', exact: true })).toBeVisible()
+    const at = new Date().toISOString()
+    const abnormal = await request.post(base + '/api/device/gateways/' + gateway.id + '/sync', {
+      headers: { 'X-Gateway-Code': gateway.code, 'X-Api-Key': credential.apiKey },
+      data: { batchKey: 'above-threshold', records: [{ sensorNodeCode: devices[0].code, channelCode: 'temperature',
+        sourceRecordKey: 'hot-orchard', measuredAt: at, collectedAt: at, value: 40 }] },
+    })
+    expect(abnormal.ok()).toBeTruthy()
+    async function openAlert(tab) {
+      await tab.goto('/app/alerts')
+      await tab.getByRole('table', { name: 'Alert management' }).getByRole('row').filter({ hasText: 'Sensor #' + devices[0].id }).getByRole('button').click()
+      return tab.getByRole('dialog', { name: 'Alert details' })
+    }
+    const ownerAlert = await openAlert(page)
+    await expect(ownerAlert.getByRole('button', { name: 'Acknowledge' })).toHaveCount(0)
+    const adminAlert = await openAlert(admin)
+    await adminAlert.getByRole('button', { name: 'Acknowledge' }).click()
+    await expect(adminAlert.getByRole('region', { name: 'Alert history' }).getByText('Acknowledged', { exact: true })).toBeVisible()
+    await adminAlert.getByLabel('Handling note').fill('Checked orchard thermometer')
+    await adminAlert.getByRole('button', { name: 'Add Handling Note' }).click()
+    await expect(adminAlert.getByText('Checked orchard thermometer', { exact: true })).toBeVisible()
+    await adminAlert.getByRole('button', { name: 'Close Alert' }).click()
+    await expect(adminAlert.getByRole('region', { name: 'Alert history' }).getByText('Closed', { exact: true })).toBeVisible()
+    const history = (await openAlert(page)).getByRole('region', { name: 'Alert history' })
+    for (const action of ['Alert detected', 'Acknowledged', 'Handling note', 'Closed', 'Checked orchard thermometer']) {
+      await expect(history.getByText(action, { exact: true })).toBeVisible()
+    }
   } finally { await admin.close() }
 })
