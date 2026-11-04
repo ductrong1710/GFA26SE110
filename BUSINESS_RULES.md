@@ -28,9 +28,7 @@ free slot, then creates assigned work. These are explicit scheduling assumptions
 not route planning, shift hours or leave management.
 
 Installation and service reports require signed paper evidence. The linked Farm Owner must confirm the latest report before Admin can approve it. Admin can return a submitted report for rework.
-Installation approval atomically creates a rental for the next Vietnam calendar
-day after actual completed handover. Worker activates due drafts; historical rentals
-are unchanged. Catalog price edits never mutate snapshotted proposal/service prices.
+Installation approval creates a draft with a suggested start on the next Vietnam calendar day. Admin can confirm or change the start within the handover day or later. A confirmed draft activates when due. Until then, or until Admin explicitly activates a due draft, rented UAVs cannot be used for missions. Catalog price edits never mutate snapshotted proposal/service prices.
 Rental total is the initial agreed period, not received revenue or renewal totals.
 
 ServicePlan lifecycle: PROPOSED -> APPROVED -> EXECUTED -> APPLIED, or PROPOSED ->

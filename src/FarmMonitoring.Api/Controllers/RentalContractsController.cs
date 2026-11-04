@@ -22,6 +22,10 @@ public sealed class RentalContractsController(RentalService service) : Controlle
         var row = await service.CreateAsync(jobId, request, ct);
         return CreatedAtAction(nameof(Get), new { id = row.Id }, ApiResponse<RentalDetail>.Ok(row));
     }
+    [HttpPost("{id:int}/confirm-start")]
+    [Authorize(Policy = AccessPolicies.ReviewInstallations)]
+    public async Task<ActionResult<ApiResponse<RentalDetail>>> ConfirmStart(int id, ConfirmRentalStartRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<RentalDetail>.Ok(await service.ConfirmStartAsync(id, request, ct)));
     [HttpPost("{id:int}/activate")]
     [Authorize(Policy = AccessPolicies.ReviewInstallations)]
     public async Task<ActionResult<ApiResponse<RentalDetail>>> Activate(int id, RentalActionRequest request, CancellationToken ct) => Ok(ApiResponse<RentalDetail>.Ok(await service.ActivateAsync(id, request, ct)));

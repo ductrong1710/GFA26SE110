@@ -43,9 +43,7 @@ without a separate claim. The new lead list/dashboard expose no claim/shift KPI.
 
 Installation reports require `paperwork.contract` and `.handover` image arrays;
 optional `.bills`, `.paperContractNumber`, and `completedAt`. The linked owner must confirm the submitted handover before Admin approval. Successful final approval creates a rental
-atomically, starting midnight UTC+7 on the day after actual completion, ending after
-the agreed months. Do not call create-rental again. The rental worker activates due
-drafts. Detail adds `priceLines`, initial-period `totalRentVnd`, `paperworkJson`.
+atomically with a suggested start at midnight UTC+7 after handover. Admin may activate a due draft immediately, or schedule it via `POST /api/rental-contracts/{id}/confirm-start` with `expectedRevision`, `startAt` and `note`. Confirming a start recalculates the end using the agreed number of calendar months. The worker activates due drafts only after a recorded Admin confirmation. Detail adds `priceLines`, initial-period `totalRentVnd`, `paperworkJson`.
 
 Device incidents accept a null assignment with required `farmId`; no serial/photo
 required. Admin must identify a current assignment before creating its service job.

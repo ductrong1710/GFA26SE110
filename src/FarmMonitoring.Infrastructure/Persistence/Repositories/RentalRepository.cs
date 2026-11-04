@@ -77,7 +77,7 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         History(rental, "CREATED", actorId, request.Note, now); db.RentalContracts.Add(rental);
         await db.SaveChangesAsync(ct); return rental.Id;
     }
-    public async Task ChangeAsync(int id, int actorId, string action, int expectedRevision, string note, DateTimeOffset? endAt, DateTimeOffset now, CancellationToken ct)
+    public async Task ChangeAsync(int id, int actorId, string action, int expectedRevision, string note, DateTimeOffset? agreedDate, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await FlightReservation.LockAsync(db, ct);
@@ -87,16 +87,28 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         await db.Entry(rental).Collection(x => x.Devices).LoadAsync(ct);
         if (rental.Revision != expectedRevision) throw new ConflictException("Rental changed. Reload the latest revision.");
         if (rental.Status == RentalStatus.ENDED) throw new ConflictException("Ended contracts cannot be changed.");
-        if (action == "ACTIVATED")
+        if (action == "START_CONFIRMED")
+        {
+            if (rental.Status != RentalStatus.DRAFT || agreedDate is null) throw new ConflictException("Only a draft rental can change its agreed start.");
+            var agreement = await db.InstallationReports.Where(x => x.JobId == rental.InstallationJobId && x.Approved == true)
+                .Select(x => new { Handover = x.CompletedAt ?? x.CreatedAt, x.Job.InstallationRequest.Proposal.RentalMonths }).SingleAsync(ct);
+            var vietnam = TimeSpan.FromHours(7);
+            if (agreedDate.Value.ToOffset(vietnam).Date < agreement.Handover.ToOffset(vietnam).Date)
+                throw new BusinessRuleException("Rental cannot start before the installation handover date.");
+            var agreedEnd = agreedDate.Value.ToOffset(vietnam).AddMonths(agreement.RentalMonths).ToUniversalTime();
+            if (agreedEnd <= now) throw new BusinessRuleException("The agreed rental period has already ended.");
+            rental.StartAt = agreedDate.Value; rental.EndAt = agreedEnd;
+        }
+        else if (action == "ACTIVATED")
         {
             if (rental.Status != RentalStatus.DRAFT || rental.StartAt > now || rental.EndAt <= now) throw new ConflictException("Activation requires a draft within its agreed rental period.");
             await EnsureEligibleAsync(rental, ct); rental.Status = RentalStatus.ACTIVE;
         }
         else if (action == "EXTENDED")
         {
-            if (rental.Status is not (RentalStatus.ACTIVE or RentalStatus.EXPIRED) || endAt is null || endAt <= rental.EndAt || endAt <= now)
+            if (rental.Status is not (RentalStatus.ACTIVE or RentalStatus.EXPIRED) || agreedDate is null || agreedDate <= rental.EndAt || agreedDate <= now)
                 throw new ConflictException("Extend an active or expired rental to a later confirmed end date.");
-            await EnsureEligibleAsync(rental, ct); rental.EndAt = endAt.Value; rental.WarnedForEndAt = null; rental.Status = RentalStatus.ACTIVE;
+            await EnsureEligibleAsync(rental, ct); rental.EndAt = agreedDate.Value; rental.WarnedForEndAt = null; rental.Status = RentalStatus.ACTIVE;
         }
         else if (action == "ENDED")
         {
@@ -122,7 +134,7 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         var warningAt = now.AddDays(warningDays);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await FlightReservation.LockAsync(db, ct);
-        var starting = await db.RentalContracts.FromSqlInterpolated($"SELECT * FROM rental_contracts WHERE status = 'DRAFT' AND start_at <= {now} AND end_at > {now} ORDER BY id LIMIT {batchSize} FOR UPDATE SKIP LOCKED").ToArrayAsync(ct);
+        var starting = await db.RentalContracts.FromSqlInterpolated($"SELECT * FROM rental_contracts r WHERE status = 'DRAFT' AND start_at <= {now} AND end_at > {now} AND EXISTS (SELECT 1 FROM rental_history h WHERE h.contract_id = r.id AND h.action = 'START_CONFIRMED') ORDER BY id LIMIT {batchSize} FOR UPDATE SKIP LOCKED").ToArrayAsync(ct);
         foreach (var rental in starting)
         {
             await db.Entry(rental).Collection(x => x.Devices).LoadAsync(ct);

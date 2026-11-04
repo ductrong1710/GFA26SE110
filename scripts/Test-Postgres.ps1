@@ -53,7 +53,7 @@ try {
     & $Dotnet build --no-restore --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw 'dotnet build failed.' }
     if ($BrowserTests) {
-        & (Join-Path $backendRoot '../frontend/scripts/Test-Browser.ps1') -Configuration $Configuration -PostgresBin $PostgresBin
+        & (Join-Path $backendRoot '../frontend/scripts/Test-Browser.ps1') -Configuration $Configuration
         return
     }
     $filterArguments = if ($Filter) { @('--filter', $Filter) } else { @() }

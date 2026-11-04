@@ -7,6 +7,7 @@ namespace FarmMonitoring.Application.Features.Rentals;
 
 public sealed record CreateRentalRequest(DateTimeOffset StartAt, DateTimeOffset EndAt, string Note);
 public sealed record RentalActionRequest(int ExpectedRevision, string Note);
+public sealed record ConfirmRentalStartRequest(int ExpectedRevision, DateTimeOffset StartAt, string Note);
 public sealed record ExtendRentalRequest(int ExpectedRevision, DateTimeOffset EndAt, string Note);
 public sealed record EndRentalRequest(int ExpectedRevision, string Note, bool DevicesReturned);
 public sealed record RentalSummary(int Id, int InstallationJobId, int FarmId, int OwnerId, DateTimeOffset StartAt, DateTimeOffset EndAt, string Status, int Revision);
@@ -55,6 +56,14 @@ public sealed class RentalService(IRentalRepository repository, ICurrentUser cur
     {
         await creates.ValidateAndThrowAsync(request, ct);
         var id = await repository.CreateAsync(jobId, Actor, request with { StartAt = request.StartAt.ToUniversalTime(), EndAt = request.EndAt.ToUniversalTime() }, clock.GetUtcNow(), ct);
+        return await GetAsync(id, ct);
+    }
+    public async Task<RentalDetail> ConfirmStartAsync(int id, ConfirmRentalStartRequest request, CancellationToken ct)
+    {
+        await actions.ValidateAndThrowAsync(new RentalActionRequest(request.ExpectedRevision, request.Note), ct);
+        if (request.StartAt == default || request.StartAt.Year > 9988) throw new ValidationException("Choose a valid agreed rental start.");
+        await repository.ChangeAsync(id, Actor, "START_CONFIRMED", request.ExpectedRevision, request.Note,
+            request.StartAt.ToUniversalTime(), clock.GetUtcNow(), ct);
         return await GetAsync(id, ct);
     }
     public async Task<RentalDetail> ActivateAsync(int id, RentalActionRequest request, CancellationToken ct)
