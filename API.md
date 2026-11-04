@@ -43,8 +43,7 @@ installation position. The first recorded survey/follow-up can establish context
 without a separate claim. The new lead list/dashboard expose no claim/shift KPI.
 
 Installation reports require `paperwork.contract` and `.handover` image arrays;
-optional `.bills`, `.paperContractNumber`, and `completedAt`. Paper approval does not
-require owner online confirmation. Successful final approval creates a rental
+optional `.bills`, `.paperContractNumber`, and `completedAt`. The linked owner must confirm the submitted handover before Admin approval. Successful final approval creates a rental
 atomically, starting midnight UTC+7 on the day after actual completion, ending after
 the agreed months. Do not call create-rental again. The rental worker activates due
 drafts. Detail adds `priceLines`, initial-period `totalRentVnd`, `paperworkJson`.
@@ -54,7 +53,7 @@ required. Admin must identify a current assignment before creating its service j
 Immediate `/replacements` now rejects with 409. Create a plan (published price lines,
 quantity, warranty reason and optional typed device target), Admin review, then
 execute with signed paper agreement and old/new device images for a physical
-exchange. Service reports require `signedHandover` and an EXECUTED plan. Final Admin
+exchange. Service reports require `signedHandover` and an EXECUTED plan. After the linked owner confirms operation, final Admin
 approval alone applies equipment changes and closes the job atomically. Plan actions
 use the job's `expectedRevision`, not a separate plan revision. No online signature,
 stock mutation, payment processing or accounting is introduced.

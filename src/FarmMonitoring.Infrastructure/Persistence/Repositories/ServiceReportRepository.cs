@@ -72,7 +72,7 @@ public sealed class ServiceReportRepository(AppDbContext db, ServiceReplacementR
         else
         {
             if (action is not ("approve" or "return")) throw new BusinessRuleException("Unsupported service decision.");
-            if (action == "approve" && (job.Status is not (ServiceJobStatus.OWNER_CONFIRMED or ServiceJobStatus.REPORT_SUBMITTED) || report.PaperworkJson is null)) throw new ConflictException("Signed paper handover is required.");
+            if (action == "approve" && (job.Status != ServiceJobStatus.OWNER_CONFIRMED || report.PaperworkJson is null)) throw new ConflictException("Owner confirmation and signed handover are required.");
             if (action == "return" && job.Status is not (ServiceJobStatus.REPORT_SUBMITTED or ServiceJobStatus.OWNER_CONFIRMED)) throw new ConflictException("Only a submitted report can be returned.");
             if (action == "approve" && (!report.ConnectivityPassed || !report.OperationPassed)) throw new BusinessRuleException("Resolve failed device checks before approval.");
             if (action == "approve")

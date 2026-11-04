@@ -82,7 +82,7 @@ public sealed class InstallationReportRepository(AppDbContext db) : IInstallatio
         else
         {
             if (action is not ("approve" or "return")) throw new BusinessRuleException("Unsupported installation decision.");
-            if (action == "approve" && (job.Status is not (InstallationJobStatus.OWNER_CONFIRMED or InstallationJobStatus.REPORT_SUBMITTED) || report.PaperworkJson is null)) throw new ConflictException("Signed paper contract and handover are required.");
+            if (action == "approve" && (job.Status != InstallationJobStatus.OWNER_CONFIRMED || report.PaperworkJson is null)) throw new ConflictException("Owner confirmation and signed contract and handover are required.");
             if (action == "return" && job.Status is not (InstallationJobStatus.REPORT_SUBMITTED or InstallationJobStatus.OWNER_CONFIRMED)) throw new ConflictException("Only a submitted report can be returned.");
             if (action == "approve" && report.Devices.Any(d => !d.AccessoriesChecked || !d.ConnectivityPassed || !d.OperationPassed)) throw new BusinessRuleException("Resolve failed device checks before approval.");
             report.ReviewedByUserId = actorId; report.ReviewedAt = now; report.ReviewNote = request.Note.Trim(); report.Approved = action == "approve";

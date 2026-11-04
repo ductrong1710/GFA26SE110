@@ -105,7 +105,7 @@ public class DeviceIncidentTests(ApiFactory factory)
         var otherJob = await Data(await admin.PostAsJsonAsync($"/api/device-incidents/{otherIncident.GetProperty("id").GetInt32()}/jobs", assignmentRequest with {scheduledAt=appointment.AddDays(5)}));
         Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/service-jobs/{otherJob.GetProperty("id").GetInt32()}/reports/{reportId}")).StatusCode);
         var decision = new { expectedRevision = 5, reportId, note = "Reviewed submitted checks" };
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(jobPath + "/approve", decision)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/approve", decision)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await replacement.PostAsJsonAsync(jobPath + "/confirm-operation", decision)).StatusCode);
         (await admin.DeleteAsync($"/api/farms/{farm.Id}/members/{ownerId}")).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(jobPath + "/confirm-operation", decision)).StatusCode);

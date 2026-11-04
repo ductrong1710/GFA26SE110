@@ -292,7 +292,7 @@ public sealed class ConsultationTests(ApiFactory factory)
         var reportResult = await secondTech.PostAsJsonAsync(jobPath + "/reports", Report(5, connectivityPassed: false));
         Assert.Equal(HttpStatusCode.Created, reportResult.StatusCode);
         var reportId = (await reportResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(jobPath + "/approve", new { expectedRevision = 6, reportId, note = "Failed checks prevent approval despite paper evidence" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(jobPath + "/approve", new { expectedRevision = 6, reportId, note = "Owner has not confirmed the handover" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await secondTech.PostAsJsonAsync(jobPath + "/confirm-handover", new { expectedRevision = 6, reportId, note = "Cannot self-confirm" })).StatusCode);
         (await owner.PostAsJsonAsync(jobPath + "/confirm-handover", new { expectedRevision = 6, reportId, note = "Handover received" })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync(jobPath + "/approve", new { expectedRevision = 7, reportId, note = "Cannot approve failed connectivity" })).StatusCode);

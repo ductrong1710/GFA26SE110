@@ -31,7 +31,7 @@ and notifications. Scheduled maintenance keeps its configured technician, finds 
 free slot, then creates assigned work. These are explicit scheduling assumptions,
 not route planning, shift hours or leave management.
 
-Installation/service use signed paper evidence, not mandatory owner online actions.
+Installation and service reports require signed paper evidence. The linked Farm Owner must confirm the latest report before Admin can approve it. Admin can return a submitted report for rework.
 Installation approval atomically creates a rental for the next Vietnam calendar
 day after actual completed handover. Worker activates due drafts; historical rentals
 are unchanged. Catalog price edits never mutate snapshotted proposal/service prices.

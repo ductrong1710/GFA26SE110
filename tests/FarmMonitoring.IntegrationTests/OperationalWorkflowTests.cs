@@ -50,19 +50,24 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         var report=await Data(await technician.PostAsJsonAsync(path+"/reports",new{expectedRevision=4,cause="Broken antenna",work="Replace and test",components="Antenna",testResults="Passed",notes="Paper signed",connectivityPassed=true,operationPassed=true,signedHandover=new[]{Image}}));
         Assert.Null((await db.RentalDeviceAssignments.AsNoTracking().SingleAsync(x=>x.Id==assignment.Id)).ReturnedAt);
         var reportId=report.GetProperty("id").GetInt32();
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(path + "/approve",
+            new { expectedRevision = 5, reportId, note = "Signed documents only" })).StatusCode);
+        Assert.Equal(ServiceJobStatus.REPORT_SUBMITTED, await db.ServiceJobs.Where(x => x.Id == job.Id).Select(x => x.Status).SingleAsync());
+        await Data(await owner.PostAsJsonAsync(path + "/confirm-operation",
+            new { expectedRevision = 5, reportId, note = "Operation checked by owner" }));
         var ownerId=(await db.Users.SingleAsync(x=>x.Email=="owner@example.com")).Id;
         var mission=new Mission{FarmId=farm.Id,UavId=old.Id,Name="Active flight blocks replacement",Status=MissionStatus.RUNNING,CreatedByUserId=ownerId,CreatedAt=DateTimeOffset.UtcNow};db.Missions.Add(mission);await db.SaveChangesAsync();
-        Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=5,reportId,note="Flight still active"})).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Flight still active"})).StatusCode);
         Assert.Equal(ServicePlanStatus.EXECUTED,(await db.ServicePlans.AsNoTracking().SingleAsync(x=>x.Id==planId)).Status);
         Assert.Null((await db.RentalDeviceAssignments.AsNoTracking().SingleAsync(x=>x.Id==assignment.Id)).ReturnedAt);
         await db.Missions.Where(x=>x.Id==mission.Id).ExecuteUpdateAsync(x=>x.SetProperty(m=>m.Status,MissionStatus.COMPLETED));
-        var attempts=await Task.WhenAll(admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=5,reportId,note="Signed papers, price and tests verified"}),admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=5,reportId,note="Concurrent approval"}));
+        var attempts=await Task.WhenAll(admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Signed papers, price and tests verified"}),admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Concurrent approval"}));
         Assert.Single(attempts,x=>x.IsSuccessStatusCode);Assert.Single(attempts,x=>x.StatusCode==HttpStatusCode.Conflict);
         var approved=await Data(attempts.Single(x=>x.IsSuccessStatusCode));
         Assert.Equal("CLOSED",approved.GetProperty("status").GetString());Assert.Equal(next.Code,approved.GetProperty("currentDeviceCode").GetString());
         Assert.NotNull((await db.RentalDeviceAssignments.AsNoTracking().SingleAsync(x=>x.Id==assignment.Id)).ReturnedAt);
         Assert.False((await db.Uavs.AsNoTracking().SingleAsync(x=>x.Id==old.Id)).IsActive);
-        Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=5,reportId,note="Duplicate"})).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=6,reportId,note="Duplicate"})).StatusCode);
         Assert.Single(await db.ServiceDeviceReplacements.Where(x=>x.JobId==job.Id).ToArrayAsync());
         await Data(await admin.GetAsync($"/api/operations/device-history?code={old.Code}"));
     }
@@ -92,7 +97,14 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         await Data(await admin.PutAsJsonAsync(path+"/devices",new{expectedRevision=3,note="Allocated",devices=new[]{new{proposalLineId=lineId,uavId=uav.Id}}}));
         await Data(await tech.GetAsync($"/api/operations/installation/{jobId}/installed-devices"));
         var report=await Data(await tech.PostAsJsonAsync(path+"/reports",new{expectedRevision=4,notes="Tested and handed over",devices=new[]{new{proposalLineId=lineId,uavId=uav.Id,installationLocation="Actual surveyed position",accessoriesChecked=true,connectivityPassed=true,operationPassed=true,testResults="Passed"}},paperwork=new{contract=new[]{Image},handover=new[]{Image},bills=new[]{Image},paperContractNumber="PAPER-01"}}));
-        var reportId=report.GetProperty("id").GetInt32();await Data(await admin.PostAsJsonAsync(path+"/approve",new{expectedRevision=5,reportId,note="Paper documents verified"}));
+        var reportId = report.GetProperty("id").GetInt32();
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(path + "/approve",
+            new { expectedRevision = 5, reportId, note = "Signed documents only" })).StatusCode);
+        Assert.False(await db.RentalContracts.AnyAsync(x => x.InstallationJobId == jobId));
+        await Data(await owner.PostAsJsonAsync(path + "/confirm-handover",
+            new { expectedRevision = 5, reportId, note = "Installation checked by owner" }));
+        await Data(await admin.PostAsJsonAsync(path + "/approve",
+            new { expectedRevision = 6, reportId, note = "Paper documents verified" }));
         var rental=await db.RentalContracts.AsNoTracking().SingleAsync(x=>x.InstallationJobId==jobId);Assert.Equal(OperationalRules.RentalStart(report.GetProperty("completedAt").GetDateTimeOffset()),rental.StartAt);
         var detail=await Data(await admin.GetAsync($"/api/rental-contracts/{rental.Id}"));Assert.Equal(3000000,detail.GetProperty("totalRentVnd").GetDecimal());
         await Data(await admin.GetAsync($"/api/operations/calendar?from={from}&to={to}"));
