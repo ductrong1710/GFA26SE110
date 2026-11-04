@@ -21,9 +21,9 @@ Compared with section 2.2.4 of Report3_Software_Requirement_Specification_Update
 | 15 | Owner / rental contracts | RentalContracts → scoped contract and assignments | Browser opens active contract and sees the assigned UAV. |
 | 16 | Admin / installation allocation and service review | InstallationDevices and service plans → allocation and replacement records | Browser saves allocation. OperationalWorkflowTests verifies replacement commits only at final approval. |
 | 17 | Owner / rental and device pages | RentalContracts and equipment reads → scoped assignment | Browser sees assigned equipment under contract. FarmScopeSecurityTests and MissionTests exercise owner boundaries. |
-| 18 | Owner or Admin / sensor detail | SensorData → stored readings by channel | Synced real readings reach history. Dedicated browser assertion for latest-value display outstanding. |
+| 18 | Owner or Admin / sensor detail | SensorData → stored readings by channel | Browser verifies the accepted value 21 in both latest readings and channel history. |
 | 19 | Owner or Admin / channel history | SensorData → chronological stored readings | Monitoring browser reads 21 from the seeded channel history. |
-| 20 | Owner or Admin / comparison | SensorData and analytics → type-filtered readings | Browser compares two sensors. Verify alignment across separate zones and mismatched units separately. |
+| 20 | Owner or Admin / comparison | SensorData and analytics → type-filtered readings | Browser verifies per-sensor and per-zone min/max/mean and counts for South orchard (21) and North orchard (27). Mixed measurement units and alignment of missing hours still require separate evidence. |
 | 21 | Admin / sensor configuration | ThresholdService → thresholds and change history | Browser writes maximum 35 and sees persisted history. Owner has no write control. ThresholdTests checks API boundaries. |
 | 22 | Owner or Admin / alerts | AlertService → alert, state history and private notifications | AlertTests verifies deduplication, timeout, battery and lifecycle. Admin/owner handling screens lack a dedicated browser scenario. |
 | 23 | Owner / incidents | DeviceIncidents → incident and evidence | Browser reports actual rented UAV fault. DeviceIncidentTests covers lost membership, returned equipment and report history. |
@@ -51,7 +51,7 @@ Compared with section 2.2.4 of Report3_Software_Requirement_Specification_Update
 | 45 | Admin or owner / dashboard | ReportService → scoped aggregates over persisted events | Admin browser sees repair, alert and mission meters. ReportTests checks current owner/farm scope. Audit each role's required chart and missing values. |
 | 46 | Registered gateway / sync API | Sync → batch, per-record outcomes and readings | SyncTests verifies retry and partial records. Monitoring browser setup sends real authenticated batch and checks resulting values. |
 | 47 | Registered UAV gateway / telemetry API | Telemetry → mission samples | TelemetryTests exercises identity, assignment and ordered history. Physical device path unverified. |
-| 48 | Email service / worker | EmailDeliveryService → notification delivery state and SMTP transport | EmailTests verifies worker and failure handling using a substitute sender. Actual SMTP acceptance outstanding. |
+| 48 | Email service / worker | EmailDeliveryService → notification delivery state and SMTP transport | EmailTests verifies worker and failure handling using a substitute sender. SmtpTransportTests sends from the production SMTP adapter to a loopback receiver and checks envelope addresses, subject and body. Deployment TLS and external mailbox receipt remain unverified. |
 
 Deployment availability, backup recovery, TLS, production response times, physical hardware and compatibility with Firefox and Chrome still require environment-specific evidence. The sample administrator provisioning remains the requested exception.
 
