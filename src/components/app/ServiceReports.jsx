@@ -43,7 +43,7 @@ export default function ServiceReports({ job, canConfirm, canReview, onUpdated }
       <p>Connectivity: {selected.connectivityPassed ? 'Passed' : 'Failed'} · Operation: {selected.operationPassed ? 'Passed' : 'Failed'}</p>
       <EvidenceImages images={selected.images} />
       {selected.paperworkJson && <PaperGroup label="Signed service handover" images={readPaper(selected.paperworkJson)} />}
-      {selected.replacement && <section aria-label="Reported replacement"><h4>Replacement recorded with this report</h4>
+      {selected.replacement && <section aria-label="Replacement history"><h4>Most recent device replacement at the time of this report</h4>
         <p>{selected.replacement.oldDeviceCode} → {selected.replacement.newDeviceCode}</p>
         <p>{displayTime(selected.replacement.createdAt)} · Technician #{selected.replacement.technicianId}</p><p>{selected.replacement.note}</p>
       </section>}

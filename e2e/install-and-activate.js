@@ -99,6 +99,6 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
     await runMission(ownerPage, farm, uav, gateway, sensor, true)
     await runMission(ownerPage, farm, uav, gateway, sensor)
     await repairDevice(ownerPage, admin, work, contractId, uav, tech.id)
-    await verifyMaintenance(admin, work, contractId, uav, tech.id)
+    await verifyMaintenance(ownerPage, admin, work, contractId, uav, tech.id)
   } finally { await employee.close(); await customer.close() }
 }

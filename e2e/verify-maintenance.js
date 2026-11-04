@@ -1,7 +1,8 @@
+import { completeService } from './complete-service'
 import { expect } from '@playwright/test'
 import { vietnamDateTimeInput } from '../src/utils/display.js'
 
-export async function verifyMaintenance(admin, technician, contractId, uav, technicianId) {
+export async function verifyMaintenance(owner, admin, technician, contractId, uav, technicianId) {
   await admin.goto('/app/maintenance-schedules')
   await admin.getByRole('button', { name: 'New schedule' }).click()
   await admin.getByLabel('Schedule scope').selectOption('DEVICE')
@@ -25,4 +26,8 @@ export async function verifyMaintenance(admin, technician, contractId, uav, tech
   const job = technician.getByRole('region', { name: 'Service job #' + jobId, exact: true })
   await expect(job.getByText('MAINTENANCE · ' + uav.code + ' · Farm #', { exact: false })).toBeVisible()
   await expect(job.getByRole('button', { name: 'Start service work' })).toBeVisible()
+  await completeService(owner, admin, technician, jobId, 1, 'Scheduled dock inspection', 'Inspect dock terminals and verify connectivity')
+  await admin.goto('/app/maintenance-schedules')
+  await admin.getByRole('button', { name: openSchedule }).click()
+  await expect(history.getByRole('row').filter({ hasText: uav.code }).getByRole('cell', { name: 'CLOSED', exact: true })).toBeVisible()
 }
