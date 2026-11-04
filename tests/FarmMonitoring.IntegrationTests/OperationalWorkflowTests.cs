@@ -87,6 +87,8 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         var product=(await Data(await admin.PostAsJsonAsync("/api/admin/public-content",new{kind="DEVICE",title="Rental UAV",body="UAV rental",estimatedMonthlyRentVnd=1000000,expectedRevision=0}))).GetProperty("id").GetInt32();await Data(await admin.PostAsJsonAsync($"/api/admin/public-content/{product}/publish",new{expectedRevision=1}));
         var proposal=await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/proposals",new{expectedRevision=0,surveyId=survey.GetProperty("id").GetInt32(),rentalMonths=3,requestedInstallationAt=DateTimeOffset.UtcNow.AddDays(2),lines=new[]{new{surveyZoneId=survey.GetProperty("zones")[0].GetProperty("id").GetInt32(),deviceType="UAV",quantity=1,publicContentId=product}}}));
         var proposalId=proposal.GetProperty("id").GetInt32();var basePath=$"/api/consultations/{lead}/proposals/{proposalId}";
+        await Data(await engineer.PostAsJsonAsync(basePath + "/confirm-plan", new { note = "Rental agreed externally" }));
+        await Data(await engineer.PostAsJsonAsync(basePath + "/confirm-deposit", new { note = "Deposit receipt verified" }));
         await Data(await engineer.PostAsJsonAsync($"/api/installation-dossiers/{proposalId}/submit",new{expectedRevision=1,note="Customer agreed and deposited externally",bills=new[]{Image}}));
         var request=await Data(await admin.PostAsJsonAsync($"/api/installation-dossiers/{proposalId}/review",new{expectedRevision=1,approve=true,note="Farm and bill checked"}));var requestId=request.GetProperty("installationRequestId").GetInt32();
         var start=DateTimeOffset.UtcNow.AddDays(2);var end=start.AddHours(2);

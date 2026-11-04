@@ -33,16 +33,13 @@ public sealed class InstallationDossierRepository(AppDbContext db, DossierCustom
         await LockActorAsync(actor, RoleNames.FarmEngineer, ct);
         var (proposal, consultation) = await LockProposalAsync(id, revision, ct);
         if (consultation.EngineerId != actor) throw new AccessDeniedException("Assigned engineer access required.");
-        if (proposal.Status is not (ProposalStatus.DRAFT or ProposalStatus.PLAN_CONFIRMED or ProposalStatus.DEPOSIT_CONFIRMED))
-            throw new ConflictException("This dossier has already been submitted.");
+        if (proposal.Status != ProposalStatus.DEPOSIT_CONFIRMED)
+            throw new ConflictException("Only a proposal with a confirmed plan and deposit can be submitted.");
         if (proposal.RequestedInstallationAt <= now) throw new BusinessRuleException("Requested installation time has passed. Revise the dossier.");
         if (!await db.Set<ProposalLine>().AnyAsync(x => x.ProposalId == id, ct)) throw new BusinessRuleException("Device information is required.");
         if (await db.InstallationRequests.AnyAsync(x => x.Proposal.ConsultationId == consultation.Id && x.Status != InstallationRequestStatus.RETURNED, ct))
             throw new ConflictException("Installation has already been submitted.");
         await customers.EnsureAsync(consultation, proposal.SurveyId, customer, now, ct);
-        // Both events happened externally. This single submission records their result, not an online payment.
-        proposal.PlanConfirmedByUserId = actor; proposal.PlanConfirmedAt = now; proposal.PlanConfirmationNote = note;
-        proposal.DepositConfirmedByUserId = actor; proposal.DepositConfirmedAt = now; proposal.DepositConfirmationNote = note;
         proposal.DepositBillsJson = JsonSerializer.Serialize(bills); proposal.DossierSubmittedAt = now;
         proposal.DossierReviewNote = null; proposal.Status = ProposalStatus.WAITING_ADMIN;
         History(consultation, actor, ConsultationAction.INSTALLATION_SUBMITTED, $"Dossier #{id} submitted with external deposit bill: {note}", now);

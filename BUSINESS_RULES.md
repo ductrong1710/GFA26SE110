@@ -14,7 +14,7 @@ customers by this operation. Account creation does not reveal or overwrite passw
 Pending dossiers cannot be superseded by edits; returned versions and bills remain
 available for audit. The latest revision and latest survey must be used. Final approval
 is serialized and creates exactly one approved installation request before assignment.
-This section supersedes the earlier separate plan/deposit confirmation flow.
+Record plan and deposit confirmations before dossier submission. Submitting a bill preserves both confirmation records.
 
 
 ### Operational workflow — 2026-11-03 (supersedes earlier conflicting checkpoints)

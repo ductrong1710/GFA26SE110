@@ -26,7 +26,7 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
     }
-    private async Task<(int Lead, int Proposal, int Survey, int Zone, int Product)> Prepare(HttpClient engineer)
+    private async Task<(int Lead, int Proposal, int Survey, int Zone, int Product)> Prepare(HttpClient engineer, bool confirmed = true)
     {
         using var guest = factory.CreateApiClient();
         var lead = (await Data(await guest.PostAsJsonAsync("/api/consultations", new {
@@ -43,7 +43,15 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         var surveyId = survey.GetProperty("id").GetInt32();
         var zone = survey.GetProperty("zones")[0].GetProperty("id").GetInt32();
         var proposal = await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/proposals", Proposal(0, surveyId, zone, product.Id)));
-        return (lead, proposal.GetProperty("id").GetInt32(), surveyId, zone, product.Id);
+        var proposalId = proposal.GetProperty("id").GetInt32();
+        if (confirmed) await Confirm(engineer, lead, proposalId);
+        return (lead, proposalId, surveyId, zone, product.Id);
+    }
+    private static async Task Confirm(HttpClient engineer, int lead, int proposal)
+    {
+        var path = $"/api/consultations/{lead}/proposals/{proposal}";
+        await Data(await engineer.PostAsJsonAsync(path + "/confirm-plan", new { note = "Customer agreed externally" }));
+        await Data(await engineer.PostAsJsonAsync(path + "/confirm-deposit", new { note = "External receipt checked" }));
     }
     private static object Proposal(int revision, int survey, int zone, int product) => new {
         expectedRevision = revision, surveyId = survey, rentalMonths = 6, requestedInstallationAt = DateTimeOffset.UtcNow.AddDays(10),
@@ -57,8 +65,9 @@ public sealed class InstallationDossierTests(ApiFactory factory)
     public async Task Missing_or_fake_bill_does_not_create_customer_farm_or_pending_dossier()
     {
         using var engineer = await Login("engineer@example.com");
-        var setup = await Prepare(engineer); var email = $"missing-{Guid.NewGuid():N}@example.com";
+        var setup = await Prepare(engineer, false); var email = $"missing-{Guid.NewGuid():N}@example.com";
         var path = $"/api/installation-dossiers/{setup.Proposal}/submit";
+        Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(path, Submission(email))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await engineer.PostAsJsonAsync(path, Submission(email, []))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await engineer.PostAsJsonAsync(path, Submission(email, [new("image/png", "AAAA")]))).StatusCode);
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -127,7 +136,7 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await engineer.PostAsJsonAsync($"/api/installation-dossiers/{setup.Proposal}/submit", Submission("admin@example.com"))).StatusCode);
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Null((await db.Consultations.SingleAsync(x => x.Id == setup.Lead)).FarmId);
-        Assert.Equal(ProposalStatus.DRAFT, (await db.DeviceProposals.SingleAsync(x => x.Id == setup.Proposal)).Status);
+        Assert.Equal(ProposalStatus.DEPOSIT_CONFIRMED, (await db.DeviceProposals.SingleAsync(x => x.Id == setup.Proposal)).Status);
     }
     [Fact]
     public async Task Returned_dossier_keeps_old_bill_and_requires_a_new_revision()
@@ -141,6 +150,7 @@ public sealed class InstallationDossierTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync(path + "/submit", Submission(email))).StatusCode);
         var revised = await Data(await engineer.PostAsJsonAsync($"/api/consultations/{setup.Lead}/proposals", Proposal(1, setup.Survey, setup.Zone, setup.Product)));
         var next = revised.GetProperty("id").GetInt32();
+        await Confirm(engineer, setup.Lead, next);
         await Data(await engineer.PostAsJsonAsync($"/api/installation-dossiers/{next}/submit", Submission(email, revision: 2)));
         var old = await Data(await admin.GetAsync($"/api/consultations/{setup.Lead}/proposals/{setup.Proposal}"));
         Assert.Equal("RETURNED", old.GetProperty("status").GetString());

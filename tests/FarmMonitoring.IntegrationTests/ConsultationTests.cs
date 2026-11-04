@@ -202,6 +202,9 @@ public sealed class ConsultationTests(ApiFactory factory)
         object Dossier(int revision) => new { expectedRevision = revision, note = "Agreed outside; bank bill attached", bills = new[] { new { contentType = "image/png", dataBase64 = EvidencePng } }, customer = new { fullName = "Proposal customer", email = "owner@example.com" } };
         var dossierPath = $"/api/installation-dossiers/{secondId}";
         (await engineer.PostAsJsonAsync(dossierPath + "/submit", Dossier(2))).EnsureSuccessStatusCode();
+        var submitted = (await engineer.GetFromJsonAsync<JsonElement>(path)).GetProperty("data");
+        Assert.Equal("Customer accepted by phone", submitted.GetProperty("planConfirmationNote").GetString());
+        Assert.Equal("External bank receipt REF-42 confirmed", submitted.GetProperty("depositConfirmationNote").GetString());
         var linked = (await admin.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}")).GetProperty("data");
         var farmId = linked.GetProperty("farmId").GetInt32();
         Assert.Equal(ownerId, linked.GetProperty("ownerId").GetInt32());
@@ -218,6 +221,9 @@ public sealed class ConsultationTests(ApiFactory factory)
         var revisedResult = await engineer.PostAsJsonAsync($"/api/consultations/{id}/proposals", Proposal(2));
         revisedResult.EnsureSuccessStatusCode();
         var revisedId = (await revisedResult.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
+        var revisedPath = $"/api/consultations/{id}/proposals/{revisedId}";
+        (await engineer.PostAsJsonAsync(revisedPath + "/confirm-plan", new { note = "Revised plan accepted" })).EnsureSuccessStatusCode();
+        (await engineer.PostAsJsonAsync(revisedPath + "/confirm-deposit", new { note = "Deposit confirmed for revised plan" })).EnsureSuccessStatusCode();
         (await engineer.PostAsJsonAsync($"/api/installation-dossiers/{revisedId}/submit", Dossier(3))).EnsureSuccessStatusCode();
         var approvedResult = await admin.PostAsJsonAsync($"/api/installation-dossiers/{revisedId}/review", new { expectedRevision = 3, approve = true, note = "Farm and bill verified" });
         approvedResult.EnsureSuccessStatusCode();

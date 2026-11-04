@@ -4,7 +4,7 @@
 
 - `POST /api/installation-dossiers/{proposalId}/submit` (assigned FarmEngineer):
   `{ expectedRevision, note, bills: [{contentType,dataBase64}], customer: {fullName,email} }`.
-  Records an already agreed external plan/deposit in one step. Requires 1–5 valid
+  Requires the latest proposal to have both plan and deposit confirmations already recorded. Submission preserves their actors, timestamps and references. Requires 1–5 valid
   JPEG/PNG bills (2 MiB each). For an unlinked lead, creates/reuses a pure active
   FarmOwner account and creates its farm/membership from the survey, atomically.
   `customer` may be omitted for an already linked authorized owner/farm. No online
