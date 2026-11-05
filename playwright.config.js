@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/test-mailbox.js',
   workers: 1,
   timeout: 180000,
   use: { baseURL: 'http://127.0.0.1:5179', channel: 'msedge', headless: true, screenshot: 'only-on-failure', trace: 'retain-on-failure' },

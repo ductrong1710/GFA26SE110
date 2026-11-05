@@ -1,6 +1,9 @@
 param([string]$Configuration = 'Release', [ValidatePattern('^[a-z0-9-]+\.spec\.js$')][string]$Spec)
 $ErrorActionPreference = 'Stop'
-foreach ($port in @(5179, 5189)) {
+$testMail = !$Spec -or $Spec -eq 'password.spec.js'
+$ports = @(5179, 5189)
+if ($testMail) { $ports += 5190 }
+foreach ($port in $ports) {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
     try { $listener.Start() } finally { $listener.Stop() }
 }
@@ -30,6 +33,15 @@ $settings = @{
     RentalExpiration__IntervalSeconds = '1'
 }
 $previous = @{}
+if ($testMail) {
+    $settings.Email__Enabled = 'true'
+    $settings.Email__Host = '127.0.0.1'
+    $settings.Email__Port = '5190'
+    $settings.Email__FromAddress = 'farm@example.test'
+    $settings.Email__EnableSsl = 'false'
+    $settings.Email__Username = ''
+    $settings.Email__Password = ''
+}
 $apiProcess = $null
 foreach ($key in $settings.Keys) { $previous[$key] = [Environment]::GetEnvironmentVariable($key); [Environment]::SetEnvironmentVariable($key, $settings[$key]) }
 Push-Location $backend
