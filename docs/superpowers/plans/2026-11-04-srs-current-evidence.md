@@ -55,5 +55,5 @@ Compared with section 2.2.4 of Report3_Software_Requirement_Specification_Update
 
 Deployment availability, backup recovery, TLS, production response times, physical hardware and compatibility with Firefox and Chrome still require environment-specific evidence. The sample administrator provisioning remains the requested exception.
 
-NFR-P02 remains incomplete: sensor detail queries in ApiOperationsProvider do not poll, useAnalytics does not refresh, and SensorDataPage initializes a fixed end time. Newly accepted readings can remain invisible until navigation or a filter update. Mission detail already polls, but this does not prove the sensor-monitoring requirement. Verify and fix both latest readings and the default live analytics range before claiming the approximately ten-second visibility target.
+NFR-P02: the Release monitoring browser synchronized new readings while the Owner's sensor detail and analytics pages were open. The latest value and channel history both showed 31 within ten seconds of acceptance. The analytics table then showed 32 within ten seconds of a separate sync. Selecting an earlier historical end retained the earlier value 21 and excluded 32. The test uses Edge, the local API and disposable PostgreSQL. Deployment latency under expected project load remains unmeasured.
 
