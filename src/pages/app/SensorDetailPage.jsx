@@ -2,6 +2,9 @@ import ChannelHistory from '../../components/app/ChannelHistory'
 import UnresolvedReadings from '../../components/app/UnresolvedReadings'
 import SensorConfiguration from '../../components/app/SensorConfiguration'
 import ApiState from '../../components/app/ApiState'
+import { api } from '../../services/api'
+import { useApiQuery } from '../../services/api/useApiQuery'
+import { READING_REFRESH_MS } from '../../services/api/useReadingQuery'
 import { useState } from 'react'
 import { Link, useParams, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -17,15 +20,17 @@ export default function SensorDetailPage() {
   const { id } = useParams()
   const { operations, changeOperations, loading, error, reload } = useOperations()
   const { farmWorkspace, currentFarm } = useOutletContext()
-  const { can } = useAuth()
+  const { can, user, activeRole } = useAuth()
   const [mode, setMode] = useState(null)
   const [notice, setNotice] = useState('')
-  const node = /^\d+$/.test(id) ? getOperationalSensorDetails(Number(id), operations, farmWorkspace) : null
+  const validId = /^\d+$/.test(id)
+  const latest = useApiQuery(`latest:${user?.id}:${activeRole}:${id}`, signal => api.get(`/api/sensor-nodes/${id}/latest`, {}, signal), validId && Boolean(user), READING_REFRESH_MS)
+  const node = validId ? getOperationalSensorDetails(Number(id), { ...operations, latestReadings: latest.data ?? [] }, farmWorkspace) : null
   const manage = can(PERMISSIONS.SENSORS_MANAGE)
   if (loading || error) return <ApiState loading={loading} error={error} reload={reload} />
   if (!node) return <EmptyState title="Sensor not found" description="This sensor is not available in your account." actions={<Link className="app-ui-button" to="/app/sensors">Back to sensors</Link>} />
   return <div className="app-ui operations-page">
-    <ApiState loading={loading} error={error} reload={reload} />
+    <ApiState {...latest} />
     <PageHeader eyebrow={node.deviceCode} title={node.name} description={`${node.farm?.name} · ${node.zone?.name}`} breadcrumbs={<Link to="/app/sensors">Sensor Nodes</Link>} actions={manage && <><button className="app-ui-button" onClick={() => setMode('edit')}>Edit Sensor</button><button className="app-ui-button" onClick={() => setMode('assign')}>Assign to Zone</button><button className="app-ui-button" onClick={() => setMode('toggle')}>{node.isActive ? 'Disable' : 'Enable'}</button></>} />
     {notice && <p className="management-success" role="status">{notice}</p>}
     <SectionCard title="Sensor identity" actions={<StatusBadge status={node.displayStatus} label={!node.isActive ? 'Disabled' : undefined} />}>

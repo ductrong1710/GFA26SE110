@@ -95,5 +95,30 @@ test('owner reads synchronized measurements and compares sensors while admin mai
     for (const action of ['Alert detected', 'Acknowledged', 'Handling note', 'Closed', 'Checked orchard thermometer']) {
       await expect(history.getByText(action, { exact: true })).toBeVisible()
     }
+    async function syncValue(value) {
+      const measuredAt = new Date().toISOString()
+      const response = await request.post(base + '/api/device/gateways/' + gateway.id + '/sync', {
+        headers: { 'X-Gateway-Code': gateway.code, 'X-Api-Key': credential.apiKey },
+        data: { batchKey: 'refresh-' + value, records: [{ sensorNodeCode: devices[0].code, channelCode: 'temperature',
+          sourceRecordKey: 'refresh-' + value, measuredAt, collectedAt: measuredAt, value }] },
+      })
+      expect(response.ok()).toBeTruthy()
+    }
+    await page.goto('/app/sensors/' + devices[0].id)
+    const latest = page.getByRole('table', { name: 'Sensor channels and latest readings' })
+    await expect(latest.getByRole('cell', { name: '40', exact: true })).toBeVisible()
+    await syncValue(31)
+    await Promise.all([latest, page.getByRole('table', { name: 'Channel history' })].map(table =>
+      expect(table.getByRole('cell', { name: '31', exact: true })).toBeVisible({ timeout: 10000 })))
+    await page.goto('/app/sensor-data')
+    await page.getByLabel('Sensor Type').selectOption(String(type.id))
+    const readings = page.getByRole('table', { name: 'Sensor readings' })
+    await expect(readings.getByRole('cell', { name: '31 C', exact: true })).toBeVisible()
+    await syncValue(32)
+    await expect(readings.getByRole('cell', { name: '32 C', exact: true })).toBeVisible({ timeout: 10000 })
+    const historicalEnd = new Date(Date.parse(measuredAt) + 7 * 3600000 + 60000).toISOString().slice(0, 16)
+    await page.getByLabel('To', { exact: true }).fill(historicalEnd)
+    await expect(readings.getByRole('cell', { name: '21 C', exact: true })).toBeVisible()
+    await expect(readings.getByRole('cell', { name: '32 C', exact: true })).toHaveCount(0)
   } finally { await admin.close() }
 })

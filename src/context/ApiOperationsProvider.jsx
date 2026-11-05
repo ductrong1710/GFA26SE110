@@ -23,9 +23,9 @@ export default function ApiOperationsProvider({ children }) {
       Object.assign(state, { uavs, gateways: gateways.map(gatewayView), missions: missions.map(missionView) })
     }
     if (sensorId) {
-      const [node, channels, types, latest] = await Promise.all([api.get(`/api/sensor-nodes/${sensorId}`, {}, signal), listAll(`/api/sensor-nodes/${sensorId}/channels`, {}, signal), listAll('/api/sensor-types', {}, signal), api.get(`/api/sensor-nodes/${sensorId}/latest`, {}, signal)])
+      const [node, channels, types] = await Promise.all([api.get(`/api/sensor-nodes/${sensorId}`, {}, signal), listAll(`/api/sensor-nodes/${sensorId}/channels`, {}, signal), listAll('/api/sensor-types', {}, signal)])
       state.sensorNodes = state.sensorNodes.filter(n => n.id !== node.id).concat(nodeView(node))
-      Object.assign(state, { sensorChannels: channels, sensorTypes: types, latestReadings: latest })
+      Object.assign(state, { sensorChannels: channels, sensorTypes: types })
     }
     if (missionId) {
       const [m, results, waypoints, logs, attempts, telemetry, latestTelemetry, readings] = await Promise.all([api.get(`/api/missions/${missionId}`, {}, signal), api.get(`/api/missions/${missionId}/results`, {}, signal), api.get(`/api/missions/${missionId}/waypoints`, {}, signal), listAll(`/api/missions/${missionId}/logs`, {}, signal), listAll(`/api/missions/${missionId}/collection-attempts`, {}, signal), listAll(`/api/missions/${missionId}/telemetry`, {}, signal), api.get(`/api/missions/${missionId}/telemetry/latest`, {}, signal).catch(e => { if (e.status === 404) return null; throw e }), listAll('/api/sensor-readings', { missionId }, signal)])

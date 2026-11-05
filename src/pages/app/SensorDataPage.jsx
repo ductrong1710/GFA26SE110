@@ -6,7 +6,7 @@ import { useOperations } from '../../context/OperationsContext'
 import { useAuth } from '../../context/AuthContext'
 import { ROLES } from '../../config/roles'
 import { PERMISSIONS } from '../../config/permissions'
-import { selectAnalytics, ANALYTICS_DEFAULT_RANGE, formatMetric, readingThreshold } from '../../services/api/analytics'
+import { selectAnalytics, formatMetric, readingThreshold } from '../../services/api/analytics'
 import { displayTime } from '../../utils/display'
 import { PageHeader, StatCard, SectionCard, ChartCard, DataTable, FilterBar, StatusBadge, EmptyState } from '../../components/app/ui'
 import EnvironmentalChart from '../../components/app/EnvironmentalChart'
@@ -18,22 +18,23 @@ function SensorDataView({ currentFarm, selectFarm, farmWorkspace, compareOnly })
   const { activeRole, can } = useAuth()
   const simplified = activeRole === ROLES.FARM_OWNER
   const technical = activeRole === ROLES.TECHNICIAN
-  const [filters, setFilters] = useState({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '1', includeBuffered: false })
+  const [filters, setFilters] = useState({ zoneId: '', sensorId: '', typeId: '1', includeBuffered: false })
+  const [fixedRange, setFixedRange] = useState(null)
   const [page, setPage] = useState(0)
-  const query = useAnalytics(currentFarm.id, filters)
+  const query = useAnalytics(currentFarm.id, fixedRange)
   const operations = query.data ?? demoOperations
   const analyticsTypes = operations.sensorTypes ?? []
   const selectedType = analyticsTypes.some(t => t.id === Number(filters.typeId)) ? filters.typeId : analyticsTypes[0]?.id ?? ''
-  const effective = { ...filters, typeId: selectedType, farmId: currentFarm.id, includeBuffered: technical && filters.includeBuffered }
+  const effective = { ...filters, ...query.range, typeId: selectedType, farmId: currentFarm.id, includeBuffered: technical && filters.includeBuffered }
   const data = selectAnalytics(operations, farmWorkspace, effective)
   const update = (values) => { setFilters({ ...filters, ...values }); setPage(0) }
   const pages = Math.max(1, Math.ceil(data.rows.length / 20)), currentPage = Math.min(page, pages - 1)
   return <div className="app-ui analytics-page"><ApiState {...query} /><PageHeader eyebrow={technical ? 'SENSOR TECHNICAL DATA' : 'ENVIRONMENTAL DATA'} title={compareOnly ? 'Compare Zones' : 'Sensor Data'} description={`${currentFarm.name} · ${simplified ? 'A clear view of farm conditions.' : 'Explore recorded measurements and configured threshold bands.'}`} actions={<StatusBadge status="INFO" label="Read-only data" />} />
-    <FilterBar label="Sensor data filters" actions={<button className="app-ui-button" onClick={() => update({ ...ANALYTICS_DEFAULT_RANGE, zoneId: '', sensorId: '', typeId: '1', includeBuffered: false })}>Reset filters</button>}>
+    <FilterBar label="Sensor data filters" actions={<button className="app-ui-button" onClick={() => { setFixedRange(null); update({ zoneId: '', sensorId: '', typeId: '1', includeBuffered: false }) }}>Reset filters</button>}>
       <label>Farm<select aria-label="Farm" value={currentFarm.id} onChange={(event) => selectFarm(Number(event.target.value))}>{farmWorkspace.farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label>
       {!compareOnly && <><label>Zone<select aria-label="Zone" value={filters.zoneId} onChange={(event) => update({ zoneId: event.target.value, sensorId: '' })}><option value="">All zones</option>{data.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label><label>Sensor<select aria-label="Sensor" value={filters.sensorId} onChange={(event) => update({ sensorId: event.target.value })}><option value="">All sensors</option>{data.nodes.map((node) => <option key={node.id} value={node.id}>{node.deviceCode} · {node.name}</option>)}</select></label></>}
       <label>Sensor Type<select aria-label="Sensor Type" value={selectedType} onChange={(event) => update({ typeId: event.target.value })}>{analyticsTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
-      <label>From<input type="datetime-local" aria-label="From" value={filters.from} onChange={(event) => update({ from: event.target.value })} /></label><label>To<input type="datetime-local" aria-label="To" value={filters.to} onChange={(event) => update({ to: event.target.value })} /></label>
+      <label>From<input type="datetime-local" step="1" aria-label="From" value={query.range.from} onChange={(event) => { setFixedRange({ ...query.range, from: event.target.value }); setPage(0) }} /></label><label>To<input type="datetime-local" step="1" aria-label="To" value={query.range.to} onChange={(event) => { setFixedRange({ ...query.range, to: event.target.value }); setPage(0) }} /></label>
       {technical && <label className="analytics-check"><input type="checkbox" checked={filters.includeBuffered} onChange={(event) => update({ includeBuffered: event.target.checked })} />Include buffered gateway readings</label>}
     </FilterBar>
     <p className="analytics-note">Date range uses measurement time in Vietnam (UTC+7), up to 31 days.  {effective.includeBuffered ? 'Includes local, unsynchronized measurements for technical inspection.' : 'Only synchronized, valid measurements are shown.'} Historical data can include currently offline sensors.</p>

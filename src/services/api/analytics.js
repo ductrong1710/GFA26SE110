@@ -1,10 +1,10 @@
-const localTime = at => new Date(at + 7 * 3600000).toISOString().slice(0, 16)
-export function recentAnalyticsRange(now = Date.now()) {
-  return { from: localTime(now - 12 * 3600000), to: localTime(now) }
+const localTime = (at, length = 16) => new Date(at + 7 * 3600000).toISOString().slice(0, length)
+export function recentAnalyticsRange(now = Date.now(), includeSeconds = false) {
+  return { from: localTime(now - 12 * 3600000), to: localTime(now, includeSeconds ? 19 : 16) }
 }
 export const ANALYTICS_DEFAULT_RANGE = recentAnalyticsRange()
 
-export const parseAnalyticsTime = (value) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? Date.parse(`${value}:00+07:00`) : NaN
+export const parseAnalyticsTime = (value) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value) ? Date.parse(`${value}+07:00`) : NaN
 export function validateAnalyticsRange({ from, to }) {
   const start = parseAnalyticsTime(from), end = parseAnalyticsTime(to)
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 'Choose valid start and end times (Vietnam time).'
