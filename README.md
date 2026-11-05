@@ -90,4 +90,6 @@ Edge is the default browser. Set `E2E_BROWSER` to `chrome` or `firefox` to run t
 $env:E2E_BROWSER = 'firefox'
 ```
 
-Use `-BrowserSpec users.spec.js` (or another spec basename) to run one scenario. The six scenarios cover consultation through rental activation, mission telemetry and device repair/maintenance; crop support; crop seasons; monitoring/alerts; user management; and emailed password recovery. Failure screenshots/traces stay in ignored `test-results/`; password recovery disables both to keep the emailed code out of these artifacts.
+Use `-BrowserSpec users.spec.js` (or another spec basename) to run one scenario. The business scenarios cover consultation through rental activation, mission telemetry and device repair/maintenance; crop support; crop seasons; monitoring/alerts; user management; and emailed password recovery. Failure screenshots/traces stay in ignored `test-results/`; password recovery disables both to keep the emailed code out of these artifacts.
+
+The responsive scenario checks the homepage, four role dashboards and role-specific navigation at 390px and 768px: no page-wide horizontal overflow, menu open/close, Escape focus return and route selection. This checks representative layouts with a disposable database, not all populated forms or physical mobile browsers.
