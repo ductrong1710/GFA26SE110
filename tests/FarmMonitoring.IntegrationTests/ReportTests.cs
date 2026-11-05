@@ -57,6 +57,8 @@ public class ReportTests(ApiFactory factory)
         Assert.Equal(1, result.GetProperty("activeRentals").GetInt32());
         Assert.Equal(1, result.GetProperty("expiringRentals").GetInt32());
         Assert.Equal(1, result.GetProperty("activeSeasons").GetInt32());
+        Assert.Equal(Assert.Single(result.GetProperty("recentCultivation").EnumerateArray()).GetProperty("seasonId").GetInt32(),
+            Assert.Single(result.GetProperty("recentOwnedSeasonIds").EnumerateArray()).GetInt32());
         Assert.Equal("Visible dashboard farm", Assert.Single(result.GetProperty("recentCultivation").EnumerateArray()).GetProperty("description").GetString());
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync($"/api/dashboard/overview?farmId={farmIds[1]}")).StatusCode);
         using var admin = await Login("admin@example.com");

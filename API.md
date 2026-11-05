@@ -1,5 +1,7 @@
 # API.md
 
+The dated phase-checkpoint sections preserve implementation history. Their statements about work pending at that checkpoint must be read with the subsequent workflow sections and the current verification table in [Current functional evidence](docs/superpowers/plans/2026-11-04-srs-current-evidence.md). The current code includes installation reports and approval, rental activation and scope, service plans and replacement, maintenance scheduling, crop support and crop seasons.
+
 ### External consultation dossier — 2026-11-03
 
 - `POST /api/installation-dossiers/{proposalId}/submit` (assigned FarmEngineer):
@@ -804,6 +806,8 @@ Email sending is backend-driven based on alert/notification rules.
 ## 17. Dashboard
 
 ### GET `/api/dashboard/overview`
+
+`operations.recentOwnedSeasonIds` contains up to two season IDs owned by the caller within the authorized farm filter, most recently created first. The Owner dashboard passes these IDs to `GET /api/crop-seasons/compare` to display recorded results. The array may contain fewer than two IDs.
 
 For administrators, `history` contains daily event counts over the current UTC day and the preceding 29 days, through the time of the request. Each row contains `date`, `category` and `count`. Categories are `ALERT_OPENED`, `MISSION_{terminal status}`, and `{INSTALLATION|MAINTENANCE|REPAIR}_{job action}`. Only recorded events appear, ordered by date and category. The optional farm filter applies to every category. Owners receive no administrative history.
 

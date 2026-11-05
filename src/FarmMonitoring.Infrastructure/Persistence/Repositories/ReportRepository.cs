@@ -84,7 +84,9 @@ public sealed class ReportRepository(AppDbContext db, TimeProvider clock, Rental
         return new(installations, serviceCounts.GetValueOrDefault(ServiceJobType.MAINTENANCE), serviceCounts.GetValueOrDefault(ServiceJobType.REPAIR),
             await active.CountAsync(ct), await active.CountAsync(x => x.EndAt <= warningAt, ct),
             await contracts.CountAsync(x => x.Status == RentalStatus.EXPIRED || x.Status == RentalStatus.ACTIVE && x.EndAt <= now, ct),
-            rentalSettings.WarningDays, await seasons.CountAsync(x => x.Status == CropSeasonStatus.ACTIVE, ct), recent);
+            rentalSettings.WarningDays, await seasons.CountAsync(x => x.Status == CropSeasonStatus.ACTIVE, ct), recent,
+            await seasons.Where(x => x.OwnerId == scope.UserId).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
+                .Take(2).Select(x => x.Id).ToArrayAsync(ct));
     }
     public async Task<PagedResult<SensorReportRow>> SensorsAsync(ReportQuery query, ReportPeriod period, FarmAccessScope scope, CancellationToken ct)
     {

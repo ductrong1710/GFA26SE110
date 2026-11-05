@@ -24,7 +24,8 @@ public sealed record DashboardOverview(int Farms, DeviceCounts SensorNodes, Devi
     DashboardOperations Operations, DashboardHistoryRow[]? History);
 public sealed record DashboardHistoryRow(DateOnly Date, string Category, int Count);
 public sealed record DashboardOperations(int OpenInstallations, int OpenMaintenance, int OpenRepairs,
-    int ActiveRentals, int ExpiringRentals, int ExpiredRentals, int WarningDays, int ActiveSeasons, RecentCultivation[] RecentCultivation);
+    int ActiveRentals, int ExpiringRentals, int ExpiredRentals, int WarningDays, int ActiveSeasons, RecentCultivation[] RecentCultivation,
+    int[] RecentOwnedSeasonIds);
 public sealed record RecentCultivation(int Id, int SeasonId, string SeasonName, DateOnly Date, string Type, string Description);
 public sealed record SensorReportRow(int SensorChannelId, int SensorNodeId, string ChannelCode, string? Unit, int ZoneId,
     long ReadingCount, decimal Minimum, decimal Maximum, decimal Average, DateTimeOffset FirstMeasuredAt, DateTimeOffset LastMeasuredAt);

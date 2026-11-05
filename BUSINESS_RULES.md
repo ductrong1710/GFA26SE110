@@ -1,5 +1,7 @@
 # BUSINESS_RULES.md
 
+The dated phase-checkpoint sections preserve implementation history. Later workflow sections supersede their pending-work notes. Current workflow evidence is recorded in [Current functional evidence](docs/superpowers/plans/2026-11-04-srs-current-evidence.md), including installation approval, rental activation, service closure, maintenance, crop support and crop seasons.
+
 An Administrator may explicitly reopen CLOSED service work with a fresh revision, future appointment, active technician and reason. The affected device or its recorded replacement must still be assigned under a non-ended rental. Reopening records REOPENED and returns the job to ASSIGNED and its incident to OPEN without changing approved reports. Further work requires a new service plan, report, owner confirmation and administrator approval.
 
 ### External consultation dossier — 2026-11-03

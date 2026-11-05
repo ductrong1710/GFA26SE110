@@ -502,7 +502,7 @@ Technician
 
 Human users authenticate with JWT Bearer. Gateway/device endpoints use independent Device Authentication with both `X-Api-Key` and `X-Gateway-Code`; human JWTs never substitute for device credentials. Device credentials do not grant access to human endpoints.
 
-Administrator and assigned FarmOwner may read general farm data. Administrator manages farms, devices, thresholds and alert resolution; FarmOwner operates routine missions. All four supported roles may access their own notifications. Engineer/Technician contextual workflow modules are pending implementation.
+Administrator and assigned FarmOwner may read general farm data. Administrator manages farms, devices, thresholds and alert resolution; FarmOwner operates routine missions. All four supported roles may access their own notifications. Engineers use assigned consultation, survey, proposal and crop-support workflows. Technicians use assigned installation and service jobs.
 
 FarmAdministrator has global farm access without membership. FarmOwner requires a current `user_farms` assignment to access a farm. Engineer and Technician require contextual workflow authorization; farm membership alone grants neither role general farm access. Roles still come exclusively from `user_roles`/`roles`.
 
@@ -785,7 +785,7 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 
 Migration `20261028065024_UpdatedOperationalRoles` adds Technician without converting legacy operator accounts. Legacy role rows and memberships remain inert audit data. Only explicit administrator assignment grants Technician. Downgrade preserves assigned Technician rows; re-upgrade is idempotent. No application database migration has been run by this task.
 
-Engineer/Technician job context and rental-based device scoping remain pending subsequent phases; the current generic farm API intentionally denies these roles. Device credentials and sample administrator provisioning are unchanged.
+Engineer/Technician work uses assignment-scoped workflow APIs. Rental assignments scope Owner equipment reads and mission eligibility. Generic farm APIs deny Engineer/Technician roles.
 
 ### Mission ownership on shared farms
 
