@@ -95,3 +95,4 @@
   .owner-dashboard .app-ui-card-body { padding: 16px; }
   .owner-dashboard .owner-snapshot { text-align: left; }
 }
+.owner-zone-comparison { grid-column: 1 / -1; min-width: 0; }

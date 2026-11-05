@@ -10,7 +10,7 @@ export function useDashboard(farmId, admin = false) {
   const { user, activeRole } = useAuth()
   return useApiQuery(`dashboard:${user?.id}:${activeRole}:${farmId}:${admin}`, async signal => {
     const filters = farmId ? { farmId } : {}
-    const range = recentAnalyticsRange()
+    const range = recentAnalyticsRange(Date.now(), true)
     const [overview, nodes, gateways, uavs, missions, alerts, users, analytics] = await Promise.all([
       api.get('/api/dashboard/overview', filters, signal), farmId ? Promise.resolve(null) : listAll('/api/sensor-nodes', filters, signal), listAll('/api/gateways', {}, signal), listAll('/api/uavs', {}, signal), listAll('/api/missions', filters, signal), listAll('/api/alerts', filters, signal), admin ? listAll('/api/users', {}, signal) : Promise.resolve([]), farmId ? loadAnalytics(farmId, range, signal) : Promise.resolve({}),
     ])

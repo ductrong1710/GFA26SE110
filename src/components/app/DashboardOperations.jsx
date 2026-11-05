@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { EmptyState, SectionCard } from './ui'
+import CropSeasonComparison from './CropSeasonComparison'
 
 const activityNames = { WATERING: 'Watering', FERTILIZING: 'Fertilizing', PESTICIDE: 'Pesticide', INSPECTION: 'Inspection', OTHER: 'Other' }
 
@@ -23,5 +24,8 @@ export default function DashboardOperations({ data, admin = false }) {
         <p>{activity.description}</p>
       </li>)}</ul> : <EmptyState title="No cultivation activities recorded" />}
     </SectionCard>
+    {!admin && (data.recentOwnedSeasonIds?.length === 2
+      ? <CropSeasonComparison ids={data.recentOwnedSeasonIds} description="Your two most recently created seasons in this farm." />
+      : <SectionCard title="Season comparison"><p>Two seasons in this farm are needed for a comparison.</p></SectionCard>)}
   </>
 }

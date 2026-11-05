@@ -3,11 +3,11 @@ import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 import { DataTable, SectionCard } from './ui'
 
-export default function CropSeasonComparison({ ids }) {
+export default function CropSeasonComparison({ ids, description }) {
   const params = new URLSearchParams(ids.map(id => ['ids', String(id)]))
   const path = `/api/crop-seasons/compare?${params}`
   const query = useApiQuery(path, signal => api.request(path, { signal }))
-  return <SectionCard title="Season comparison">
+  return <SectionCard title="Season comparison" description={description}>
     <ApiState loading={query.loading} error={query.error} reload={query.reload} />
     <DataTable caption="Selected season results" rows={query.data ?? []} loading={query.loading} columns={[
       { key: 'name', header: 'Season' }, { key: 'crop', header: 'Crop' }, { key: 'areaHectares', header: 'Area (ha)' },

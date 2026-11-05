@@ -1,7 +1,8 @@
 import { useDashboard } from '../../services/api/useDashboard'
 import ApiState from '../../components/app/ApiState'
 import DashboardOperations from '../../components/app/DashboardOperations'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import ZoneComparison from '../../components/app/ZoneComparison'
 import { Link, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useManagement } from '../../context/ManagementContext'
@@ -40,12 +41,15 @@ export default function FarmOwnerDashboard() {
   const { management: demoManagement } = useManagement()
   const { operations: demoOperations } = useOperations()
   const query = useDashboard(currentFarm.id)
+  const [comparisonType, setComparisonType] = useState('')
   const management = query.data?.management ?? demoManagement
   const operations = query.data?.operations ?? demoOperations
   const overview = useMemo(() => getFarmOwnerDashboard(currentFarm.id, farmWorkspace, management.alerts, operations.sensorNodes, operations), [currentFarm.id, farmWorkspace, management.alerts, operations])
   if (query.loading || query.error) return <ApiState {...query} />
   if (!overview) return <EmptyState title="Farm unavailable" description="Choose another farm from the selector above." />
   const { farm, zones, nodes, currentMission: mission, environment, importantAlerts, activity } = overview
+  const types = operations.sensorTypes ?? []
+  const typeId = types.some(type => String(type.id) === comparisonType) ? comparisonType : operations.sensorChannels?.[0]?.sensorTypeId ?? types[0]?.id
   const firstName = user.fullName.trim().split(/\s+/)[0]
   const snapshotDate = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(VIEW_OPENED_AT))
   const snapshotTime = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(VIEW_OPENED_AT))
@@ -66,6 +70,15 @@ export default function FarmOwnerDashboard() {
 
     <div className="owner-main-grid">
       <DashboardOperations data={query.data?.overview.operations} />
+      <div className="owner-zone-comparison">
+        {typeId ? <>
+          <label>Compare zones by measurement <select value={typeId} onChange={event => setComparisonType(event.target.value)}>
+            {types.map(type => <option key={type.id} value={type.id}>{type.name} ({type.unit})</option>)}
+          </select></label>
+          <p>Last 12 hours (Vietnam time)</p>
+          <ZoneComparison operations={operations} workspace={farmWorkspace} filters={{ ...operations.range, farmId: farm.id, typeId }} />
+        </> : <SectionCard title="Zone comparison"><p>No measurement types available.</p></SectionCard>}
+      </div>
       <SectionCard title="Farm Overview Map" description="A connected view of your land" className="owner-map-card"
         actions={<Link className="owner-text-link" to="/app/sensor-data/compare-zones">Compare zones in {farm.name}</Link>}>
         <FarmOverviewMap farm={farm} zones={zones} nodes={nodes} mission={mission} />

@@ -120,5 +120,12 @@ test('owner reads synchronized measurements and compares sensors while admin mai
     await page.getByLabel('To', { exact: true }).fill(historicalEnd)
     await expect(readings.getByRole('cell', { name: '21 C', exact: true })).toBeVisible()
     await expect(readings.getByRole('cell', { name: '32 C', exact: true })).toHaveCount(0)
+    await page.goto('/app/dashboard')
+    await page.getByLabel('Compare zones by measurement').selectOption(String(type.id))
+    const dashboardZones = page.getByRole('table', { name: 'Zone comparison summary' })
+    const south = dashboardZones.getByRole('row').filter({ hasText: 'South orchard' })
+    await expect(south.getByRole('cell', { name: '40', exact: true })).toBeVisible()
+    await expect(south.getByRole('cell', { name: '4', exact: true })).toBeVisible()
+    await expect(dashboardZones.getByRole('row').filter({ hasText: 'North orchard' }).getByRole('cell', { name: '27', exact: true })).toHaveCount(3)
   } finally { await admin.close() }
 })
