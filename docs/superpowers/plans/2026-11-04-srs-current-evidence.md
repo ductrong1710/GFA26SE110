@@ -61,3 +61,35 @@ NFR-P02: the Release monitoring browser synchronized new readings while the Owne
 UI-02 browser check: the six Release scenarios passed on Chrome for Testing 157.0.8103.38 using the actual local API and disposable PostgreSQL. Edge also passed the six scenarios. Firefox 157.0 passed five scenarios in the full run; crop-support timed out after both pages reloaded during a README edit (Vite reconnected at the edit timestamp). An unchanged, focused crop-support rerun passed in 23.5 seconds on a fresh database with no concurrent frontend edits. Thus each of the six scenarios has passed on Firefox, but this was not a single all-green Firefox suite run. Keep frontend files unchanged during browser tests to avoid development-server reloads. This evidence covers these scenarios on Windows, not every browser/OS combination.
 
 UI-01: Release responsive.spec.js passed on Edge at viewport widths 390 and 768 pixels. It visits the public homepage, signs in as each of Administrator/Owner/Technician/Engineer, checks page width on dashboards and job/consultation lists, opens the mobile navigation, closes it with Escape and verifies focus returns, then selects a permitted route and verifies the menu closes. This is representative navigation/layout evidence with mostly empty operational lists, not comprehensive populated-form or physical-device coverage.
+
+NFR-R02 local recovery: the Release crop-season browser populated a disposable PostgreSQL 18 database, then `Test-Postgres.ps1 -VerifyBackup` completed a custom-format pg_dump and restored it into a separate database. Row counts, sorted row-content fingerprints and sequence values matched across all public tables. No application database was touched. Deployment backup scheduling/retention/off-site recovery remain unverified; the user confirmed there is no staging environment and requested local testing first.
+
+## Nonfunctional completion audit
+
+These rows supplement the 48 use cases; evidence is limited to the inspected code and executed local checks described above. They are not deployment certifications.
+
+| Requirement | Current evidence | Remaining verification |
+|---|---|---|
+| NFR-U01 | Shared navigation, status components and browser workflow chains | Terminology/validation consistency across every form |
+| NFR-U02 | Operational browser journeys use visible controls | Usability with intended users |
+| NFR-U03 | Component tests include loading, empty, conflict and validation states | Exhaustive route/state matrix |
+| NFR-U04 | Monitoring browser and comparison tests distinguish units, ranges and missing values | All chart variants |
+| NFR-R01 | No staging environment | 99% deployed availability observation |
+| NFR-R02 | Local logical backup/restore and row/sequence comparison passed | Deployment policy, scheduling, retention and off-site recovery |
+| NFR-R03 | SyncTests covers partial results and retry/duplicate prevention | Physical gateway offline/reconnect |
+| NFR-R04 | Browser reloads preserve workflow outcomes; API tests inspect histories | Recovery of a complete operational dataset |
+| NFR-R05 | EmailTests checks failed delivery and persistence of the committed alert | External service failure in deployment |
+| NFR-P01 | Local workflows pass | Defined expected load and measured response-time distribution |
+| NFR-P02 | Monitoring browser asserts new accepted readings visible within ten seconds | Expected-load/deployment latency |
+| NFR-P03 | Report/sensor comparison services cap ranges at 366 days; report repository uses SQL aggregates and bounded history | Query plans and volume tests |
+| NFR-P04 | Relational farm/zone/device/job/mission/season scopes and multi-owner API tests | Expected data-volume validation |
+| NFR-S01 | Login/refresh/disabled-account API coverage and browser sessions | Deployment transport/session review |
+| NFR-S02 | Password service/hash-upgrade tests and secret-response tests | End-to-end deployed logging audit; retained sample admin is the user exception |
+| NFR-S03 | Repository scope checks, cross-farm and assignment-denial API tests | Maintain checks as workflow permissions change |
+| NFR-S04 | Real authenticated gateway ingestion in monitoring/mission browser fixtures | Physical gateway credential provisioning |
+| NFR-S05 | API enables HTTPS redirection | Deployment certificate, proxy and TLS verification |
+| NFR-S06 | Unexpected API errors use generic text; email failure tests reject secret details | Full client/server/deployment log review |
+| NFR-M01 | Existing Controller/Application/Repository/Domain boundaries retained | Future device extension is not demonstrated by current tests |
+| NFR-M02 | Backend unit and integration suites cover business rules and authorization | Final consolidated suite/CI result at delivery |
+| NFR-M03 | Frontend Node/API-adapter, component and real-browser tests exist and have run | Final consolidated suite/CI result at delivery |
+| NFR-M04 | API regressions and browser chains exercise invalid and valid transitions | Check each SRS alternative against its named test |

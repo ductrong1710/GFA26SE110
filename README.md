@@ -267,3 +267,13 @@ configuration for local use. Rotate deployed keys that used the sample value. Th
 sample administrator migration/account is intentionally unchanged by user request.
 Deploy the ArchiveUnresolvedSensorRecords schema migration before the new gateway
 archival protocol. No migration is run automatically by application startup.
+
+### Local backup/restore verification
+
+Run a browser scenario against a new disposable PostgreSQL cluster, then verify a logical backup restores into another database in that same temporary cluster:
+
+```powershell
+./scripts/Test-Postgres.ps1 -PostgresBin 'D:/IDECode/PostgreSQL/18/bin' -Configuration Release -NoRestore -BrowserTests -BrowserSpec crop-seasons.spec.js -VerifyBackup
+```
+
+After the API has stopped, the harness uses `pg_dump -Fc` and `pg_restore --exit-on-error`, then compares row counts, sorted JSON row fingerprints and sequence values for all public application tables. It fails on tool errors or differences. The archive remains inside the restricted, ignored `.local/postgres-*` test directory. Only the cluster created by this command is used; it does not accept an application database target. The comparison is intended for small disposable fixtures, not production-sized datasets. This verifies a local recovery mechanism, not a production backup schedule, retention policy, recovery-time target or off-site storage.

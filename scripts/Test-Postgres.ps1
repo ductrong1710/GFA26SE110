@@ -6,10 +6,12 @@ param(
     [string]$Filter,
     [ValidatePattern('^[a-zA-Z0-9_.-]+\.log$')][string]$LogName = 'test-latest.log',
     [switch]$BrowserTests,
+    [switch]$VerifyBackup,
     [ValidatePattern('^[a-z0-9-]+\.spec\.js$')][string]$BrowserSpec
 )
 
 $ErrorActionPreference = 'Stop'
+if ($VerifyBackup -and -not $BrowserTests) { throw 'VerifyBackup requires BrowserTests to populate the disposable database.' }
 $backendRoot = Split-Path -Parent $PSScriptRoot
 $runPath = Join-Path $backendRoot ('.local/postgres-' + [Guid]::NewGuid().ToString('N'))
 $dataPath = Join-Path $runPath 'data'
@@ -57,6 +59,34 @@ try {
         $browserArgs = @{ Configuration = $Configuration }
         if ($BrowserSpec) { $browserArgs.Spec = $BrowserSpec }
         & (Join-Path $backendRoot '../frontend/scripts/Test-Browser.ps1') @browserArgs
+        if ($VerifyBackup) {
+            $previousPgPassword = $env:PGPASSWORD
+            try {
+                $env:PGPASSWORD = $testPassword
+                $pgArgs = @('-h', '127.0.0.1', '-p', "$port", '-U', 'auth_test')
+                $archive = Join-Path $runPath 'browser.backup'
+                & (Join-Path $PostgresBin 'pg_dump.exe') @pgArgs -d postgres -Fc -f $archive
+                if ($LASTEXITCODE -ne 0) { throw 'Backup failed.' }
+                & (Join-Path $PostgresBin 'createdb.exe') @pgArgs restored_browser
+                if ($LASTEXITCODE -ne 0) { throw 'Creating restore target failed.' }
+                & (Join-Path $PostgresBin 'pg_restore.exe') @pgArgs -d restored_browser --exit-on-error $archive
+                if ($LASTEXITCODE -ne 0) { throw 'Restore failed.' }
+                # Compare all application rows, including history and image bytes, without printing their contents.
+                $fingerprint = Join-Path $runPath 'fingerprint.sql'
+                @'
+SELECT format('SELECT %L, count(*), md5(coalesce(string_agg(to_jsonb(t)::text, E''\n'' ORDER BY to_jsonb(t)::text), '''')) FROM %I.%I t;', table_name, table_schema, table_name)
+FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name
+\gexec
+SELECT sequencename, last_value FROM pg_sequences WHERE schemaname = 'public' ORDER BY sequencename;
+'@ | Set-Content -LiteralPath $fingerprint
+                $source = & (Join-Path $PostgresBin 'psql.exe') @pgArgs -d postgres -X -A -t -v ON_ERROR_STOP=1 -f $fingerprint
+                if ($LASTEXITCODE -ne 0) { throw 'Source verification failed.' }
+                $restored = & (Join-Path $PostgresBin 'psql.exe') @pgArgs -d restored_browser -X -A -t -v ON_ERROR_STOP=1 -f $fingerprint
+                if ($LASTEXITCODE -ne 0) { throw 'Restored verification failed.' }
+                if (!$source -or ($source -join "`n") -cne ($restored -join "`n")) { throw 'Restored rows or sequences differ from the source.' }
+                Write-Output 'Backup/restore passed: all public table row fingerprints and sequence values match.'
+            } finally { $env:PGPASSWORD = $previousPgPassword }
+        }
         return
     }
     $filterArguments = if ($Filter) { @('--filter', $Filter) } else { @() }
