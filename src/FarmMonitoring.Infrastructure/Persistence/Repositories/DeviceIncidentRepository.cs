@@ -30,7 +30,7 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
         var row = await rows.Include(x => x.Images).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
         {
-            if (await db.DeviceIncidents.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this incident is denied.");
+            if (await db.DeviceIncidents.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Device incident not found.");
         }
         var jobId = await db.ServiceJobs.Where(x => x.IncidentId == id).Select(x => (int?)x.Id).SingleOrDefaultAsync(ct);
@@ -57,7 +57,7 @@ public sealed class DeviceIncidentRepository(AppDbContext db) : IDeviceIncidentR
             ?? throw new NotFoundException("Rental device assignment not found.");
         var rental = assignment.Contract;
         if (rental.OwnerId != actorId || !await FarmAccessQuery.AssignedFarmIds(db, actorId).ContainsAsync(rental.FarmId, ct))
-            throw new AccessDeniedException("Access to this rental device is denied.");
+            throw AccessDeniedException.OutsideScope();
         if (assignment.ReturnedAt is not null || rental.Status == RentalStatus.ENDED)
             throw new BusinessRuleException("Only unreturned assigned devices can be reported.");
         if (request.MissionId is int missionId && !await db.Missions.AnyAsync(x => x.Id == missionId && x.CreatedByUserId == actorId && x.FarmId == rental.FarmId &&

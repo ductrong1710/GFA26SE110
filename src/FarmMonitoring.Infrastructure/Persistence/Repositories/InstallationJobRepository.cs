@@ -46,7 +46,7 @@ public sealed class InstallationJobRepository(AppDbContext db) : IInstallationJo
             .Include(x => x.InstallationRequest).ThenInclude(x => x.Proposal).ThenInclude(x => x.Survey).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
         {
-            if (await db.InstallationJobs.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this job is denied.");
+            if (await db.InstallationJobs.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Installation job not found.");
         }
         var proposal = row.InstallationRequest.Proposal;

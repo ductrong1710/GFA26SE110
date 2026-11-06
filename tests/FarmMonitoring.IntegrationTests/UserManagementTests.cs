@@ -38,7 +38,10 @@ public class UserManagementTests(ApiFactory factory)
         Assert.Equal($"/api/users/{id}", created.Headers.Location!.AbsolutePath);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/users/{id}")).StatusCode);
         using var account = await Login(email);
-        Assert.Equal(HttpStatusCode.Forbidden, (await account.GetAsync("/api/users")).StatusCode);
+        using var forbidden = await account.GetAsync("/api/users");
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        var forbiddenBody = await forbidden.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("You do not have permission to perform this action.", forbiddenBody.GetProperty("message").GetString());
 
         var list = await admin.GetFromJsonAsync<JsonElement>($"/api/users?search={email}&page=1&pageSize=1");
         Assert.Single(list.GetProperty("data").EnumerateArray());

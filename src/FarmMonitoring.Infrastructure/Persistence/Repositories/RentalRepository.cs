@@ -32,7 +32,7 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
         var row = await rows.Include(x => x.Devices).Include(x => x.History).Include(x => x.InstallationJob).ThenInclude(x => x.InstallationRequest).ThenInclude(x => x.Proposal).ThenInclude(x => x.Lines).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
         {
-            if (await db.RentalContracts.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this rental is denied.");
+            if (await db.RentalContracts.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Rental contract not found.");
         }
         var proposal = row.InstallationJob.InstallationRequest.Proposal;

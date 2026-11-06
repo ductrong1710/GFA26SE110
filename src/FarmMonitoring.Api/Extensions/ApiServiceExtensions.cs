@@ -174,7 +174,7 @@ public static class ApiServiceExtensions
                     OnForbidden = async context =>
                     {
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                        await context.Response.WriteAsJsonAsync(ApiError.Create(context.HttpContext, "Access denied."));
+                        await context.Response.WriteAsJsonAsync(ApiError.Create(context.HttpContext, "You do not have permission to perform this action."));
                     }
                 };
             });

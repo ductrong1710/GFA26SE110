@@ -191,7 +191,10 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         await Status(HttpStatusCode.Forbidden, await owner.PostAsJsonAsync("/api/farms", new { name = "Created by Owner" }));
         var created = await Data(await admin.PostAsJsonAsync("/api/farms", new { name = "Created by Admin" }));
         var id = created.GetProperty("id").GetInt32();
-        await Status(HttpStatusCode.Forbidden, await owner.GetAsync($"/api/farms/{id}"));
+        using var outsideScope = await owner.GetAsync($"/api/farms/{id}");
+        Assert.Equal(HttpStatusCode.Forbidden, outsideScope.StatusCode);
+        var error = await outsideScope.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("You do not have access to this resource.", error.GetProperty("message").GetString());
         await Status(HttpStatusCode.Created, await admin.PostAsJsonAsync($"/api/farms/{id}/members", new { userId = ownerId }));
         await Status(HttpStatusCode.OK, await owner.GetAsync($"/api/farms/{id}"));
         var members = await Data(await admin.GetAsync($"/api/farms/{id}/members"));

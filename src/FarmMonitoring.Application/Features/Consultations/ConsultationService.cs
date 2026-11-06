@@ -105,7 +105,7 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         var user = await users.GetUserByIdAsync(id, ct);
         if (user is not { IsActive: true }) throw new AccessDeniedException("Access denied.");
         var admin = user.UserRoles.Any(x => x.Role.Name == RoleNames.FarmAdministrator);
-        if (!admin && !await farms.IsUserAssignedToFarmAsync(id, farmId, ct)) throw new AccessDeniedException("Access to this farm is denied.");
+        if (!admin && !await farms.IsUserAssignedToFarmAsync(id, farmId, ct)) throw AccessDeniedException.OutsideScope();
         await pageValidator.ValidateAndThrowAsync(query, ct);
         return await repository.FarmConsultationsAsync(farmId, id, admin, query, ct);
     }
@@ -138,7 +138,7 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         var roles = user.UserRoles.Select(x => x.Role.Name).ToArray();
         if (roles.Contains(RoleNames.FarmAdministrator) || roles.Contains(RoleNames.FarmEngineer) && row.EngineerId == id) return;
         if (roles.Contains(RoleNames.FarmOwner) && row.OwnerId == id && row.FarmId is int farmId && await farms.IsUserAssignedToFarmAsync(id, farmId, ct)) return;
-        throw new AccessDeniedException("Access to this survey is denied.");
+        throw AccessDeniedException.OutsideScope();
     }
     private static SurveyResponse ToSurveyResponse(FarmSurvey x) => new(x.Id, x.ConsultationId, x.Revision, x.EngineerId,
         x.FarmName, x.FarmLocation, x.FarmArea, x.MonitoringNeeds, x.Notes, x.CreatedAt,

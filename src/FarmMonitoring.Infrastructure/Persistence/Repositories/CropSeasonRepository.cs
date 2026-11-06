@@ -20,7 +20,7 @@ public sealed class CropSeasonRepository(AppDbContext db) : ICropSeasonRepositor
         {
             if (await db.CropSeasons.CountAsync(x => ids.Contains(x.Id), ct) != ids.Length)
                 throw new NotFoundException("A selected season was not found.");
-            throw new AccessDeniedException("Access to a selected season is denied.");
+            throw AccessDeniedException.OutsideScope();
         }
         var counts = await db.CultivationActivities.Where(x => seasons.Any(s => s.Id == x.SeasonId))
             .GroupBy(x => new { x.SeasonId, x.Type })
@@ -58,7 +58,7 @@ public sealed class CropSeasonRepository(AppDbContext db) : ICropSeasonRepositor
         var rows = await VisibleAsync(actor, ct);
         var result = await Details(rows.Where(x => x.Id == id)).SingleOrDefaultAsync(ct);
         if (result is not null) return result;
-        if (await db.CropSeasons.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this season is denied.");
+        if (await db.CropSeasons.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
         throw new NotFoundException("Crop season not found.");
     }
     private async Task LockOwnerAsync(int actor, CancellationToken ct)
@@ -75,7 +75,7 @@ public sealed class CropSeasonRepository(AppDbContext db) : ICropSeasonRepositor
     {
         if (row.OwnerId != actor || !await db.UserFarms.FromSqlInterpolated(
             $"SELECT * FROM user_farms WHERE user_id = {actor} AND farm_id = {row.FarmId} FOR UPDATE").AnyAsync(ct))
-            throw new AccessDeniedException("Access to this season is denied.");
+            throw AccessDeniedException.OutsideScope();
         if (!await db.Farms.AnyAsync(x => x.Id == row.FarmId && x.IsActive, ct))
             throw new BusinessRuleException("An active farm is required.");
     }
@@ -111,7 +111,7 @@ public sealed class CropSeasonRepository(AppDbContext db) : ICropSeasonRepositor
         var seasons = (await VisibleAsync(actor, ct)).Where(x => x.Id == id);
         if (!await seasons.AnyAsync(ct))
         {
-            if (await db.CropSeasons.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this season is denied.");
+            if (await db.CropSeasons.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Crop season not found.");
         }
         return db.CultivationActivities.AsNoTracking().Where(x => seasons.Any(s => s.Id == x.SeasonId));

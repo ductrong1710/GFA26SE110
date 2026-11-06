@@ -30,7 +30,7 @@ public sealed class FarmAccessService(IFarmAccessRepository repository, IAuthRep
         var resolved = await repository.ResolveAsync(resource, id, ct) ?? throw new NotFoundException($"{resource} not found.");
         if (!scope.IsAdministrator && (resolved.OwnerId is int ownerId && ownerId != scope.UserId ||
             resolved.FarmId is not int farmId || !await repository.IsUserAssignedToFarmAsync(scope.UserId, farmId, ct)))
-            throw new AccessDeniedException("Access to this farm is denied.");
+            throw AccessDeniedException.OutsideScope();
     }
 
     public async Task EnsureManyAsync(FarmResource resource, int[] ids, CancellationToken ct)
@@ -41,7 +41,7 @@ public sealed class FarmAccessService(IFarmAccessRepository repository, IAuthRep
         if (resolved.Length != ids.Distinct().Count()) throw new NotFoundException($"A selected {resource} was not found.");
         if (scope.IsAdministrator) return;
         var allowed = (await repository.GetAccessibleFarmIdsAsync(scope, ct)).ToHashSet();
-        if (resolved.Any(x => x.FarmId is not int farm || !allowed.Contains(farm))) throw new AccessDeniedException("Access to this farm is denied.");
+        if (resolved.Any(x => x.FarmId is not int farm || !allowed.Contains(farm))) throw AccessDeniedException.OutsideScope();
     }
 
     public async Task CheckFilterAsync(FarmResource resource, int? id, CancellationToken ct)

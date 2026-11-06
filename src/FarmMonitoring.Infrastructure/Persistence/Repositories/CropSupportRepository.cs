@@ -30,7 +30,7 @@ public sealed class CropSupportRepository(AppDbContext db) : ICropSupportReposit
         var reports = (await ScopeAsync(actorId, ct)).Where(x => x.Id == id);
         if (!await reports.AnyAsync(ct))
         {
-            if (await db.CropConditionReports.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this report is denied.");
+            if (await db.CropConditionReports.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Crop condition report not found.");
         }
         var rows = db.SensorReadings.AsNoTracking().Where(reading => reports.Any(report =>
@@ -126,7 +126,7 @@ public sealed class CropSupportRepository(AppDbContext db) : ICropSupportReposit
             .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
         {
-            if (await db.CropConditionReports.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this report is denied.");
+            if (await db.CropConditionReports.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Crop condition report not found.");
         }
         return new(row.Id, row.FarmId, row.ZoneId, row.Crop, row.Description, row.ReportedAt, row.Status.ToString(),
@@ -141,7 +141,7 @@ public sealed class CropSupportRepository(AppDbContext db) : ICropSupportReposit
         if (!await db.UserRoles.AnyAsync(x => x.UserId == actorId && x.User.IsActive && x.Role.Name == RoleNames.FarmOwner, ct))
             throw new AccessDeniedException("Farm Owner access required.");
         if (!await FarmAccessQuery.AssignedFarmIds(db, actorId).ContainsAsync(request.FarmId, ct))
-            throw new AccessDeniedException("Access to this farm is denied.");
+            throw AccessDeniedException.OutsideScope();
         if (!await db.Farms.AnyAsync(x => x.Id == request.FarmId && x.IsActive, ct))
             throw new BusinessRuleException("An active farm is required.");
         if (request.ZoneId is int zone && !await db.Zones.AnyAsync(x => x.Id == zone && x.FarmId == request.FarmId, ct))

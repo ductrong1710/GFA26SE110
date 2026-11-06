@@ -35,7 +35,7 @@ public sealed class ServiceJobRepository(AppDbContext db) : IServiceJobRepositor
             .Include(x => x.RentalDeviceAssignment).ThenInclude(x => x.Contract).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
         {
-            if (await db.ServiceJobs.AnyAsync(x => x.Id == id, ct)) throw new AccessDeniedException("Access to this service job is denied.");
+            if (await db.ServiceJobs.AnyAsync(x => x.Id == id, ct)) throw AccessDeniedException.OutsideScope();
             throw new NotFoundException("Service job not found.");
         }
         return new(row.Id, row.IncidentId, row.RentalDeviceAssignment.Contract.FarmId, row.RentalDeviceAssignment.Code, row.Type.ToString(), row.TechnicianId, row.ScheduledAt, row.Status.ToString(), row.Revision,
