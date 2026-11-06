@@ -58,8 +58,16 @@ test('owner reads synchronized measurements and compares sensors while admin mai
   await expect(page.getByRole('table', { name: 'Sensor channels and latest readings' }).getByRole('cell', { name: '21', exact: true })).toBeVisible()
   await expect(page.getByRole('table', { name: 'Channel history' }).getByRole('cell', { name: '21', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Configure Threshold' })).toHaveCount(0)
+  for (let i = 1; i <= 18; i++) await post('/api/farms/' + farm.id + '/zones', { name: 'Additional orchard ' + i })
+  const lastBatch = page.waitForResponse(res => {
+    const url = new URL(res.url())
+    return url.pathname === '/api/zones/compare' && url.searchParams.get('sensorTypeId') === String(type.id) &&
+      url.searchParams.get('zoneIds')?.split(',').length === 1
+  })
   await page.goto('/app/sensor-data/compare-zones')
   await page.getByRole('combobox', { name: 'Sensor Type' }).selectOption(String(type.id))
+  expect((await lastBatch).ok()).toBeTruthy()
+  await expect(page.getByRole('table', { name: 'Zone comparison summary' }).getByRole('row')).toHaveCount(22)
   const comparison = page.getByRole('table', { name: 'Sensor comparison summary' })
   for (const d of devices) {
     const zone = page.getByRole('table', { name: 'Zone comparison summary' }).getByRole('row').filter({ hasText: d.zoneName })
