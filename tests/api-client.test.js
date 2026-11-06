@@ -1,4 +1,5 @@
 import test from 'node:test'
+import { toast } from 'react-toastify'
 import assert from 'node:assert/strict'
 import { createApiClient } from '../src/services/api/apiClient.js'
 import { authStorage, createAuthStorage } from '../src/services/api/authStorage.js'
@@ -28,6 +29,15 @@ test('login stores backend tokens and roles; failed login does not create a sess
 test('client rejects unsuccessful API envelopes even with an HTTP 200 response', async () => {
   const { api } = setup(async () => response({ success: false, message: 'Request rejected.' }))
   await assert.rejects(api.get('/api/farms'), { status: 200, message: 'Request rejected.' })
+})
+
+test('missing resource shows a standard mutation toast and preserves endpoint details', async t => {
+  const notify = t.mock.method(toast, 'error', () => {})
+  const { api } = setup(async () => response({ message: 'Farm not found.' }, 404))
+  await assert.rejects(api.put('/api/farms/42', {}), { status: 404, message: 'Farm not found.' })
+  assert.deepEqual(notify.mock.calls[0].arguments, ['The requested resource was not found.'])
+  await assert.rejects(api.get('/api/farms/42'), { status: 404 })
+  assert.equal(notify.mock.callCount(), 1)
 })
 
 test('client sends bearer, query and JSON; unwraps data, pages and 204', async () => {
