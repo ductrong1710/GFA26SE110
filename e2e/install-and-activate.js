@@ -44,30 +44,49 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
   }
   try {
     const work = await login(employee, tech.email)
-    await work.getByRole('button', { name: 'Start installation' }).click()
-    await work.getByRole('button', { name: 'Prepare installation report' }).click()
-    for (const device of [uav, gateway]) {
-      await work.getByLabel('Installation location for ' + device.code).fill('Orchard dock')
-      for (const label of ['Accessories', 'Connectivity', 'Operation'])
-        await work.getByRole('combobox', { name: label + ' for ' + device.code }).selectOption('true')
-      await work.getByLabel('Test evidence for ' + device.code).fill('Connectivity and operating checks passed at the dock')
-    }
-    await work.getByLabel('Handover and installation notes').fill('Delivered and demonstrated to owner')
-    const image = { name: 'signed.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') }
-    for (const label of ['Signed contract', 'Signed installation handover']) {
-      const group = work.getByRole('group', { name: label, exact: true })
-      await group.getByLabel('Add evidence images').setInputFiles(image)
-      await expect(group.getByAltText('Evidence image 1')).toBeVisible()
-    }
-    await work.getByRole('button', { name: 'Submit installation report' }).click()
-    await expect(work.getByRole('button', { name: 'View report revision 1' })).toBeVisible()
     const ownerPage = await login(customer, owner.email)
-    await ownerPage.getByRole('button', { name: 'View report revision 1' }).click()
-    await ownerPage.getByLabel('Decision note').fill('Received the installed equipment')
-    await ownerPage.getByRole('button', { name: 'Confirm handover' }).click()
-    await expect(ownerPage.getByText('Installation decision recorded.')).toBeVisible()
-    await openJob(admin)
-    await admin.getByRole('button', { name: 'View report revision 1' }).click()
+    await work.getByRole('button', { name: 'Start installation' }).click()
+    for (const revision of [1, 2]) {
+      await work.getByRole('button', { name: 'Prepare installation report' }).click()
+      for (const device of [uav, gateway]) {
+        await work.getByLabel('Installation location for ' + device.code).fill('Orchard dock')
+        for (const label of ['Accessories', 'Connectivity', 'Operation'])
+          await work.getByRole('combobox', { name: label + ' for ' + device.code }).selectOption('true')
+        await work.getByLabel('Test evidence for ' + device.code).fill('Connectivity and operating checks passed at the dock')
+      }
+      await work.getByLabel('Handover and installation notes').fill(revision === 1 ? 'Delivered and demonstrated to owner' : 'Repeated connectivity checks after administrator review')
+      const image = { name: 'signed.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') }
+      for (const label of ['Signed contract', 'Signed installation handover']) {
+        const group = work.getByRole('region', { name: 'Technician installation report', exact: true }).getByRole('group', { name: label, exact: true })
+        await group.getByLabel('Add evidence images').setInputFiles(image)
+        await expect(group.getByAltText('Evidence image 1')).toBeVisible()
+      }
+      await work.getByRole('button', { name: 'Submit installation report' }).click()
+      await expect(work.getByRole('button', { name: 'View report revision ' + revision, exact: true })).toBeVisible()
+      await openJob(admin)
+      await admin.getByRole('button', { name: 'View report revision ' + revision, exact: true }).click()
+      await expect(admin.getByRole('button', { name: 'Approve installation', exact: true })).toHaveCount(0)
+      await openJob(ownerPage)
+      await ownerPage.getByRole('button', { name: 'View report revision ' + revision, exact: true }).click()
+      await ownerPage.getByLabel('Decision note').fill('Received the installed equipment')
+      await ownerPage.getByRole('button', { name: 'Confirm handover' }).click()
+      await expect(ownerPage.getByText('Installation decision recorded.')).toBeVisible()
+      await openJob(admin)
+      await admin.getByRole('button', { name: 'View report revision ' + revision, exact: true }).click()
+      if (revision === 1) {
+        await admin.getByLabel('Decision note').fill('Repeat connectivity checks at the final installation location')
+        await admin.getByRole('button', { name: 'Request installation rework', exact: true }).click()
+        await expect(admin.getByText('Installation decision recorded.', { exact: true })).toBeVisible()
+        await openJob(work)
+        await work.getByRole('button', { name: 'View report revision 1', exact: true }).click()
+        await expect(work.getByText(/Returned .*Repeat connectivity checks at the final installation location/)).toBeVisible()
+      }
+    }
+    await admin.getByRole('button', { name: 'View report revision 1', exact: true }).click()
+    await expect(admin.getByText('Delivered and demonstrated to owner', { exact: true })).toBeVisible()
+    await expect(admin.getByRole('button', { name: 'Approve installation', exact: true })).toHaveCount(0)
+    await admin.getByRole('button', { name: 'View report revision 2', exact: true }).click()
+    await expect(admin.getByText('Repeated connectivity checks after administrator review', { exact: true })).toBeVisible()
     await admin.getByLabel('Decision note').fill('Verified signed handover and report')
     await admin.getByRole('button', { name: 'Approve installation' }).click()
     await admin.getByRole('link', { name: 'Open rental contracts' }).click()
