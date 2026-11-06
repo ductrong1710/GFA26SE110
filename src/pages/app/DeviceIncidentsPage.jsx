@@ -43,7 +43,7 @@ function IncidentForm({ onSaved }) {
     }
     setPending(true)
     try {
-      onSaved(await api.request('/api/device-incidents', { method: 'POST', body }))
+      onSaved(await api.request('/api/device-incidents', { method: 'POST', toastMessage: 'Device issue reported successfully.', body }))
       setDescription(''); setImages([])
     } catch (cause) { setError(cause.message) } finally { setPending(false) }
   }

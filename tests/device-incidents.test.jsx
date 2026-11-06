@@ -43,7 +43,7 @@ it('submits the rental assignment identity, including expired rentals, and displ
   const request = mockApi(); mount(); await fill()
   fireEvent.click(screen.getByRole('button', { name: 'Report incident' }))
   await screen.findByText('Incident reported.')
-  expect(request).toHaveBeenCalledWith('/api/device-incidents', { method: 'POST', body: { rentalDeviceAssignmentId: 44, description: 'No signal', images: [] } })
+  expect(request).toHaveBeenCalledWith('/api/device-incidents', { method: 'POST', toastMessage: 'Device issue reported successfully.', body: { rentalDeviceAssignmentId: 44, description: 'No signal', images: [] } })
   expect(screen.getByAltText('Evidence image 1').src).toBe('data:image/png;base64,aGVsbG8=')
 })
 it('keeps the owner draft after rejection', async () => {
@@ -65,7 +65,7 @@ it('includes a linked mission in the submitted incident', async () => {
   expect(await screen.findByText(/Failed flight/)).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Report incident' }))
   await screen.findByText('Incident reported.')
-  expect(request).toHaveBeenCalledWith('/api/device-incidents', { method: 'POST', body: { rentalDeviceAssignmentId: 44, description: 'No signal', images: [], missionId: 12 } })
+  expect(request).toHaveBeenCalledWith('/api/device-incidents', { method: 'POST', toastMessage: 'Device issue reported successfully.', body: { rentalDeviceAssignmentId: 44, description: 'No signal', images: [], missionId: 12 } })
 })
 it('allows reporting a sensor targeted by the linked mission', async () => {
   const request = mockApi(); const normal = request.getMockImplementation()
@@ -93,5 +93,5 @@ it('waits for images before submitting their encoded data', async () => {
   await screen.findByAltText('Evidence image 1')
   fireEvent.click(screen.getByRole('button', { name: 'Report incident' }))
   await screen.findByText('Incident reported.')
-  expect(request).toHaveBeenCalledWith('/api/device-incidents', { method: 'POST', body: { rentalDeviceAssignmentId: 44, description: 'No signal', images: [{ contentType: 'image/png', dataBase64: btoa('photo') }] } })
+  expect(request).toHaveBeenCalledWith('/api/device-incidents', { method: 'POST', toastMessage: 'Device issue reported successfully.', body: { rentalDeviceAssignmentId: 44, description: 'No signal', images: [{ contentType: 'image/png', dataBase64: btoa('photo') }] } })
 })

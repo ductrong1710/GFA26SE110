@@ -28,7 +28,7 @@ export default function SensorConfiguration({ node, types, reload }) {
         const body = { sensorTypeId: Number(edit.sensorTypeId), channelCode: edit.channelCode, name: edit.name || null, isActive: edit.isActive }
         if (edit.id) await api.put(`/api/sensor-channels/${edit.id}`, body)
         else await api.post(`/api/sensor-nodes/${node.id}/channels`, body)
-      } else await api.put(`/api/sensor-channels/${edit.id}/threshold`, { minValue: nullableNumber(edit.minValue), maxValue: nullableNumber(edit.maxValue), dataTimeoutMinutes: nullableNumber(edit.dataTimeoutMinutes), lowBatteryPercent: nullableNumber(edit.lowBatteryPercent), isEnabled: edit.isEnabled })
+      } else await api.request(`/api/sensor-channels/${edit.id}/threshold`, { method: 'PUT', toastMessage: 'Alert threshold updated successfully.', body: { minValue: nullableNumber(edit.minValue), maxValue: nullableNumber(edit.maxValue), dataTimeoutMinutes: nullableNumber(edit.dataTimeoutMinutes), lowBatteryPercent: nullableNumber(edit.lowBatteryPercent), isEnabled: edit.isEnabled } })
       setNotice('Configuration saved.'); setHistoryChannel(null); setEdit(null); reload()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
