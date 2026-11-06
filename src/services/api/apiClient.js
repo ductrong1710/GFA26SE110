@@ -106,10 +106,12 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
     const validation = [400, 422].includes(status) && Array.isArray(payload?.errors)
       ? [...new Set(payload.errors.map(item => item?.message).filter(message => typeof message === 'string' && message.trim()))].join(' ')
       : ''
-    const message = status >= 500 ? 'Unable to complete the request. Please try again.'
+    const invalidLogin = status === 401 && config?.url === '/api/auth/login'
+    const message = invalidLogin ? 'Invalid email or password.'
+      : status >= 500 ? 'Unable to complete the request. Please try again.'
       : status === 401 && config?._auth !== false ? expired().message
       : validation || payload?.message || ({ 401: 'Please sign in again.', 403: 'You do not have access to this resource.', 404: 'This resource was not found.', 409: 'This change conflicts with the current record.' }[status]) || 'The request could not be completed.'
-    if (config?._toastEnabled) showToast('error', message)
+    if (invalidLogin || config?._toastEnabled) showToast('error', message)
     throw new ApiError(message, status, payload?.errors ?? [])
   })
 

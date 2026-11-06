@@ -14,7 +14,7 @@ export default function ConsultationPage() {
     if (pending) return
     setPending(true); setError('')
     try {
-      setReceipt(await api.request('/api/consultations', { method: 'POST', auth: false, retry: false,
+      setReceipt(await api.request('/api/consultations', { method: 'POST', auth: false, retry: false, toast: true, toastMessage: 'Consultation request submitted successfully.',
         body: { ...values, email: values.email.trim() || null, farmArea: values.farmArea === '' ? null : Number(values.farmArea) } }))
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }

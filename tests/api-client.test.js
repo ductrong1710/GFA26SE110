@@ -21,7 +21,7 @@ test('login stores backend tokens and roles; failed login does not create a sess
   assert.deepEqual(authStorage.getUser(), session.get().user)
   assert.deepEqual(normalizeUser(session.get().user).roles, ['FARM_OWNER'])
   const failed = setup(async () => response({ success: false, message: 'Invalid credentials.', errors: [] }, 401))
-  await assert.rejects(failed.api.login({ email: 'bad', password: 'bad' }), { status: 401, message: 'Invalid credentials.' })
+  await assert.rejects(failed.api.login({ email: 'bad', password: 'bad' }), { status: 401, message: 'Invalid email or password.' })
   assert.equal(failed.session.get(), null)
 })
 

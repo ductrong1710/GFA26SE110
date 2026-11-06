@@ -22,7 +22,7 @@ it('submits an anonymous consultation and displays its receipt', async () => {
     fireEvent.change(screen.getByLabelText(label), { target: { value } })
   fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu tư vấn' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations', expect.objectContaining({
-    method: 'POST', auth: false, body: expect.objectContaining({ customerName: 'Khách hàng', phone: '0901234567', farmArea: null }),
+    method: 'POST', auth: false, toast: true, toastMessage: 'Consultation request submitted successfully.', body: expect.objectContaining({ customerName: 'Khách hàng', phone: '0901234567', farmArea: null }),
   })))
   expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('#42'))
   expect(screen.queryByRole('button', { name: 'Gửi yêu cầu tư vấn' })).toBeNull()
