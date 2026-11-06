@@ -11,7 +11,7 @@ function ChartTooltip({ active, payload, label, type }) {
 
 export default function EnvironmentalChart({ series, type, threshold, zones, label }) {
   const lines = zones?.map((zone, index) => ({ key: `zone${zone.id}`, label: zone.name, color: colors[index % colors.length] })) ?? [{ key: 'value', label: type?.name ?? 'Average', color: colors[0] }]
-  if (!series.some((row) => lines.some(({ key }) => row[key] !== null && row[key] !== undefined))) return <EmptyState title="No readings in this selection" description="This zone may not have this sensor type, or no synchronized readings fall within the date range." />
+  if (!series.some((row) => lines.some(({ key }) => row[key] !== null && row[key] !== undefined))) return <EmptyState title="No sensor data available for the selected criteria." description="This zone may not have this sensor type, or no synchronized readings fall within the date range." />
   return <div className="analytics-chart" aria-label={label ?? `${type?.name} historical trend`}>
     <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 400, height: 280 }}>
       <LineChart data={series} accessibilityLayer margin={{ top: 16, right: 16, left: 0, bottom: 8 }}>

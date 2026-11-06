@@ -34,6 +34,9 @@ export default function SensorDetailPage() {
     <PageHeader eyebrow={node.deviceCode} title={node.name} description={`${node.farm?.name} · ${node.zone?.name}`} breadcrumbs={<Link to="/app/sensors">Sensor Nodes</Link>} actions={manage && <><button className="app-ui-button" onClick={() => setMode('edit')}>Edit Sensor</button><button className="app-ui-button" onClick={() => setMode('assign')}>Assign to Zone</button><button className="app-ui-button" onClick={() => setMode('toggle')}>{node.isActive ? 'Disable' : 'Enable'}</button></>} />
     {notice && <p className="management-success" role="status">{notice}</p>}
     <SectionCard title="Sensor identity" actions={<StatusBadge status={node.displayStatus} label={!node.isActive ? 'Disabled' : undefined} />}>
+      {node.displayStatus === 'OFFLINE' && <p>{node.lastSeenAt
+        ? `Device is offline. Last data received at ${displayTime(node.lastSeenAt)}.`
+        : 'Device is offline. No contact time has been recorded.'}</p>}
       <dl className="operations-details">{[['Device Code', node.deviceCode], ['Zone', node.zone?.name], ['Protocol', node.protocol ?? 'Not supplied'], ['MAC Address', node.macAddress || 'Not recorded'], ['Serial Number', node.serialNumber || 'Not recorded'], ['Model', node.model || 'Not recorded'], ['Last Seen', displayTime(node.lastSeenAt)], ['Last Collected', displayTime(node.lastCollectedAt)]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}<div><dt>Battery</dt><dd><BatteryIndicator value={node.batteryPercent} /></dd></div></dl>
     </SectionCard>
     <SectionCard title="Sensor channels & latest readings" description="Most recent collected value per channel, from synchronized backend measurements.">

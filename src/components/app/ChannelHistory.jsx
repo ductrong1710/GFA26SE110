@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useReadingQuery } from '../../services/api/useReadingQuery'
 import { listAll } from '../../services/api/resources'
-import { SectionCard, DataTable } from './ui'
+import { SectionCard, DataTable, EmptyState } from './ui'
 import ApiState from './ApiState'
 import { displayTime } from '../../utils/display'
 
@@ -14,5 +14,5 @@ export default function ChannelHistory({ channels }) {
   const query = useReadingQuery(`channel-history:${user.id}:${activeRole}:${id}`, fixedRange,
     (bounds, signal) => listAll(`/api/sensor-channels/${id}/history`, bounds, signal), Boolean(id))
   const range = query.range
-  return <SectionCard title="Channel reading history"><label>Channel<select value={id ?? ''} onChange={e => setChannel(e.target.value)}>{channels.map(c => <option key={c.id} value={c.id}>{c.channelCode}</option>)}</select></label><label>From<input type="datetime-local" step="1" value={range.from} onChange={e => setFixedRange({ ...range, from: e.target.value })} /></label><label>To<input type="datetime-local" step="1" value={range.to} onChange={e => setFixedRange({ ...range, to: e.target.value })} /></label>{fixedRange && <button className="app-ui-button" onClick={() => setFixedRange(null)}>Show latest 12 hours</button>}<ApiState {...query} /><DataTable caption="Channel history" rows={query.data ?? []} columns={[{ key: 'value', header: 'Value' }, { key: 'unit', header: 'Unit' }, { key: 'measuredAt', header: 'Measured At', render: displayTime }, { key: 'receivedAt', header: 'Received At', render: displayTime }, { key: 'isValid', header: 'Valid', render: v => v ? 'Yes' : 'No' }, { key: 'validationError', header: 'Validation Details' }]} /></SectionCard>
+  return <SectionCard title="Channel reading history"><label>Channel<select value={id ?? ''} onChange={e => setChannel(e.target.value)}>{channels.map(c => <option key={c.id} value={c.id}>{c.channelCode}</option>)}</select></label><label>From<input type="datetime-local" step="1" value={range.from} onChange={e => setFixedRange({ ...range, from: e.target.value })} /></label><label>To<input type="datetime-local" step="1" value={range.to} onChange={e => setFixedRange({ ...range, to: e.target.value })} /></label>{fixedRange && <button className="app-ui-button" onClick={() => setFixedRange(null)}>Show latest 12 hours</button>}<ApiState {...query} />{!query.error && <DataTable caption="Channel history" loading={query.loading} emptyState={<EmptyState title="No sensor data available for the selected criteria." />} rows={query.data ?? []} columns={[{ key: 'value', header: 'Value' }, { key: 'unit', header: 'Unit' }, { key: 'measuredAt', header: 'Measured At', render: displayTime }, { key: 'receivedAt', header: 'Received At', render: displayTime }, { key: 'isValid', header: 'Valid', render: v => v ? 'Yes' : 'No' }, { key: 'validationError', header: 'Validation Details' }]} />}</SectionCard>
 }

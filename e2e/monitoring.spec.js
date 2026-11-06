@@ -41,7 +41,19 @@ test('owner reads synchronized measurements and compares sensors while admin mai
     expect((await signedIn).ok()).toBeTruthy()
     await expect(tab.getByRole('button', { name: /^Account:/ })).toBeVisible({ timeout: 15000 })
   }
+  const quietZone = await post('/api/farms/' + farm.id + '/zones', { name: 'Offline devices' })
+  const offlineNodes = []
+  for (const [code, lastSeenAt] of [['PREVIOUSLY-SEEN', '2026-01-10T01:00:00Z'], ['NEVER-SEEN', null]]) {
+    const node = await post('/api/sensor-nodes', { zoneId: quietZone.id, deviceCode: code, name: code, status: 'OFFLINE', lastSeenAt })
+    await post('/api/sensor-nodes/' + node.id + '/channels', { sensorTypeId: type.id, channelCode: 'temperature', name: 'Temperature' })
+    offlineNodes.push(node)
+  }
   await login(page, owner.email, password)
+  for (const [i, message] of ['Device is offline. Last data received at 10 Jan 2026, 08:00.', 'Device is offline. No contact time has been recorded.'].entries()) {
+    await page.goto('/app/sensors/' + offlineNodes[i].id)
+    await expect(page.getByText(message, { exact: true })).toBeVisible()
+    await expect(page.getByRole('table', { name: 'Channel history' }).getByText('No sensor data available for the selected criteria.')).toBeVisible()
+  }
   await page.goto('/app/sensors/' + devices[0].id)
   await expect(page.getByRole('table', { name: 'Sensor channels and latest readings' }).getByRole('cell', { name: '21', exact: true })).toBeVisible()
   await expect(page.getByRole('table', { name: 'Channel history' }).getByRole('cell', { name: '21', exact: true })).toBeVisible()
