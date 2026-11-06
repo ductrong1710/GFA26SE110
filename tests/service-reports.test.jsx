@@ -19,7 +19,7 @@ test('submits explicit checks with the job revision and retains the draft on fai
   fireEvent.click(screen.getByRole('button', { name: 'Submit service report' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('Job changed'))
   expect(screen.getByLabelText('Cause').value).toBe('Loose connector')
-  expect(request).toHaveBeenCalledWith('/api/service-jobs/8/reports', { method: 'POST', body: {
+  expect(request).toHaveBeenCalledWith('/api/service-jobs/8/reports', { method: 'POST', toastMessage: 'Service report submitted successfully.', body: {
     expectedRevision: 4, cause: 'Loose connector', work: 'Reconnected cable', components: 'None', testResults: 'Power restored',
     notes: 'Operation still fails', connectivityPassed: true, operationPassed: false, images: [], signedHandover: [{ contentType: 'image/jpeg', dataBase64: btoa('signed') }],
   } })

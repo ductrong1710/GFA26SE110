@@ -20,7 +20,7 @@ export function CultivationActivityForm({ season, onSaved, onCancel }) {
     setError('')
     setPending(true)
     try {
-      onSaved(await api.request(`/api/crop-seasons/${season.id}/activities`, { method: 'POST', body }))
+      onSaved(await api.request(`/api/crop-seasons/${season.id}/activities`, { method: 'POST', toastMessage: 'Crop activity recorded successfully.', body }))
     } catch (cause) { setError(cause.message) }
     finally { setPending(false) }
   }

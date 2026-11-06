@@ -14,7 +14,7 @@ export default function ServiceReportForm({ job, onSaved }) {
     event.preventDefault(); if (pending || readingImages || receipt) return
     setPending(true); setError('')
     try {
-      const report = await api.request(`/api/service-jobs/${job.id}/reports`, { method: 'POST', body: { ...draft, expectedRevision: job.revision,
+      const report = await api.request(`/api/service-jobs/${job.id}/reports`, { method: 'POST', toastMessage: 'Service report submitted successfully.', body: { ...draft, expectedRevision: job.revision,
         connectivityPassed: draft.connectivityPassed === 'true', operationPassed: draft.operationPassed === 'true' } })
       setReceipt(report.id); onSaved(report)
     } catch (err) { setError(err.message) } finally { setPending(false) }

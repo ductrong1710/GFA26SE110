@@ -15,7 +15,7 @@ export default function JobAssignmentForm({ requestId, job, onSaved }) {
     setPending(true); setError('')
     try {
       const row = await api.request(job ? `/api/installation-jobs/${job.id}/assignment` : `/api/installation-requests/${requestId}/jobs`, {
-        method: 'POST', body: { expectedRevision: job?.revision ?? 0, technicianId: Number(values.technicianId), scheduledAt: parseVietnamDateTime(values.scheduledAt).toISOString(), note: values.note },
+        method: 'POST', toastMessage: 'Technician assigned successfully.', body: { expectedRevision: job?.revision ?? 0, technicianId: Number(values.technicianId), scheduledAt: parseVietnamDateTime(values.scheduledAt).toISOString(), note: values.note },
       })
       onSaved(row)
     } catch (err) { setError(err.message) } finally { setPending(false) }

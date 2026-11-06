@@ -30,5 +30,5 @@ it('assigns an active technician and converts the agreed appointment to UTC', as
   fireEvent.change(screen.getByLabelText('Assignment note'), { target: { value: 'Customer agreed' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create installation job' }))
   await vi.waitFor(() => expect(saved).toHaveBeenCalledWith({ id: 3 }))
-  expect(request).toHaveBeenCalledWith('/api/installation-requests/8/jobs', { method: 'POST', body: { expectedRevision: 0, technicianId: 9, scheduledAt: '2030-01-15T02:00:00.000Z', note: 'Customer agreed' } })
+  expect(request).toHaveBeenCalledWith('/api/installation-requests/8/jobs', { method: 'POST', toastMessage: 'Technician assigned successfully.', body: { expectedRevision: 0, technicianId: 9, scheduledAt: '2030-01-15T02:00:00.000Z', note: 'Customer agreed' } })
 })

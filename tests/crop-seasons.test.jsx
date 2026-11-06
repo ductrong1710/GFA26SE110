@@ -81,7 +81,7 @@ test('owner records an activity and opens its saved evidence in the refreshed lo
   fireEvent.click(screen.getByRole('button', { name: 'Save activity' }))
   fireEvent.click(await screen.findByRole('button', { name: 'View images for activity #9' }))
   expect(await screen.findByRole('img', { name: 'Evidence image 1' })).toBeTruthy()
-  expect(request).toHaveBeenCalledWith('/api/crop-seasons/1/activities', { method: 'POST', body: {
+  expect(request).toHaveBeenCalledWith('/api/crop-seasons/1/activities', { method: 'POST', toastMessage: 'Crop activity recorded successfully.', body: {
     expectedRevision: 3, date: activity.date, type: activity.type, description: activity.description, costVnd: null, notes: null, images: [image],
   } })
 })
