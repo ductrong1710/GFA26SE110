@@ -28,7 +28,7 @@ export default function DataTable({ columns = [], rows = [], rowKey = 'id', capt
         <tbody>{loading || error || !rows.length ? <tr><td colSpan={Math.max(1, columns.length)}>
           {loading ? <p className="app-ui-loading" role="status">Loading data…</p>
             : error ? <div role="alert"><EmptyState title="Unable to load data" description={error} actions={errorAction} /></div>
-              : emptyState ?? <EmptyState title="No records found" description="Try adjusting your filters or check back later." />}
+              : emptyState ?? <EmptyState title="No results found." description="Try adjusting your filters or check back later." />}
         </td></tr> : rows.map((row) => <tr key={getRowKey(row)} data-clickable={Boolean(onRowClick)} onClick={onRowClick ? (event) => { if (!event.target.closest('button, a, input, select, textarea')) onRowClick(row) } : undefined}>{columns.map((column) => <td key={column.key} data-align={column.align ?? 'start'}>
           {column.render ? column.render(row[column.key], row) : cellValue(row[column.key], missingValue)}
         </td>)}</tr>)}</tbody>

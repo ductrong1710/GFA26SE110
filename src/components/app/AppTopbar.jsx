@@ -79,7 +79,7 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
         <p className="app-popover-label">Workspace pages</p>
         {results.length ? <ul>{results.map(({ path, label, icon }) => <li key={path}>
           <Link to={path} onClick={() => setPopover(null)}><AppIcon name={icon} size={17} />{label}</Link>
-        </li>)}</ul> : <p className="app-empty-message" role="status">No matching pages.</p>}
+        </li>)}</ul> : <p className="app-empty-message" role="status">No results found.</p>}
       </div>}
     </form>
     <div className="app-topbar-actions">

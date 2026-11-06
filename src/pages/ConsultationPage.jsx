@@ -8,7 +8,18 @@ export default function ConsultationPage() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState(null)
-  const field = name => ({ value: values[name], onChange: event => setValues({ ...values, [name]: event.target.value }) })
+  const field = (name, label) => ({
+    value: values[name],
+    onChange(event) {
+      event.target.setCustomValidity('')
+      setValues({ ...values, [name]: event.target.value })
+    },
+    onInvalid(event) {
+      const input = event.target
+      if (input.validity.valueMissing) input.setCustomValidity(`The ${label} field is required.`)
+      else if (input.validity.typeMismatch || input.validity.patternMismatch) input.setCustomValidity(`Invalid ${label} format.`)
+    },
+  })
   async function submit(event) {
     event.preventDefault()
     if (pending) return
@@ -25,13 +36,13 @@ export default function ConsultationPage() {
       {receipt ? <p role="status">Đã tiếp nhận yêu cầu #{receipt.id}. Kỹ sư sẽ liên hệ theo thông tin bạn cung cấp.</p> :
         <form aria-label="Yêu cầu tư vấn" className="management-form" onSubmit={submit}>
           <fieldset disabled={pending} className="management-form">
-            <label>Họ tên<input required maxLength={150} autoComplete="name" {...field('customerName')} /></label>
-            <label>Số điện thoại<input required type="tel" maxLength={30} autoComplete="tel" {...field('phone')} /></label>
-            <label>Email (không bắt buộc)<input type="email" maxLength={255} autoComplete="email" {...field('email')} /></label>
-            <label>Vị trí nông trại<input required maxLength={500} {...field('farmLocation')} /></label>
-            <label>Diện tích (ha, không bắt buộc)<input type="number" min="0.0001" max="100000000" step="0.0001" {...field('farmArea')} /></label>
-            <label>Nhu cầu dịch vụ<input required maxLength={500} {...field('serviceNeed')} /></label>
-            <label>Nội dung tư vấn<textarea required maxLength={4000} rows={5} {...field('content')} /></label>
+            <label>Họ tên<input required maxLength={150} autoComplete="name" {...field('customerName', 'customer name')} /></label>
+            <label>Số điện thoại<input required type="tel" pattern="\+?(?:[ \(\)\-]*[0-9]){7,15}[ \(\)\-]*" maxLength={30} autoComplete="tel" {...field('phone', 'phone')} /></label>
+            <label>Email (không bắt buộc)<input type="email" maxLength={255} autoComplete="email" {...field('email', 'email')} /></label>
+            <label>Vị trí nông trại<input required maxLength={500} {...field('farmLocation', 'farm location')} /></label>
+            <label>Diện tích (ha, không bắt buộc)<input type="number" min="0.0001" max="100000000" step="0.0001" {...field('farmArea', 'farm area')} /></label>
+            <label>Nhu cầu dịch vụ<input required maxLength={500} {...field('serviceNeed', 'service need')} /></label>
+            <label>Nội dung tư vấn<textarea required maxLength={4000} rows={5} {...field('content', 'content')} /></label>
             <button type="submit" className="app-ui-button app-ui-button--primary">{pending ? 'Đang gửi…' : 'Gửi yêu cầu tư vấn'}</button>
           </fieldset>
           {error && <p role="alert" className="management-error">{error}</p>}

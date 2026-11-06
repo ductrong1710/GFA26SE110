@@ -16,7 +16,7 @@ function ReportTable({ item, pageSize = 20 }) {
   const pages = Math.max(1, Math.ceil(item.rows.length / pageSize))
   return <SectionCard title={item.title}><DataTable caption={item.title} rowKey={row => `${row.deviceType ?? ''}:${row.id}`} rows={item.rows.slice(page * pageSize, (page + 1) * pageSize)} columns={item.columns.map((column) => ({ ...column,
     render: (value) => ['status', 'severity'].includes(column.key) ? <StatusBadge status={value} /> : value === null || value === undefined ? 'Unavailable' : typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value,
-  }))} emptyState={<EmptyState title="No matching records" description="Try another farm, zone or date range." />} footer={pages > 1 ? <div className="analytics-pagination"><span>{item.rows.length} rows · Page {page + 1} of {pages}</span><button className="app-ui-button" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button><button className="app-ui-button" disabled={page === pages - 1} onClick={() => setPage(page + 1)}>Next</button></div> : `${item.rows.length} rows`} /></SectionCard>
+  }))} emptyState={<EmptyState title="No results found." description="Try another farm, zone or date range." />} footer={pages > 1 ? <div className="analytics-pagination"><span>{item.rows.length} rows · Page {page + 1} of {pages}</span><button className="app-ui-button" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button><button className="app-ui-button" disabled={page === pages - 1} onClick={() => setPage(page + 1)}>Next</button></div> : `${item.rows.length} rows`} /></SectionCard>
 }
 
 function ReportsWorkspace() {
