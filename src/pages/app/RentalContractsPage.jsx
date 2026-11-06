@@ -40,7 +40,8 @@ export default function RentalContractsPage() {
         if (!values.devicesReturned) throw new Error('Confirm physical return of all assigned devices before ending this contract.')
         body.devicesReturned = true
       }
-      select(await api.request(`/api/rental-contracts/${selected.id}/${values.action}`, { method: 'POST', body }))
+      select(await api.request(`/api/rental-contracts/${selected.id}/${values.action}`, { method: 'POST', body,
+        ...(values.action === 'activate' && { toastMessage: 'Rental contract activated successfully.' }) }))
       query.reload(); setNotice('Rental contract updated.')
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }

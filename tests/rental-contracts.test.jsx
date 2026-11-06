@@ -33,7 +33,7 @@ it('activates a draft explicitly using its current revision', async () => {
   fireEvent.change(screen.getByLabelText('Decision note'), { target: { value: 'Agreed period has begun' } })
   fireEvent.click(screen.getByRole('button', { name: 'Record contract action' }))
   expect(await screen.findByText('Rental contract updated.')).toBeTruthy()
-  expect(request).toHaveBeenCalledWith('/api/rental-contracts/6/activate', { method: 'POST', body: { expectedRevision: 2, note: 'Agreed period has begun' } })
+  expect(request).toHaveBeenCalledWith('/api/rental-contracts/6/activate', { method: 'POST', toastMessage: 'Rental contract activated successfully.', body: { expectedRevision: 2, note: 'Agreed period has begun' } })
   expect(screen.getByLabelText('Contract action').value).toBe('extend')
 })
 it('requires explicit physical return confirmation before ending the current revision', async () => {

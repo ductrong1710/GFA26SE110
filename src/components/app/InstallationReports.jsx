@@ -27,7 +27,9 @@ export default function InstallationReports({ job, canConfirm, canReview, onUpda
     if (!action) return
     setPending(true); setError(''); setNotice('')
     try {
-      const updated = await api.request(`${path}/${action}`, { method: 'POST', body: { expectedRevision: job.revision, reportId: selected.id, note } })
+      const updated = await api.request(`${path}/${action}`, { method: 'POST',
+        ...(action === 'approve' && { toastMessage: 'Installation approved successfully.' }),
+        body: { expectedRevision: job.revision, reportId: selected.id, note } })
       onUpdated(updated); setSelected(null); setNote(''); query.reload(); setNotice('Installation decision recorded.')
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
