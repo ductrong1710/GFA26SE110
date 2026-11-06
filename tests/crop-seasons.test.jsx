@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import CropSeasonsPage from '../src/pages/app/CropSeasonsPage'
+import CropSeasonForm from '../src/components/app/CropSeasonForm'
 import { api } from '../src/services/api'
 import { PERMISSIONS as P } from '../src/config/permissions'
 
@@ -8,6 +9,23 @@ const auth = vi.hoisted(() => ({ user: { id: 4 }, can: () => true }))
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => auth }))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); auth.can = () => true })
 const season = { id: 1, ownerId: 4, farmId: 2, zoneId: null, revision: 3, status: 'ACTIVE', name: 'Spring', crop: 'Rice', cropAgeDays: 0 }
+test('creating a season uses creation feedback and preserves unknown optional values', async () => {
+  const saved = vi.fn()
+  vi.spyOn(api, 'get').mockImplementation(async path => ({ items: path === '/api/farms' ? [{ id: 2, name: 'Rice farm', isActive: true }] : [], pagination: { totalPages: 1 } }))
+  const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
+    if (options.method === 'POST') return season
+    return { items: path === '/api/farms' ? [{ id: 2, name: 'Rice farm', isActive: true }] : [], pagination: { totalPages: 1 } }
+  })
+  render(<CropSeasonForm onSaved={saved} onCancel={vi.fn()} />)
+  await screen.findByRole('option', { name: 'Rice farm' })
+  fireEvent.change(screen.getByLabelText('Farm'), { target: { value: '2' } })
+  fireEvent.change(screen.getByLabelText('Season name'), { target: { value: 'Spring' } })
+  fireEvent.change(screen.getByLabelText('Crop'), { target: { value: 'Rice' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save season' }))
+  await vi.waitFor(() => expect(saved).toHaveBeenCalledWith(season))
+  expect(request).toHaveBeenCalledWith('/api/crop-seasons', expect.objectContaining({ method: 'POST',
+    toastMessage: 'Crop season created successfully.', body: expect.objectContaining({ farmId: 2, expectedRevision: 0, areaHectares: null }) }))
+})
 function mockSeasons() {
   return vi.spyOn(api, 'request').mockImplementation(async path => path.endsWith('/1') ? season : { items: [season], pagination: { totalPages: 1 } })
 }

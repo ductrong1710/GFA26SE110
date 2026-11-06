@@ -22,7 +22,8 @@ export default function CropSeasonForm({ season, onSaved, onCancel }) {
     setPending(true)
     setError('')
     try {
-      const result = await api.request(season ? `/api/crop-seasons/${season.id}` : '/api/crop-seasons', { method: season ? 'PUT' : 'POST', body })
+      const result = await api.request(season ? `/api/crop-seasons/${season.id}` : '/api/crop-seasons', { method: season ? 'PUT' : 'POST', body,
+        ...(!season && { toastMessage: 'Crop season created successfully.' }) })
       onSaved(result)
     } catch (cause) { setError(cause.message) }
     finally { setPending(false) }

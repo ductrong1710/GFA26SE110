@@ -16,6 +16,7 @@ export default function ServiceJobAssignmentForm({ incidentId, job, onSaved }) {
     setPending(true); setError('')
     try {
       const row = await api.request(job ? `/api/service-jobs/${job.id}/assignment` : `/api/device-incidents/${incidentId}/jobs`, {
+        ...(!job && { toastMessage: 'Service job created successfully.' }),
         method: 'POST', body: { type: values.type, expectedRevision: job?.revision ?? 0, technicianId: Number(values.technicianId), scheduledAt: parseVietnamDateTime(values.scheduledAt).toISOString(), note: values.note, ...(reopen && { reopen: true }) },
       })
       onSaved(row)
