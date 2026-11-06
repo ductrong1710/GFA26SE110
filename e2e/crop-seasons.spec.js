@@ -53,7 +53,7 @@ test('owner records cultivation and compares completed harvest results', async (
   await expect(cultivation.getByText('1 active seasons')).toBeVisible()
   const onDashboard = page.getByRole('table', { name: 'Selected season results' })
   await expect(onDashboard.getByText('1100000')).toBeVisible()
-  await expect(onDashboard.getByRole('row').filter({ hasText: 'Autumn' }).getByRole('cell', { name: '—', exact: true }).first()).toBeVisible()
+  await expect(onDashboard.getByRole('row').filter({ hasText: 'Autumn' }).getByRole('cell', { name: 'No data recorded for this criterion.', exact: true }).first()).toBeVisible()
   await cultivation.getByRole('link', { name: 'View seasons and compare' }).click()
   await expect(page).toHaveURL(/\/app\/crop-seasons$/)
 })

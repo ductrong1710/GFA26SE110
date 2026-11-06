@@ -9,7 +9,7 @@ export default function CropSeasonComparison({ ids, description }) {
   const query = useApiQuery(path, signal => api.request(path, { signal }))
   return <SectionCard title="Season comparison" description={description}>
     <ApiState loading={query.loading} error={query.error} reload={query.reload} />
-    <DataTable caption="Selected season results" rows={query.data ?? []} loading={query.loading} columns={[
+    <DataTable caption="Selected season results" missingValue="No data recorded for this criterion." rows={query.data ?? []} loading={query.loading} columns={[
       { key: 'name', header: 'Season' }, { key: 'crop', header: 'Crop' }, { key: 'areaHectares', header: 'Area (ha)' },
       { key: 'startDate', header: 'Start' }, { key: 'endDate', header: 'End' }, { key: 'durationDays', header: 'Days' },
       { key: 'yieldKg', header: 'Yield (kg)' }, { key: 'totalCostVnd', header: 'Cost (VND)' }, { key: 'revenueVnd', header: 'Revenue (VND)' },

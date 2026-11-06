@@ -68,12 +68,14 @@ test('owner completes a season with unknown yield and zero revenue', async () =>
 test('comparison requests both selected seasons and displays the activity breakdown', async () => {
   const rows = [season, { ...season, id: 8, name: 'Autumn' }]
   const request = vi.spyOn(api, 'request').mockImplementation(async path => path.includes('compare?')
-    ? rows.map(row => ({ ...row, activities: [{ type: 'WATERING', count: 2 }] })) : { items: rows, pagination: { totalPages: 1 } })
+    ? rows.map(row => ({ ...row, yieldKg: 0, profitVnd: null, activities: [{ type: 'WATERING', count: 2 }] })) : { items: rows, pagination: { totalPages: 1 } })
   render(<CropSeasonsPage />)
   fireEvent.click(await screen.findByLabelText('Compare season #8'))
   expect(screen.queryByRole('heading', { name: 'Season comparison' })).toBeNull()
   fireEvent.click(screen.getByLabelText('Compare season #1'))
   expect(await screen.findAllByText('WATERING (2)')).toHaveLength(2)
+  expect(screen.getAllByRole('cell', { name: '0', exact: true })).toHaveLength(2)
+  expect(screen.getAllByRole('cell', { name: 'No data recorded for this criterion.' }).length).toBeGreaterThan(0)
   expect(request.mock.calls.some(([path]) => path === '/api/crop-seasons/compare?ids=8&ids=1')).toBe(true)
   fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
   expect(screen.queryByRole('heading', { name: 'Season comparison' })).toBeNull()
