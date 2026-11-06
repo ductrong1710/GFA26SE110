@@ -79,7 +79,7 @@ These rows supplement the 48 use cases; evidence is limited to the inspected cod
 | NFR-R03 | SyncTests covers partial results and retry/duplicate prevention | Physical gateway offline/reconnect |
 | NFR-R04 | Browser reloads preserve workflow outcomes; API tests inspect histories | Recovery of a complete operational dataset |
 | NFR-R05 | EmailTests checks failed delivery and persistence of the committed alert | External service failure in deployment |
-| NFR-P01 | Local workflows pass | Defined expected load and measured response-time distribution |
+| NFR-P01 | Local authenticated read measurements below | Expected deployment load profile and representative data volume |
 | NFR-P02 | Monitoring browser asserts new accepted readings visible within ten seconds | Expected-load/deployment latency |
 | NFR-P03 | Report/sensor comparison services cap ranges at 366 days; report repository uses SQL aggregates and bounded history | Query plans and volume tests |
 | NFR-P04 | Relational farm/zone/device/job/mission/season scopes and multi-owner API tests | Expected data-volume validation |
@@ -115,3 +115,14 @@ MSG16 service-job creation and MSG23 crop-season creation now pass explicit SRS 
 MSG14 threshold updates and MSG15 device incident submission now use action-specific SRS success toasts. The threshold write uses the existing api.request interface to supply toastMessage while preserving its PUT payload. Focused verification passed 10 threshold/incident component tests, including zero threshold bounds, mission-linked incidents and image evidence. Lint passed with the existing Fast Refresh warning. MSG22 mission creation still needs separate audit because save, draft and scheduling are distinct steps.
 
 MSG22 now accompanies a successful POST creating a mission, including a persisted pending draft; it does not claim scheduling or flight success. Later saves use PUT without creation feedback. The provider test verifies the returned ID prevents duplicate creation on the next save, and rejected creation keeps the draft without an ID. Six provider/mission-note component tests and 14 planning/adapter tests passed; lint passed with the existing warning. The API client's existing success/error handling determines whether the supplied creation toast is shown.
+
+NFR-P01 local measurement on 2026-11-06 used Release Kestrel with disposable PostgreSQL during the consultation browser scenario. After one warm-up request per route, four concurrent clients made 30 authenticated GET requests per route. All 120 returned HTTP 200 with a successful API envelope. Times include loopback HTTP and JSON decoding.
+
+| Route | p95 (ms) | Maximum (ms) |
+|---|---:|---:|
+| Dashboard overview | 152.2 | 175.8 |
+| Farms, page size 20 | 44.4 | 48.2 |
+| Crop seasons, page size 20 | 34.0 | 35.0 |
+| Service jobs, page size 20 | 52.3 | 63.2 |
+
+The sample uses a small disposable dataset, one authenticated administrator and read requests. Deployment concurrency, data volume, write latency and browser rendering still need independent measurements.
