@@ -20,15 +20,16 @@ public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsul
 {
     public SubmitConsultationValidator()
     {
-        RuleFor(x => x.CustomerName).NotEmpty().MaximumLength(150);
-        RuleFor(x => x.Phone).NotEmpty().MaximumLength(30).Matches(@"^\+?[0-9 ()-]{7,30}$")
+        RuleFor(x => x.CustomerName).NotEmpty().WithMessage("The customer name field is required.").MaximumLength(150);
+        RuleFor(x => x.Phone).Cascade(CascadeMode.Stop).NotEmpty().WithMessage("The phone field is required.").MaximumLength(30).Matches(@"^\+?[0-9 ()-]{7,30}$")
+            .WithMessage("Invalid phone format.")
             .Must(phone => phone is not null && phone.Count(char.IsAsciiDigit) is >= 7 and <= 15)
-            .WithMessage("Phone must contain 7 to 15 digits.");
-        RuleFor(x => x.Email).MaximumLength(255).EmailAddress().When(x => !string.IsNullOrEmpty(x.Email));
-        RuleFor(x => x.FarmLocation).NotEmpty().MaximumLength(500);
+            .WithMessage("Invalid phone format.");
+        RuleFor(x => x.Email).MaximumLength(255).EmailAddress().WithMessage("Invalid email format.").When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.FarmLocation).NotEmpty().WithMessage("The farm location field is required.").MaximumLength(500);
         RuleFor(x => x.FarmArea).GreaterThan(0).LessThanOrEqualTo(100000000);
-        RuleFor(x => x.ServiceNeed).NotEmpty().MaximumLength(500);
-        RuleFor(x => x.Content).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.ServiceNeed).NotEmpty().WithMessage("The service need field is required.").MaximumLength(500);
+        RuleFor(x => x.Content).NotEmpty().WithMessage("The content field is required.").MaximumLength(4000);
     }
 }
 

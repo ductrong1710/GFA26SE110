@@ -413,7 +413,13 @@ public sealed class ConsultationTests(ApiFactory factory)
     public async Task Invalid_public_request_does_not_create_a_consultation()
     {
         using var visitor = factory.CreateApiClient();
-        Assert.Equal(HttpStatusCode.BadRequest, (await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "", phone = "bad", email = "bad", farmLocation = "", farmArea = -1, serviceNeed = "", content = "" })).StatusCode);
+        var response = await visitor.PostAsJsonAsync("/api/consultations", new
+        { customerName = " ", phone = "bad", email = "bad", farmLocation = " ", farmArea = -1, serviceNeed = " ", content = " " });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var messages = body.GetProperty("errors").EnumerateArray().Select(x => x.GetProperty("message").GetString()).ToArray();
+        Assert.Contains("The customer name field is required.", messages);
+        Assert.Contains("Invalid email format.", messages);
+        Assert.Contains("Invalid phone format.", messages);
     }
 }
