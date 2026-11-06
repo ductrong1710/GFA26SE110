@@ -51,7 +51,7 @@ public sealed partial class MaintenanceScheduleRepository
             db.ServiceJobs.Add(job); await db.SaveChangesAsync(ct);
             db.MaintenanceOccurrences.Add(new() { ScheduleId = id, DueAt = dueAt, RentalDeviceAssignmentId = assignment.Id,
                 JobId = job.Id, Policy = schedule.Policy, CreatedAt = now });
-            var message = $"Maintenance job #{job.Id} is due for device {assignment.Code}. {schedule.Policy}";
+            var message = $"Scheduled maintenance is due for device {assignment.Code}. Job #{job.Id}: {schedule.Policy}";
             foreach (var recipientId in new[] { schedule.TechnicianId, assignment.Contract.OwnerId }.Distinct())
                 await WorkflowNotifications.AddForUserAsync(db, recipientId, "Maintenance due", message, now, ct);
             created++;

@@ -372,6 +372,12 @@ public sealed class ConsultationTests(ApiFactory factory)
         await MonitorRentals(agreedStart.AddMonths(6).AddDays(-2));
         var afterWarning = await NotificationCount();
         Assert.True(afterWarning > beforeWarning);
+        await using (var warningScope = factory.Services.CreateAsyncScope())
+        {
+            var message = $"Rental contract #{rentalId} will expire on {agreedStart.AddMonths(6):O}.";
+            Assert.True(await warningScope.ServiceProvider.GetRequiredService<AppDbContext>().Notifications
+                .AnyAsync(x => x.Subject == "Rental expiring soon" && x.Message == message));
+        }
         await MonitorRentals(agreedStart.AddMonths(6).AddDays(-2));
         Assert.Equal(afterWarning, await NotificationCount());
         await MonitorRentals(agreedStart.AddMonths(6).AddSeconds(1));

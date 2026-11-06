@@ -155,7 +155,7 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
             else
             {
                 rental.WarnedForEndAt = rental.EndAt;
-                await NotifyAsync(rental, "Rental expiring soon", now, ct);
+                await NotifyAsync(rental, "Rental expiring soon", now, ct, $"Rental contract #{rental.Id} will expire on {rental.EndAt:O}.");
             }
         }
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
@@ -181,9 +181,9 @@ public sealed class RentalRepository(AppDbContext db) : IRentalRepository
             await db.Uavs.CountAsync(x => uavs.Contains(x.Id) && x.IsActive, ct) != uavs.Length || await db.Gateways.CountAsync(x => gateways.Contains(x.Id) && x.IsActive, ct) != gateways.Length)
             throw new BusinessRuleException("Rental devices must be active and sensor nodes must remain in the assigned farm.");
     }
-    private async Task NotifyAsync(RentalContract rental, string subject, DateTimeOffset now, CancellationToken ct)
+    private async Task NotifyAsync(RentalContract rental, string subject, DateTimeOffset now, CancellationToken ct, string? message = null)
     {
-        var message = $"Rental contract #{rental.Id} for farm #{rental.FarmId}; confirmed end {rental.EndAt:O}.";
+        message ??= $"Rental contract #{rental.Id} for farm #{rental.FarmId}; confirmed end {rental.EndAt:O}.";
         if (await FarmAccessQuery.AssignedFarmIds(db, rental.OwnerId).ContainsAsync(rental.FarmId, ct)) await WorkflowNotifications.AddForUserAsync(db, rental.OwnerId, subject, message, now, ct);
         await WorkflowNotifications.AddForRoleAsync(db, RoleNames.FarmAdministrator, subject, message, now, ct);
     }

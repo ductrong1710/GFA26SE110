@@ -61,7 +61,7 @@ public sealed class MaintenanceDueTests(ApiFactory factory)
         var refreshed = await db.MaintenanceSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id);
         Assert.Equal(due.AddDays(21), refreshed.NextDueAt); Assert.Equal(2, refreshed.Revision);
         Assert.Equal(2, await db.Notifications.CountAsync(x => x.UserId == tech.Id && x.Subject == "Maintenance due"));
-        Assert.Equal(2, await db.Notifications.CountAsync(x => x.UserId == owner.Id && x.Subject == "Maintenance due" && x.Message.Contains($"#{job.Id}")));
+        Assert.Equal(2, await db.Notifications.CountAsync(x => x.UserId == owner.Id && x.Subject == "Maintenance due" && x.Message == $"Scheduled maintenance is due for device {assignment.Code}. Job #{job.Id}: {schedule.Policy}"));
         Assert.Equal(0, await Run());
         await db.MaintenanceSchedules.Where(x => x.Id == schedule.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.NextDueAt, due).SetProperty(x => x.Enabled, false));
         Assert.Equal(0, await Run());
