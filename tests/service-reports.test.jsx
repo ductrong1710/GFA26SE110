@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import ServiceReportForm from '../src/components/app/ServiceReportForm'
 import ServiceReports from '../src/components/app/ServiceReports'
+import { toast } from 'react-toastify'
 import { api } from '../src/services/api'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
@@ -57,3 +58,22 @@ test('administrator can return failed checks but cannot approve them or review a
   await screen.findByRole('heading', { name: 'Report revision 1' })
   expect(screen.queryByRole('button', { name: 'Request service rework' })).toBeNull()
 })
+
+
+test.each([[true, 'Device replacement recorded successfully.'], [false, 'Service decision recorded.']])(
+  'approval uses the committed replacement history (replacement added: %s)', async (added, message) => {
+    const job = { id: 8, revision: 6, status: 'OWNER_CONFIRMED', replacements: [{ id: 2 }] }
+    const notify = vi.spyOn(toast, 'success').mockImplementation(() => {})
+    vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
+      if (options.method === 'POST') {
+        expect(options.toastMessage).toBe('')
+        return { ...job, replacements: added ? [...job.replacements, { id: 3 }] : job.replacements }
+      }
+      return path.endsWith('/5') ? report : { items: [report], pagination: { totalItems: 1 } }
+    })
+    render(<ServiceReports job={job} canReview onUpdated={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'View report revision 2' }))
+    fireEvent.change(await screen.findByLabelText('Decision note'), { target: { value: 'Approved' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Approve service result' }))
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(message))
+  })

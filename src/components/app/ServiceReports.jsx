@@ -5,6 +5,7 @@ import { DataTable, SectionCard } from './ui'
 import ApiState from './ApiState'
 import { PaperGroup, readPaper } from './PaperEvidence'
 import EvidenceImages from './EvidenceImages'
+import { showToast } from '../../utils/toast'
 import { displayTime } from '../../utils/display'
 
 export default function ServiceReports({ job, canConfirm, canReview, onUpdated }) {
@@ -27,7 +28,11 @@ export default function ServiceReports({ job, canConfirm, canReview, onUpdated }
     if (!action) return
     setPending(true); setError(''); setNotice('')
     try {
-      const updated = await api.request(`${path}/${action}`, { method: 'POST', body: { expectedRevision: job.revision, reportId: selected.id, note } })
+      const updated = await api.request(`${path}/${action}`, { method: 'POST', ...(action === 'approve' && { toastMessage: '' }), body: { expectedRevision: job.revision, reportId: selected.id, note } })
+      if (action === 'approve') {
+        const replaced = updated.replacements.length > job.replacements.length
+        showToast('success', replaced ? 'Device replacement recorded successfully.' : 'Service decision recorded.')
+      }
       onUpdated(updated); setSelected(null); setNote(''); query.reload(); setNotice('Service decision recorded.')
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
