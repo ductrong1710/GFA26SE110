@@ -1,7 +1,7 @@
 import { completeService } from './complete-service'
 import { expect } from '@playwright/test'
 
-export async function repairDevice(owner, admin, technician, contractId, uav, technicianId) {
+export async function repairDevice(owner, admin, technician, contractId, uav, technicianId, spare) {
   await owner.getByRole('combobox', { name: 'Rental contract' }).selectOption(String(contractId))
   await owner.getByRole('combobox', { name: 'Assigned device' }).selectOption({ label: uav.code + ' · ' + uav.name + ' · Orchard dock' })
   await owner.getByLabel('Incident description').fill('Dock connector intermittently loses power.')
@@ -32,7 +32,10 @@ export async function repairDevice(owner, admin, technician, contractId, uav, te
       await owner.getByRole('button', { name: incidentButton, exact: true }).click()
       await expect(owner.getByRole('region', { name: heading, exact: true }).getByText('Open', { exact: true })).toBeVisible()
     }
-    await completeService(owner, admin, technician, jobId, cycle, 'Loose terminal at dock', 'Reseat the dock terminal and secure the cable')
+    const replacement = cycle === 2 ? spare : null
+    const work = replacement ? 'Replace the UAV after a recurring dock fault' : 'Reseat the dock terminal and secure the cable'
+    await completeService(owner, admin, technician, jobId, cycle, 'Loose terminal at dock', work, replacement)
+    if (replacement) await expect(admin.getByRole('region', { name: 'Device replacement history' }).getByText(uav.code + ' → ' + spare.code)).toBeVisible()
     await owner.getByRole('link', { name: 'Device incidents', exact: true }).click()
     await owner.getByRole('button', { name: incidentButton, exact: true }).click()
     await expect(owner.getByRole('region', { name: heading, exact: true }).getByText('Resolved', { exact: true })).toBeVisible()

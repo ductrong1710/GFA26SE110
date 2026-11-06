@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 
-export async function completeService(owner, admin, technician, jobId, cycle, reason, work) {
+export async function completeService(owner, admin, technician, jobId, cycle, reason, work, replacement) {
   async function openJob(page) {
     await page.getByRole('link', { name: 'Service jobs', exact: true }).click()
     await page.getByRole('button', { name: 'Open service job #' + jobId, exact: true }).click()
@@ -8,6 +8,7 @@ export async function completeService(owner, admin, technician, jobId, cycle, re
   await openJob(technician)
   await technician.getByRole('button', { name: 'Start service work' }).click()
   await technician.getByLabel('Service plan note').fill(work)
+  if (replacement) await technician.getByLabel('Replacement device').selectOption(replacement.code)
   await technician.getByRole('button', { name: 'Submit service plan' }).click()
   await expect(technician.getByRole('heading', { name: /Plan #\d+ · PROPOSED/ })).toBeVisible()
   await openJob(admin)
@@ -15,8 +16,13 @@ export async function completeService(owner, admin, technician, jobId, cycle, re
   await admin.getByRole('button', { name: 'Approve service plan' }).click()
   await expect(admin.getByRole('heading', { name: /Plan #\d+ · APPROVED/ })).toBeVisible()
   await openJob(technician)
-  const agreement = technician.getByRole('group', { name: 'Signed service agreement' })
-  await agreement.getByLabel('Add evidence images').setInputFiles({ name: 'agreement.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+  const evidence = ['Signed service agreement']
+  if (replacement) evidence.push('Old device serial evidence', 'New device serial evidence')
+  for (const label of evidence) {
+    const group = technician.getByRole('group', { name: label })
+    await group.getByLabel('Add evidence images').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+    await expect(group.getByAltText('Evidence image 1')).toBeVisible()
+  }
   await technician.getByRole('button', { name: 'Record service plan execution' }).click()
   const report = technician.getByRole('region', { name: 'Technician service report' })
   await report.getByLabel('Cause', { exact: true }).fill(reason)
@@ -40,5 +46,6 @@ export async function completeService(owner, admin, technician, jobId, cycle, re
   await admin.getByRole('button', { name: revision }).click()
   await admin.getByLabel('Decision note').fill('Verified successful tests and owner confirmation')
   await admin.getByRole('button', { name: 'Approve service result' }).click()
+  if (replacement) await expect(admin.getByText('Device replacement recorded successfully.', { exact: true })).toBeVisible()
   await expect(admin.getByRole('region', { name: 'Service job #' + jobId, exact: true }).getByText('Closed', { exact: true })).toBeVisible()
 }

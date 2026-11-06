@@ -118,7 +118,11 @@ export async function installAndActivate(browser, admin, seed, requestId, owner,
     const credential = await seed('/api/gateways/' + gateway.id + '/credential')
     await runMission(ownerPage, farm, uav, gateway, sensor, true, credential.apiKey)
     await runMission(ownerPage, farm, uav, gateway, sensor)
-    await repairDevice(ownerPage, admin, work, contractId, uav, tech.id)
-    await verifyMaintenance(ownerPage, admin, work, contractId, uav, tech.id)
+    const spare = await seed('/api/uavs', { code: 'ORCHARD-SPARE', name: 'Replacement orchard UAV', status: 'ONLINE' })
+    await repairDevice(ownerPage, admin, work, contractId, uav, tech.id, spare)
+    await ownerPage.goto('/app/rental-contracts')
+    await ownerPage.getByRole('button', { name: button, exact: true }).click()
+    await expect(contract.getByText(spare.code + ' · ' + spare.name)).toBeVisible()
+    await verifyMaintenance(ownerPage, admin, work, contractId, spare, tech.id)
   } finally { await employee.close(); await customer.close() }
 }
