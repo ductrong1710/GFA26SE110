@@ -16,6 +16,7 @@ test('owner reads synchronized measurements and compares sensors while admin mai
   const farm = await post('/api/farms', { name: 'Sensor comparison farm' })
   await post('/api/farms/' + farm.id + '/members', { userId: owner.id })
   const type = await post('/api/sensor-types', { code: 'BROWSER-TEMP', name: 'Orchard temperature', unit: 'C' })
+  const unknownUnit = await post('/api/sensor-types', { code: 'BROWSER-RAW', name: 'Unspecified unit' })
   const devices = []
   for (const [code, value, zoneName] of [['SOUTH-1', 21, 'South orchard'], ['NORTH-1', 27, 'North orchard']]) {
     const zone = await post('/api/farms/' + farm.id + '/zones', { name: zoneName })
@@ -64,7 +65,15 @@ test('owner reads synchronized measurements and compares sensors while admin mai
     return url.pathname === '/api/zones/compare' && url.searchParams.get('sensorTypeId') === String(type.id) &&
       url.searchParams.get('zoneIds')?.split(',').length === 1
   })
+  const invalidComparison = await request.get(base + '/api/zones/compare', {
+    headers: { Authorization: 'Bearer ' + token }, params: { zoneIds: quietZone.id, sensorTypeId: unknownUnit.id },
+  })
+  expect(invalidComparison.status()).toBe(422)
+  expect((await invalidComparison.json()).message).toBe('Only measurements of the same type and unit can be compared.')
   await page.goto('/app/sensor-data/compare-zones')
+  await page.getByLabel('Sensor Type').selectOption(String(unknownUnit.id))
+  await expect(page.getByRole('alert').filter({ hasText: 'Only measurements of the same type and unit can be compared.' })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Sensor comparison summary' })).toHaveCount(0)
   await page.getByRole('combobox', { name: 'Sensor Type' }).selectOption(String(type.id))
   expect((await lastBatch).ok()).toBeTruthy()
   await expect(page.getByRole('table', { name: 'Zone comparison summary' }).getByRole('row')).toHaveCount(22)

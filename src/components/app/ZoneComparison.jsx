@@ -8,10 +8,10 @@ import { parseAnalyticsTime, validateAnalyticsRange } from '../../services/api/a
 import ApiState from './ApiState'
 
 export default function ZoneComparison({ operations, workspace, filters }) {
-  const data = compareZoneAnalytics(operations, workspace, filters)
   const type = (operations.sensorTypes ?? []).find(({ id }) => id === Number(filters.typeId))
   const { user, activeRole } = useAuth()
-  const zoneIds = data.zones.map(zone => zone.id)
+  const data = type?.unit?.trim() ? compareZoneAnalytics(operations, workspace, filters) : null
+  const zoneIds = data?.zones.map(zone => zone.id) ?? []
   const query = useApiQuery(`compare:${user?.id}:${activeRole}:${JSON.stringify(filters)}:${zoneIds.join(',')}`, async signal => {
     const from = new Date(parseAnalyticsTime(filters.from)).toISOString()
     const to = new Date(parseAnalyticsTime(filters.to)).toISOString()
@@ -24,6 +24,7 @@ export default function ZoneComparison({ operations, workspace, filters }) {
     }
     return summaries
   }, Boolean(type) && zoneIds.length > 0 && !validateAnalyticsRange(filters))
+  if (!data) return <ChartCard title="Zone Comparison"><p role="alert">Only measurements of the same type and unit can be compared.</p></ChartCard>
   const summaries = query.data ? query.data.map(r => ({ id: r.zoneId, name: r.zoneName, count: r.readingCount, min: r.minimum, max: r.maximum, average: r.average })) : data.summaries
   return <ChartCard title="Zone Comparison" description={`${type?.name} · All zones in the selected farm, using the same date range. Zone and sensor filters apply to the other sections.`} caption="Missing sensor coverage is unavailable, not zero. Historical summaries include readings collected before a sensor went offline.">
     <ApiState {...query} />

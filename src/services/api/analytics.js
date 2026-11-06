@@ -35,6 +35,16 @@ export function analyticsReadings(operations, workspace) {
   }).filter(({ channel, node, zone, type }) => channel && node && zone && type)
 }
 
+function readingStats(rows = []) {
+  let min = Infinity, max = -Infinity, sum = 0
+  for (const { value } of rows) {
+    min = Math.min(min, value)
+    max = Math.max(max, value)
+    sum += value
+  }
+  return { min: rows.length ? min : null, max: rows.length ? max : null, average: rows.length ? sum / rows.length : null, count: rows.length }
+}
+
 export function selectAnalytics(operations, workspace, filters) {
   const error = validateAnalyticsRange(filters)
   const zones = workspace.zones.filter(({ farmId }) => farmId === Number(filters.farmId))
@@ -45,8 +55,7 @@ export function selectAnalytics(operations, workspace, filters) {
     && (!filters.typeId || reading.type.id === Number(filters.typeId)) && (filters.includeBuffered || reading.receivedAt)
     && Date.parse(reading.measuredAt) >= start && Date.parse(reading.measuredAt) <= end).sort((a, b) => b.measuredAt.localeCompare(a.measuredAt) || b.id - a.id)
   const latest = [...new Map([...rows].reverse().map((row) => [row.sensorChannelId, row])).values()]
-  const values = rows.map(({ value }) => value)
-  const stats = { min: values.length ? Math.min(...values) : null, max: values.length ? Math.max(...values) : null, average: average(values), count: values.length }
+  const stats = readingStats(rows)
   const channels = [...new Map(rows.map(({ channel }) => [channel.id, channel])).values()]
   const bounds = [...new Set(channels.map(({ warningMin, warningMax }) => `${warningMin}:${warningMax}`))]
   const threshold = bounds.length === 1 && channels.length && channels[0].warningMin != null && channels[0].warningMax != null ? { min: channels[0].warningMin, max: channels[0].warningMax } : null
@@ -88,14 +97,18 @@ export function engineerOverview(operations, workspace, alerts, farmId, zoneId =
 }
 
 export function compareSensorAnalytics(operations, workspace, filters) {
-  const { nodes } = selectAnalytics(operations, workspace, filters)
-  return nodes.map(node => ({ id: node.id, name: node.name, code: node.deviceCode,
-    ...selectAnalytics(operations, workspace, { ...filters, sensorId: node.id }).stats }))
+  const { nodes, rows } = selectAnalytics(operations, workspace, { ...filters, sensorId: '' })
+  const byNode = Map.groupBy(rows, row => row.node.id)
+  return nodes.map(node => ({ id: node.id, name: node.name, code: node.deviceCode, ...readingStats(byNode.get(node.id)) }))
 }
 
 export function compareZoneAnalytics(operations, workspace, filters) {
-  const zones = workspace.zones.filter(({ farmId }) => farmId === Number(filters.farmId))
-  const data = zones.map((zone) => ({ zone, ...selectAnalytics(operations, workspace, { ...filters, zoneId: zone.id, sensorId: '' }) }))
+  const { zones, rows } = selectAnalytics(operations, workspace, { ...filters, zoneId: '', sensorId: '' })
+  const byZone = Map.groupBy(rows, row => row.zone.id)
+  const data = zones.map(zone => {
+    const readings = byZone.get(zone.id) ?? []
+    return { zone, stats: readingStats(readings), series: hourlySeries(readings, filters) }
+  })
   return { zones, summaries: data.map((item) => ({ id: item.zone.id, name: item.zone.name, ...item.stats })),
     series: (data[0]?.series ?? []).map((bucket, index) => Object.fromEntries([['at', bucket.at], ...data.map((item) => [`zone${item.zone.id}`, item.series[index]?.value ?? null])])) }
 }
