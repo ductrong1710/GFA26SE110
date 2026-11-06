@@ -49,7 +49,7 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     try {
       if (action === 'submit-installation') {
         const dossier = await api.request('/api/installation-dossiers/' + selected.id + '/submit', {
-          method: 'POST', body: { expectedRevision: selected.revision, note, bills, ...(!linked && { customer: { fullName: name.trim(), email: email.trim() } }) },
+          method: 'POST', toastMessage: 'Installation request submitted successfully.', body: { expectedRevision: selected.revision, note, bills, ...(!linked && { customer: { fullName: name.trim(), email: email.trim() } }) },
         })
         setSelected({ ...selected, status: dossier.status, depositBills: bills }); setBills([])
         setNotice(`Dossier #${dossier.proposalId} submitted for administrator review.`)

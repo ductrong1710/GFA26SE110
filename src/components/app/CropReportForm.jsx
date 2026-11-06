@@ -28,7 +28,7 @@ export default function CropReportForm({ onSaved, busy = false, onBusyChange }) 
     if (zoneId && !zones.data?.some(zone => zone.id === Number(zoneId))) { setError('Select a zone in this farm.'); return }
     setPending(true); onBusyChange?.(true)
     try {
-      const row = await api.request('/api/crop-condition-reports', { method: 'POST', body: { farmId: Number(farmId), zoneId: zoneId ? Number(zoneId) : null,
+      const row = await api.request('/api/crop-condition-reports', { method: 'POST', toastMessage: 'Crop condition report submitted successfully.', body: { farmId: Number(farmId), zoneId: zoneId ? Number(zoneId) : null,
         crop: crop.trim(), description: description.trim(), sensorChannelIds: selected.map(channel => channel.id), images } })
       setCrop(''); setDescription(''); setImages([]); setSelected([]); onSaved(row)
     } catch (cause) { setError(cause.message) } finally { setPending(false); onBusyChange?.(false) }

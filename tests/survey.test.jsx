@@ -29,7 +29,7 @@ it('records structured survey information without inventing crop age or farm are
   await screen.findByAltText('Evidence image 1')
   fireEvent.click(screen.getByRole('button', { name: 'Save survey revision' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations/42/surveys', expect.objectContaining({
-    method: 'POST', body: expect.objectContaining({ expectedRevision: 0, farmArea: null, images: [{ contentType: 'image/png', dataBase64: btoa('survey photo') }],
+    method: 'POST', toastMessage: 'Farm survey saved successfully.', body: expect.objectContaining({ expectedRevision: 0, farmArea: null, images: [{ contentType: 'image/png', dataBase64: btoa('survey photo') }],
       zones: [expect.objectContaining({ cropAgeDays: null, installationLocation: 'Canal edge' })] }),
   })))
   expect(await screen.findByText('Survey revision 1 saved.')).toBeTruthy()

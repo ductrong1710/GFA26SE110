@@ -85,9 +85,7 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
     const config = error.config
     if (axios.isCancel(error)) throw new DOMException('The operation was aborted.', 'AbortError')
     if (!error.response) {
-      const requestError = ['ECONNABORTED', 'ETIMEDOUT'].includes(error.code)
-        ? new ApiError('The request timed out. Please try again.')
-        : new ApiError('Unable to reach the server. Check your connection and try again.')
+      const requestError = new ApiError('Unable to complete the request. Please try again.')
       if (config?._toastEnabled) showToast('error', requestError.message)
       throw requestError
     }
@@ -108,7 +106,8 @@ export function createApiClient({ baseUrl, session, fetch: fetcher, timeout = 10
     const validation = [400, 422].includes(status) && Array.isArray(payload?.errors)
       ? [...new Set(payload.errors.map(item => item?.message).filter(message => typeof message === 'string' && message.trim()))].join(' ')
       : ''
-    const message = status >= 500 ? 'The server could not complete the request. Please try again.'
+    const message = status >= 500 ? 'Unable to complete the request. Please try again.'
+      : status === 401 && config?._auth !== false ? expired().message
       : validation || payload?.message || ({ 401: 'Please sign in again.', 403: 'You do not have access to this resource.', 404: 'This resource was not found.', 409: 'This change conflicts with the current record.' }[status]) || 'The request could not be completed.'
     if (config?._toastEnabled) showToast('error', message)
     throw new ApiError(message, status, payload?.errors ?? [])

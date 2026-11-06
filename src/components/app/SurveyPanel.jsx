@@ -34,7 +34,7 @@ export default function SurveyPanel({ consultationId, editable }) {
     event.preventDefault(); if (pending || readingImages) return
     setPending(true); setError(''); setNotice('')
     try {
-      const saved = await api.request(path, { method: 'POST', body: {
+      const saved = await api.request(path, { method: 'POST', toastMessage: 'Farm survey saved successfully.', body: {
         expectedRevision: draft.expectedRevision, farmName: draft.farmName, farmLocation: draft.farmLocation,
         farmArea: draft.farmArea === '' ? null : Number(draft.farmArea), monitoringNeeds: draft.monitoringNeeds, notes: draft.notes || null,
         images: draft.images ?? [],

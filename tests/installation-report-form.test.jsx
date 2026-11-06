@@ -25,7 +25,7 @@ it('reports only allocated devices with explicit checks and current revision', a
   }
   fireEvent.click(screen.getByRole('button', { name: 'Submit installation report' }))
   await vi.waitFor(() => expect(saved).toHaveBeenCalledWith({ id: 7 }))
-  expect(request).toHaveBeenCalledWith('/api/installation-jobs/3/reports', expect.objectContaining({ method: 'POST', body: {
+  expect(request).toHaveBeenCalledWith('/api/installation-jobs/3/reports', expect.objectContaining({ method: 'POST', toastMessage: 'Installation report submitted successfully.', body: {
     completedAt: undefined, paperwork: { contract: [{ contentType: 'image/jpeg', dataBase64: btoa('signed') }], handover: [{ contentType: 'image/jpeg', dataBase64: btoa('signed') }], bills: [], paperContractNumber: '' },
     expectedRevision: 5, notes: 'Operation demonstrated', issues: null, images: [{ contentType: 'image/jpeg', dataBase64: btoa('installation') }], devices: [{ proposalLineId: 8, sensorNodeId: 2, uavId: null, gatewayId: null,
       installationLocation: 'Canal edge', accessoriesChecked: true, connectivityPassed: true, operationPassed: true, testResults: 'Live reading received' }],

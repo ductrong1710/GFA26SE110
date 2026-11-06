@@ -67,7 +67,7 @@ test('failed refresh clears session and notifies auth subscribers', async () => 
 test('unauthorized response without a refresh token clears saved auth', async () => {
   const { api, session } = setup(async () => response({ message: 'Expired' }, 401))
   session.set({ ...tokens(), refreshToken: null })
-  await assert.rejects(api.get('/api/farms'), { status: 401 })
+  await assert.rejects(api.get('/api/farms'), { status: 401, message: 'Your session has expired. Please sign in again.' })
   assert.equal(session.get(), null)
   assert.equal(authStorage.getToken(), null)
   assert.equal(authStorage.getUser(), null)
@@ -172,7 +172,7 @@ test('structured validation and server errors have safe useful messages', async 
   const { api } = setup(async () => response({ message: 'Validation failed.', errors: [{ field: 'name', message: 'Name is required.' }] }, 422))
   await assert.rejects(api.get('/api/farms'), error => error.status === 422 && error.errors[0].field === 'name')
   const server = setup(async () => response({ message: 'SQL secret stack trace' }, 500))
-  await assert.rejects(server.api.get('/api/farms'), { status: 500, message: 'The server could not complete the request. Please try again.' })
+  await assert.rejects(server.api.get('/api/farms'), { status: 500, message: 'Unable to complete the request. Please try again.' })
 })
 
 test('validation messages displayed by forms include the backend field guidance', async () => {
@@ -249,7 +249,7 @@ test('a response body arriving after sign-out is not delivered to a protected sc
   await assert.rejects(pending, { status: 401 })
 })
 
-test('request timeout aborts fetch and reports a timeout error', async () => {
+test('request timeout aborts fetch and reports the safe request failure message', async () => {
   const session = createSession()
   const api = createApiClient({
     baseUrl: 'https://api.example',
@@ -259,7 +259,7 @@ test('request timeout aborts fetch and reports a timeout error', async () => {
       signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
     }),
   })
-  await assert.rejects(api.get('/api/farms'), { message: 'The request timed out. Please try again.' })
+  await assert.rejects(api.get('/api/farms'), { message: 'Unable to complete the request. Please try again.' })
 })
 
 test('session serializes to storage and restores the saved session', () => {

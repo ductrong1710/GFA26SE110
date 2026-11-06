@@ -24,7 +24,7 @@ test('owner submits typed farm zone and sensor references and clears references 
   fireEvent.change(screen.getByLabelText('Crop'), { target: { value: 'Rice' } })
   fireEvent.change(screen.getByLabelText('Symptoms'), { target: { value: 'Yellow leaves' } })
   fireEvent.submit(screen.getByRole('form', { name: 'Report crop condition' }))
-  await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/api/crop-condition-reports', { method: 'POST', body: { farmId: 1, zoneId: 5, crop: 'Rice', description: 'Yellow leaves', sensorChannelIds: [8], images: [] } }))
+  await vi.waitFor(() => expect(request).toHaveBeenCalledWith('/api/crop-condition-reports', { method: 'POST', toastMessage: 'Crop condition report submitted successfully.', body: { farmId: 1, zoneId: 5, crop: 'Rice', description: 'Yellow leaves', sensorChannelIds: [8], images: [] } }))
   fireEvent.click(screen.getByLabelText('temperature'))
   fireEvent.change(screen.getByLabelText('Farm'), { target: { value: '2' } })
   expect(screen.queryByRole('button', { name: 'Remove temperature' })).toBeNull()

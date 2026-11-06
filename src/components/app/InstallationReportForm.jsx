@@ -17,7 +17,7 @@ export default function InstallationReportForm({ job, onSaved }) {
     event.preventDefault(); if (pending || readingImages) return
     setPending(true); setError('')
     try {
-      const row = await api.request(`/api/installation-jobs/${job.id}/reports`, { method: 'POST', body: { expectedRevision: job.revision, notes: draft.notes, issues: draft.issues || null,
+      const row = await api.request(`/api/installation-jobs/${job.id}/reports`, { method: 'POST', toastMessage: 'Installation report submitted successfully.', body: { expectedRevision: job.revision, notes: draft.notes, issues: draft.issues || null,
         images: draft.images, completedAt: draft.completedAt ? parseVietnamDateTime(draft.completedAt).toISOString() : undefined, paperwork: draft.paperwork,
         devices: draft.devices.map(d => ({ proposalLineId: d.proposalLineId, sensorNodeId: d.sensorNodeId, uavId: d.uavId, gatewayId: d.gatewayId,
           installationLocation: d.installationLocation, accessoriesChecked: d.accessoriesChecked === 'true', connectivityPassed: d.connectivityPassed === 'true',
