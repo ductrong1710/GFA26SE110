@@ -8,8 +8,34 @@ import { getMissionMonitoring } from '../src/services/api/monitoring'
 
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, activeRole: 'FarmOwner' }) }))
 vi.mock('../src/services/api/useApiQuery', () => ({ useApiQuery: () => ({ reload: vi.fn() }) }))
-vi.mock('../src/services/api', () => ({ api: { post: vi.fn(), patch: vi.fn() } }))
+vi.mock('../src/services/api', () => ({ api: { post: vi.fn(), patch: vi.fn(), request: vi.fn(), put: vi.fn() } }))
 afterEach(() => { cleanup(); vi.clearAllMocks() })
+
+test('mission creation feedback is sent only for a new persisted mission', async () => {
+  api.post.mockResolvedValue({ id: 7 })
+  api.request.mockResolvedValue({ id: 7 })
+  api.put.mockResolvedValue({ id: 7 })
+  const wrapper = ({ children }) => <MemoryRouter><ApiOperationsProvider>{children}</ApiOperationsProvider></MemoryRouter>
+  const { result } = renderHook(() => useOperations(), { wrapper })
+  await act(async () => result.current.savePlannedMission({}, true))
+  expect(api.request).toHaveBeenCalledWith('/api/missions', expect.objectContaining({ method: 'POST', toastMessage: 'UAV mission created successfully.' }))
+  expect(result.current.missionWizard.plan.missionId).toBe(7)
+  await act(async () => result.current.savePlannedMission({}, true))
+  expect(api.request).toHaveBeenCalledTimes(1)
+  expect(api.put).toHaveBeenCalledWith('/api/missions/7', expect.any(Object))
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+test('failed mission creation leaves the draft available for correction', async () => {
+  api.request.mockRejectedValueOnce(new Error('Select equipment in an active rental.'))
+  const wrapper = ({ children }) => <MemoryRouter><ApiOperationsProvider>{children}</ApiOperationsProvider></MemoryRouter>
+  const { result } = renderHook(() => useOperations(), { wrapper })
+  await act(async () => {
+    await expect(result.current.savePlannedMission({}, true)).rejects.toThrow('Select equipment in an active rental.')
+  })
+  expect(result.current.missionWizard.plan.missionId).toBeNull()
+  expect(api.post).not.toHaveBeenCalled()
+})
 
 test('manual running reports preserve the observation through the status endpoint', async () => {
   const wrapper = ({ children }) => <MemoryRouter><ApiOperationsProvider>{children}</ApiOperationsProvider></MemoryRouter>

@@ -53,7 +53,8 @@ export default function ApiOperationsProvider({ children }) {
     const uav = operations.uavs.find(u => u.id === Number(plan.uavId))
     if (!draft) { const errors = validateMissionPlan(plan, operations, workspace).flat(); if (errors.length) throw new Error(errors.join(' ')) }
     const request = draft && !plan.points.length ? { ...missionRequest({ ...plan, sensorIds: [] }, uav), sensorNodeIds: plan.sensorIds, targetAssignments: null } : missionRequest(plan, uav)
-    const result = plan.missionId ? await api.put(`/api/missions/${plan.missionId}`, request) : await api.post('/api/missions', request)
+    const result = plan.missionId ? await api.put(`/api/missions/${plan.missionId}`, request)
+      : await api.request('/api/missions', { method: 'POST', body: request, toastMessage: 'UAV mission created successfully.' })
     setMissionWizard({ ...missionWizard, plan: { ...plan, missionId: result.id } })
     query.reload()
     if (!draft && request.scheduledStartAt) await api.post(`/api/missions/${result.id}/schedule`, { scheduledStartAt: request.scheduledStartAt, scheduledEndAt: request.scheduledEndAt })
