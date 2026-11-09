@@ -1,0 +1,51 @@
+import { expect } from '@playwright/test'
+
+export async function completeService(owner, admin, technician, jobId, cycle, reason, work, replacement) {
+  async function openJob(page) {
+    await page.getByRole('link', { name: 'Service jobs', exact: true }).click()
+    await page.getByRole('button', { name: 'Open service job #' + jobId, exact: true }).click()
+  }
+  await openJob(technician)
+  await technician.getByRole('button', { name: 'Start service work' }).click()
+  await technician.getByLabel('Service plan note').fill(work)
+  if (replacement) await technician.getByLabel('Replacement device').selectOption(replacement.code)
+  await technician.getByRole('button', { name: 'Submit service plan' }).click()
+  await expect(technician.getByRole('heading', { name: /Plan #\d+ · PROPOSED/ })).toBeVisible()
+  await openJob(admin)
+  await admin.getByLabel('Service plan review note').fill('Service method checked')
+  await admin.getByRole('button', { name: 'Approve service plan' }).click()
+  await expect(admin.getByRole('heading', { name: /Plan #\d+ · APPROVED/ })).toBeVisible()
+  await openJob(technician)
+  const evidence = ['Signed service agreement']
+  if (replacement) evidence.push('Old device serial evidence', 'New device serial evidence')
+  for (const label of evidence) {
+    const group = technician.getByRole('group', { name: label })
+    await group.getByLabel('Add evidence images').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+    await expect(group.getByAltText('Evidence image 1')).toBeVisible()
+  }
+  await technician.getByRole('button', { name: 'Record service plan execution' }).click()
+  const report = technician.getByRole('region', { name: 'Technician service report' })
+  await report.getByLabel('Cause', { exact: true }).fill(reason)
+  await report.getByLabel('Work performed').fill(work)
+  await report.getByLabel('Components used').fill('None')
+  await report.getByLabel('Test results').fill('Stable power and connection throughout test')
+  await report.getByLabel('Notes', { exact: true }).fill('Handed back to owner for operational check')
+  for (const name of ['Connectivity', 'Operation']) await report.getByRole('combobox', { name }).selectOption('true')
+  const handover = report.getByRole('group', { name: 'Signed service handover' })
+  await handover.getByLabel('Add evidence images').setInputFiles({ name: 'signed.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+  await expect(handover.getByAltText('Evidence image 1')).toBeVisible()
+  await report.getByRole('button', { name: 'Submit service report' }).click()
+  const revision = 'View report revision ' + cycle
+  await expect(technician.getByRole('button', { name: revision })).toBeVisible()
+  await openJob(owner)
+  await owner.getByRole('button', { name: revision }).click()
+  await owner.getByLabel('Decision note').fill('Dock is working again')
+  await owner.getByRole('button', { name: 'Confirm operation' }).click()
+  await expect(owner.getByText('Service decision recorded.')).toBeVisible()
+  await openJob(admin)
+  await admin.getByRole('button', { name: revision }).click()
+  await admin.getByLabel('Decision note').fill('Verified successful tests and owner confirmation')
+  await admin.getByRole('button', { name: 'Approve service result' }).click()
+  if (replacement) await expect(admin.getByText('Device replacement recorded successfully.', { exact: true })).toBeVisible()
+  await expect(admin.getByRole('region', { name: 'Service job #' + jobId, exact: true }).getByText('Closed', { exact: true })).toBeVisible()
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="70" y1="4" x2="720" y2="510" gradientUnits="userSpaceOnUse"><stop stop-color="#F5F8F3"/><stop offset="1" stop-color="#E6EEE6"/></linearGradient>
+    <linearGradient id="case" x1="313" y1="101" x2="498" y2="357" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF"/><stop offset=".55" stop-color="#E7EEE8"/><stop offset="1" stop-color="#C5D2C8"/></linearGradient>
+    <linearGradient id="steel" x1="405" y1="335" x2="405" y2="485" gradientUnits="userSpaceOnUse"><stop stop-color="#A8B7AD"/><stop offset="1" stop-color="#45584D"/></linearGradient>
+    <filter id="shadow" x="245" y="85" width="314" height="425" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="16"/></filter>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h800v520H0z"/><circle cx="401" cy="250" r="174" fill="#fff" fill-opacity=".42"/><ellipse cx="405" cy="463" fill="#263B2E" fill-opacity=".17" rx="124" ry="21" filter="url(#shadow)"/>
+  <path fill="url(#steel)" d="M391 322h29v151a13 13 0 0 1-13 13h-3a13 13 0 0 1-13-13V322Z"/><path d="M399 354v107" stroke="#DDE6DF" stroke-width="4" stroke-linecap="round"/><path d="M387 443h37" stroke="#334A3C" stroke-width="4"/>
+  <rect x="314" y="102" width="182" height="254" rx="45" fill="url(#case)" stroke="#BCCBC0" stroke-width="3"/><rect x="331" y="119" width="148" height="220" rx="34" fill="#FBFCFA"/>
+  <rect x="349" y="146" width="112" height="68" rx="11" fill="#243A2D"/><rect x="357" y="154" width="96" height="52" rx="7" fill="#D9EAD8"/><text x="405" y="177" fill="#26583D" font-family="Arial,sans-serif" font-size="10" font-weight="700" text-anchor="middle">SOIL pH</text><text x="405" y="197" fill="#1F5338" font-family="Arial,sans-serif" font-size="21" font-weight="700" text-anchor="middle">6.8</text>
+  <circle cx="371" cy="251" r="10" fill="#E3ECE4"/><circle cx="405" cy="251" r="10" fill="#4A9365"/><circle cx="439" cy="251" r="10" fill="#E3ECE4"/><path d="M371 251h68" stroke="#B8C7BB" stroke-width="3"/>
+  <rect x="371" y="286" width="68" height="5" rx="2.5" fill="#BFCBC1"/><rect x="385" y="301" width="40" height="5" rx="2.5" fill="#D2DBD3"/><path d="M339 145c-12 16-12 38 0 53" stroke="#fff" stroke-opacity=".8" stroke-width="7" stroke-linecap="round"/>
+</svg>

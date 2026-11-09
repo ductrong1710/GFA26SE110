@@ -1,0 +1,8 @@
+{
+  "deviceCode": "SENSOR-001",
+  "farmId": 1,
+  "zoneId": 1,
+  "firmwareVersion": "1.0.0",
+  "deviceType": "ESP8266_SENSOR",
+  "ipAddress": "192.168.4.2"
+}
