@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ConsultationPage from '../src/pages/ConsultationPage'
+import SiteVisitPanel from '../src/components/app/SiteVisitPanel'
 import { api } from '../src/services/api/index.js'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ConsultationsPage, { ConsultationDetailPage } from '../src/pages/app/ConsultationsPage'
@@ -20,6 +21,7 @@ it('submits an anonymous consultation and displays its receipt', async () => {
   for (const [label, value] of [['Họ tên', 'Khách hàng'], ['Số điện thoại', '0901234567'],
     ['Vị trí nông trại', 'Cần Thơ'], ['Nhu cầu dịch vụ', 'Thuê cảm biến'], ['Nội dung tư vấn', 'Theo dõi độ ẩm']])
     fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  fireEvent.change(screen.getByLabelText('Hình thức tư vấn'), { target: { value: 'ON_SITE' } })
   fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu tư vấn' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations', expect.objectContaining({
     method: 'POST', auth: false, toast: true, toastMessage: 'Consultation request submitted successfully.', body: expect.objectContaining({ customerName: 'Khách hàng', phone: '0901234567', farmArea: null }),
@@ -60,4 +62,33 @@ it('records follow-up on the assigned detail and renders persisted history', asy
   await screen.findByText('Follow-up recorded.')
   expect(request).toHaveBeenCalledWith('/api/consultations/42/follow-ups', { method: 'POST', body: { notes: 'Called customer', contactResult: 'Answered', nextAction: 'Arrange survey' } })
   expect(screen.getByText('Arrange survey')).toBeTruthy()
+})
+
+it.each([
+  ['CALCULATED', 0, '0 đ'],
+  ['MANUAL_QUOTE_REQUIRED', null, 'Cần báo giá riêng'],
+  ['PRICING_NOT_CONFIGURED', null, 'Chưa cấu hình biểu phí'],
+])('uses server preview %s and keeps inputs on errors', async (status, amountVnd, label) => {
+  const request = vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path.endsWith('fee-preview')) return { status, amountVnd, pricingVersion:'test-version' }
+    throw new Error('Change requires a fresh preview')
+  })
+  render(<SiteVisitPanel consultationId={8} editable visit={{revision:0, channel:'ON_SITE', offices:[{code:'A',label:'Trụ sở 1'}]}} />)
+  fireEvent.change(screen.getByLabelText('Trụ sở'), {target:{value:'A'}})
+  fireEvent.change(screen.getByLabelText('Quãng đường một chiều (km)'), {target:{value:'165'}})
+  await screen.findByText(label)
+  const button = screen.getByRole('button',{name:'Gửi duyệt phí / lịch'})
+  if (status === 'PRICING_NOT_CONFIGURED') { expect(button.disabled).toBe(true); return }
+  fireEvent.change(screen.getByLabelText('Đường dẫn Google Maps'), {target:{value:'https://maps.app.goo.gl/Visit123'}})
+  fireEvent.change(screen.getByLabelText('Lịch khảo sát dự kiến'), {target:{value:'2030-01-01T12:00'}})
+  if (status === 'MANUAL_QUOTE_REQUIRED') {
+    fireEvent.change(screen.getByLabelText('Báo giá riêng (VND)'), {target:{value:'550000'}})
+    fireEvent.change(screen.getByLabelText('Lý do báo giá riêng'), {target:{value:'Đường xa'}})
+  }
+  fireEvent.click(button)
+  await screen.findByText('Change requires a fresh preview')
+  expect(screen.getByLabelText('Quãng đường một chiều (km)').value).toBe('165')
+  expect(request).toHaveBeenCalledWith('/api/consultations/8/site-visit/proposals',expect.objectContaining({
+    body:expect.objectContaining({pricingVersion:'test-version',expectedRevision:0,distanceKm:165})
+  }))
 })

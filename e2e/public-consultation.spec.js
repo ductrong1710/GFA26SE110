@@ -52,6 +52,7 @@ test('consultation reaches active rental and the assigned device is repaired', a
     await expect(page.getByLabel('Email (không bắt buộc)')).toHaveJSProperty('validationMessage', 'Invalid email format.')
     await page.getByLabel('Email (không bắt buộc)').fill('')
     await page.getByLabel('Họ tên').fill('Khách tư vấn')
+    await page.getByLabel('Hình thức tư vấn').selectOption('ONLINE')
     await page.getByLabel('Số điện thoại').fill('0901234567')
     await page.getByLabel('Vị trí nông trại').fill('Đồng Tháp')
     await page.getByLabel('Nhu cầu dịch vụ').fill('Thuê cảm biến độ ẩm')
