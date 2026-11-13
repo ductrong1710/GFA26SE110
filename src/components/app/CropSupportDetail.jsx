@@ -121,7 +121,7 @@ export default function CropSupportDetail({ report, onSaved, onReload, onBusyCha
         <button disabled={stale} onClick={() => submit('link-incident')}>Link device incident</button></>}
     </fieldset>}
     {pending && <p role="status">Saving consultation…</p>}
-    {evidence && <CropSupportEvidence key={report.id} report={report} />}
-    {engineer && <SupportingSeasons key={report.id} reportId={report.id} />}
+    {evidence && <CropSupportEvidence key={`evidence:${report.id}`} report={report} />}
+    {engineer && <SupportingSeasons key={`seasons:${report.id}`} reportId={report.id} />}
   </SectionCard>
 }

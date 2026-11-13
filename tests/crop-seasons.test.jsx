@@ -10,6 +10,38 @@ vi.mock('../src/context/AuthContext', () => ({ useAuth: () => auth }))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); auth.can = () => true })
 const season = { id: 1, ownerId: 4, farmId: 2, zoneId: null, revision: 3, status: 'ACTIVE', name: 'Spring', crop: 'Rice', cropAgeDays: 0 }
 
+test('reply refreshes the embedded report when report and season have the same id', async () => {
+  let report = { id: 1, farmId: 2, cropSeasonId: 1, crop: 'Rice', status: 'NEW', reporterId: 4, revision: 1,
+    allowedActions: [], canReadEvidence: true, images: [], updates: [], sensorChannelIds: [] }
+  vi.spyOn(api, 'get').mockImplementation(async path => ({ items: path === '/api/farms' ? [{ id: 2, name: 'Rice farm', isActive: true }] : [], pagination: { totalPages: 1 } }))
+  vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path === '/api/crop-condition-reports' || path === '/api/crop-condition-reports/1') return report
+    if (path.endsWith('/reply')) {
+      report = { ...report, status: 'IN_REVIEW', revision: 4, allowedActions: [], updates: [
+        { id: 4, action: 'OWNER_REPLIED', content: 'Watered yesterday', actorId: 4, createdAt: '2026-11-01T12:00:00Z' },
+      ] }
+      return report
+    }
+    if (path === '/api/crop-seasons/1') return season
+    return { items: path === '/api/crop-seasons' ? [season] : [], pagination: { totalPages: 1 } }
+  })
+  render(<CropSeasonsPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Open season #1' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Report abnormal crop condition' }))
+  await screen.findByRole('option', { name: 'Rice farm' })
+  fireEvent.change(screen.getByLabelText('Symptoms'), { target: { value: 'Yellow leaves' } })
+  fireEvent.change(screen.getByLabelText('Observed at (local time)'), { target: { value: '2026-11-01T10:00' } })
+  fireEvent.submit(screen.getByRole('form', { name: 'Report crop condition' }))
+  await screen.findByText('Crop report submitted. The season remains unchanged.')
+  report = { ...report, status: 'AWAITING_INFORMATION', revision: 3, allowedActions: ['reply'], engineerId: 7 }
+  fireEvent.click(screen.getByRole('button', { name: 'Reload report' }))
+  fireEvent.change(await screen.findByLabelText('Consultation note'), { target: { value: 'Watered yesterday' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send additional information' }))
+  await vi.waitFor(() => expect(screen.queryAllByLabelText('Consultation note')).toHaveLength(0))
+  expect(screen.getAllByRole('heading', { name: 'Crop report #1' })).toHaveLength(1)
+  expect(await screen.findByText('Watered yesterday')).toBeTruthy()
+})
+
 test('owner opens a crop report from a completed season with existing context', async () => {
   const completed = { ...season, status: 'COMPLETED' }
   vi.spyOn(api, 'get').mockImplementation(async path => ({ items: path === '/api/farms' ? [{ id: 2, name: 'Rice farm', isActive: true }] : [], pagination: { totalPages: 1 } }))

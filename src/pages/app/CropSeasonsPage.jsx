@@ -64,9 +64,9 @@ export default function CropSeasonsPage() {
       {form === 'report' && <><CropReportForm key={season.id} initialSeason={season} busy={supportBusy} onBusyChange={setSupportBusy}
         onSaved={row => { setSupport(row); setForm(null); setNotice('Crop report submitted. The season remains unchanged.') }} />
         <button disabled={supportBusy} onClick={() => setForm(null)}>Cancel report</button></>}
-      {support && <CropSupportDetail key={support.id} report={support} onSaved={setSupport} busy={supportBusy} onBusyChange={setSupportBusy}
+      {support && <CropSupportDetail key={`support:${support.id}`} report={support} onSaved={setSupport} busy={supportBusy} onBusyChange={setSupportBusy}
         onReload={async () => { try { setSupport(await api.request(`/api/crop-condition-reports/${support.id}`)) } catch (error) { setNotice(error.message) } }} />}
-      <CultivationLog key={season.id} season={season} />
+      <CultivationLog key={`journal:${season.id}`} season={season} />
       {form === 'complete' && <CropSeasonCompletion season={season} onSaved={saved} onCancel={() => setForm(null)} />}
     </SectionCard>}
   </>
