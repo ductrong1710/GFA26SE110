@@ -18,12 +18,19 @@ export default function CropSupportPage() {
   const query = useApiQuery(`crop-reports:${page}`, signal => api.request('/api/crop-condition-reports', { query: { page }, signal }))
   const detail = useApiQuery(`crop-report:${id}`, signal => api.request(`/api/crop-condition-reports/${id}`, { signal }), id !== null)
   function saved(row) { setId(row.id); if (row.id === id) detail.replaceData(row); query.reload(); setNotice('Crop report saved.') }
+  async function reloadReport() {
+    if (busy) return
+    setBusy(true)
+    try { detail.replaceData(await api.request(`/api/crop-condition-reports/${id}`)) }
+    catch (error) { setNotice(error.message) }
+    finally { setBusy(false) }
+  }
   return <>
     <PageHeader title="Crop condition support" description="Report symptoms and consult an agricultural engineer." />
     {can(P.CROP_SUPPORT_CREATE) && <CropReportForm onSaved={saved} busy={busy} onBusyChange={setBusy} />}
     {notice && <p role="status">{notice}</p>}
-    <ApiState loading={detail.loading} error={detail.error} reload={detail.reload} />
-    {detail.data && <CropSupportDetail key={detail.data.id} report={detail.data} onSaved={saved} onReload={detail.reload} onBusyChange={setBusy} busy={busy} />}
+    <ApiState loading={detail.loading} error={detail.error} reload={reloadReport} />
+    {detail.data && <CropSupportDetail key={detail.data.id} report={detail.data} onSaved={saved} onReload={reloadReport} onBusyChange={setBusy} busy={busy} />}
     <ApiState loading={query.loading} error={query.error} reload={query.reload} />
     <DataTable caption="Crop reports" rows={query.data?.items ?? []} loading={query.loading} columns={[
       { key: 'id', header: 'Report' }, { key: 'farmId', header: 'Farm' }, { key: 'crop', header: 'Crop' },

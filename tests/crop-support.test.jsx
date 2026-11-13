@@ -68,6 +68,44 @@ test('conflict preserves the note and offers explicit reload', async () => {
   expect(screen.getByLabelText('Consultation note').value).toBe('Keep my note')
   fireEvent.click(screen.getByRole('button', { name: 'Reload report' })); expect(reload).toHaveBeenCalled()
 })
+
+test('page reload keeps the conflicting draft and requires accepting the new revision', async () => {
+  auth.can = permission => permission === P.CROP_SUPPORT_PROCESS || permission === P.CROP_SUPPORT_VIEW
+  let current = report
+  let conflicted = false
+  let finishReload
+  const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
+    if (options?.method === 'POST') {
+      if (!conflicted) { conflicted = true; current = { ...report, revision: 5 }; throw new Error('Revision conflict') }
+      return { ...current, revision: 6 }
+    }
+    if (path === '/api/crop-condition-reports/9') return conflicted ? new Promise(resolve => { finishReload = resolve }) : current
+    return { items: path === '/api/crop-condition-reports' ? [current] : [], pagination: { totalItems: 1, totalPages: 1 } }
+  })
+  render(<CropSupportPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Open crop report #9' }))
+  fireEvent.change(await screen.findByLabelText('Consultation note'), { target: { value: 'Preserve inspection advice' } })
+  fireEvent.click(screen.getByLabelText('Recommend an on-site survey'))
+  fireEvent.change(screen.getByLabelText('Add evidence images'), { target: { files: [new File([new Uint8Array([1])], 'plant.png', { type: 'image/png' })] } })
+  await screen.findByRole('button', { name: 'Remove image 1' })
+  fireEvent.click(screen.getByRole('button', { name: 'Record recommendation' }))
+  await screen.findByText('Revision conflict')
+  fireEvent.click(screen.getByRole('button', { name: 'Reload report' }))
+  expect(screen.getByLabelText('Consultation note').value).toBe('Preserve inspection advice')
+  expect(screen.getByRole('button', { name: 'Reload report' }).disabled).toBe(true)
+  finishReload(current)
+  await screen.findByRole('button', { name: 'Use latest revision for this draft' })
+  expect(screen.getByLabelText('Consultation note').value).toBe('Preserve inspection advice')
+  expect(screen.getByLabelText('Recommend an on-site survey').checked).toBe(true)
+  expect(screen.getByRole('button', { name: 'Remove image 1' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Record recommendation' }).disabled).toBe(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Use latest revision for this draft' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Record recommendation' }))
+  await screen.findByText('Crop report saved.')
+  expect(request).toHaveBeenCalledWith('/api/crop-condition-reports/9/recommend', expect.objectContaining({ body: {
+    expectedRevision: 5, content: 'Preserve inspection advice', recommendSiteSurvey: true, images: [{ contentType: 'image/png', dataBase64: 'AQ==' }],
+  } }))
+})
 test('monitoring admin and unassigned engineer do not get processing controls', () => {
   auth.can = permission => permission === P.CROP_SUPPORT_VIEW
   vi.spyOn(api, 'request').mockResolvedValue({ items: [], pagination: { totalItems: 0 } })

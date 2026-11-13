@@ -18,7 +18,7 @@ test('reply refreshes the embedded report when report and season have the same i
     if (path === '/api/crop-condition-reports' || path === '/api/crop-condition-reports/1') return report
     if (path.endsWith('/reply')) {
       report = { ...report, status: 'IN_REVIEW', revision: 4, allowedActions: [], updates: [
-        { id: 4, action: 'OWNER_REPLIED', content: 'Watered yesterday', actorId: 4, createdAt: '2026-11-01T12:00:00Z' },
+        { id: 4, action: 'OWNER_REPLIED', content: 'Watered yesterday', userId: 4, createdAt: '2026-11-01T12:00:00Z' },
       ] }
       return report
     }
