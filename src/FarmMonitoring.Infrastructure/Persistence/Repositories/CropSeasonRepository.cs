@@ -46,9 +46,18 @@ public sealed class CropSeasonRepository(AppDbContext db) : ICropSeasonRepositor
                 x.AreaHectares, x.StartDate, x.ExpectedEndDate, x.CropAgeDays, x.Notes, x.Status.ToString(),
                 x.Revision, x.EndDate, x.YieldKg, x.TotalCostVnd, x.RevenueVnd, x.CompletionNotes));
 
-    public async Task<PagedResult<CropSeasonDetail>> ListAsync(int actor, PageQuery query, CancellationToken ct)
+    public async Task<PagedResult<CropSeasonDetail>> ListAsync(int actor, CropSeasonQuery query, CancellationToken ct)
     {
         var rows = await VisibleAsync(actor, ct);
+        if (query.FarmId is int farmId)
+        {
+            if (!await db.UserRoles.AnyAsync(x => x.UserId == actor && x.User.IsActive && x.Role.Name == RoleNames.FarmAdministrator, ct)
+                && !await FarmAccessQuery.AssignedFarmIds(db, actor).ContainsAsync(farmId, ct))
+                throw AccessDeniedException.OutsideScope();
+            rows = rows.Where(x => x.FarmId == farmId);
+        }
+        if (query.ZoneId is int zoneId) rows = rows.Where(x => x.ZoneId == zoneId);
+        if (query.WholeFarmOnly) rows = rows.Where(x => x.ZoneId == null);
         var total = await rows.CountAsync(ct);
         var items = await Details(rows.OrderByDescending(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)).ToArrayAsync(ct);
         return new(items, total, query.Page, query.PageSize);

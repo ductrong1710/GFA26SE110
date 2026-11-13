@@ -12,6 +12,41 @@ namespace FarmMonitoring.IntegrationTests;
 public sealed class CropSeasonApiTests(ApiFactory factory)
 {
     [Fact]
+    public async Task Support_intake_requires_matching_owned_season_and_explicit_observation_offset()
+    {
+        using var owner = await Login("owner@example.com");
+        await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ownerId = await db.Users.Where(x => x.Email == "owner@example.com").Select(x => x.Id).SingleAsync();
+        var otherOwner = await db.Users.Where(x => x.Email == "admin@example.com").Select(x => x.Id).SingleAsync();
+        var farm = new Farm { Name = "Season intake scope" }; var second = new Farm { Name = "Second season farm" };
+        db.Farms.AddRange(farm, second); await db.SaveChangesAsync();
+        await factory.AssignFarmAsync(farm.Id, "owner@example.com"); await factory.AssignFarmAsync(second.Id, "owner@example.com");
+        var zone = new Zone { FarmId = farm.Id, Name = "North" }; db.Zones.Add(zone); await db.SaveChangesAsync();
+        var season = new CropSeason { FarmId = farm.Id, ZoneId = zone.Id, OwnerId = ownerId, Name = "Rice season", Crop = "Rice" };
+        var privateSeason = new CropSeason { FarmId = farm.Id, ZoneId = zone.Id, OwnerId = otherOwner, Name = "Private season", Crop = "Rice" };
+        db.CropSeasons.AddRange(season, privateSeason); await db.SaveChangesAsync();
+        const string path = "/api/crop-condition-reports";
+        object Body(int farmId, int? zoneId, int seasonId, string crop = "Rice", string? observedAt = null)
+            => new { farmId, zoneId, cropSeasonId = seasonId, crop, observedAt, description = "Spots" };
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync(path, Body(second.Id, zone.Id, season.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync(path, Body(farm.Id, null, season.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await owner.PostAsJsonAsync(path, Body(farm.Id, zone.Id, season.Id, "Corn"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(path, Body(farm.Id, zone.Id, privateSeason.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsJsonAsync(path, Body(farm.Id, zone.Id, season.Id, observedAt: "2026-01-01T10:00:00"))).StatusCode);
+        var response = await owner.PostAsJsonAsync(path, Body(farm.Id, zone.Id, season.Id)); response.EnsureSuccessStatusCode();
+        var detail = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("observedAt").ValueKind);
+        var reportId = detail.GetProperty("id").GetInt32();
+        await db.CropSeasons.Where(x => x.Id == season.Id).ExecuteUpdateAsync(x => x.SetProperty(s => s.Crop, "Updated crop"));
+        Assert.Equal("Rice", (await db.CropConditionReports.SingleAsync(x => x.Id == reportId)).Crop);
+        var filtered = await owner.GetFromJsonAsync<JsonElement>($"/api/crop-seasons?farmId={farm.Id}&zoneId={zone.Id}&pageSize=1");
+        Assert.Equal(season.Id, Assert.Single(filtered.GetProperty("data").EnumerateArray()).GetProperty("id").GetInt32());
+        var whole = await owner.GetFromJsonAsync<JsonElement>($"/api/crop-seasons?farmId={farm.Id}&wholeFarmOnly=true");
+        Assert.Empty(whole.GetProperty("data").EnumerateArray());
+        await db.UserFarms.Where(x => x.FarmId == farm.Id).ExecuteDeleteAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(path, Body(farm.Id, zone.Id, season.Id))).StatusCode);
+    }
+    [Fact]
     public async Task Comparison_preserves_unknown_values_and_requires_access_to_every_selected_season()
     {
         using var owner = await Login("owner@example.com");

@@ -1059,3 +1059,6 @@ MissionZone adds an optional indexed missions.zone_id foreign key with restricte
 ### Threshold change history
 
 Migration 20261103130751_ThresholdChangeHistory creates threshold_changes with restrictive foreign keys to sensor_channels and users and a channel/id history index. Existing settings receive a baseline snapshot with an unknown actor. New updates append an actor-attributed snapshot atomically with the current threshold update. Downgrade is refused when attributed history exists.
+
+### MF-04 linked season and follow-up
+Migration 20261113064256_CropSupportFollowUp adds nullable crop_season_id and observed_at (timestamptz), plus nullable update fields follow_up_type, cultivation_activity_id, assigned_engineer_id, referral_type and device_incident_id. All new FKs use RESTRICT and have indexes. Old rows stay NULL, crop remains the report snapshot, and no historical observation time is inferred. History retains ASSIGNED/FOLLOW_UP/REVIEW_REQUESTED/REOPENED/REFERRED events alongside prior tokens. Downgrade refuses while new context/history exists. Apply via normal EF deployment after backup; this task migrates only isolated test databases.

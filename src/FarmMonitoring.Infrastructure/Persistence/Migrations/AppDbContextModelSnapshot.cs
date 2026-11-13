@@ -429,6 +429,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("crop");
 
+                    b.Property<int?>("CropSeasonId")
+                        .HasColumnType("integer")
+                        .HasColumnName("crop_season_id");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -442,6 +446,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Property<int>("FarmId")
                         .HasColumnType("integer")
                         .HasColumnName("farm_id");
+
+                    b.Property<DateTimeOffset?>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
 
                     b.Property<DateTimeOffset>("ReportedAt")
                         .HasColumnType("timestamp with time zone")
@@ -466,6 +474,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnName("zone_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CropSeasonId");
 
                     b.HasIndex("ReporterId");
 
@@ -510,6 +520,10 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("action");
 
+                    b.Property<int?>("AssignedEngineerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("assigned_engineer_id");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -520,9 +534,27 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int?>("CultivationActivityId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cultivation_activity_id");
+
+                    b.Property<int?>("DeviceIncidentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("device_incident_id");
+
+                    b.Property<string>("FollowUpType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("follow_up_type");
+
                     b.Property<bool>("RecommendSiteSurvey")
                         .HasColumnType("boolean")
                         .HasColumnName("recommend_site_survey");
+
+                    b.Property<string>("ReferralType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("referral_type");
 
                     b.Property<int>("ReportId")
                         .HasColumnType("integer")
@@ -533,6 +565,12 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignedEngineerId");
+
+                    b.HasIndex("CultivationActivityId");
+
+                    b.HasIndex("DeviceIncidentId");
 
                     b.HasIndex("UserId");
 
@@ -4067,6 +4105,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.CropConditionReport", b =>
                 {
+                    b.HasOne("FarmMonitoring.Domain.Entities.CropSeason", null)
+                        .WithMany()
+                        .HasForeignKey("CropSeasonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FarmMonitoring.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("EngineerId")
@@ -4109,6 +4152,21 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.CropConsultationUpdate", b =>
                 {
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedEngineerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.CultivationActivity", null)
+                        .WithMany()
+                        .HasForeignKey("CultivationActivityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.DeviceIncident", null)
+                        .WithMany()
+                        .HasForeignKey("DeviceIncidentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FarmMonitoring.Domain.Entities.CropConditionReport", "Report")
                         .WithMany("Updates")
                         .HasForeignKey("ReportId")

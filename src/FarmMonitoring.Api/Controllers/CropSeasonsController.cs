@@ -35,7 +35,7 @@ public sealed class CropSeasonsController(CropSeasonService service) : Controlle
         => Ok(ApiResponse<CropSeasonDetail>.Ok(await service.CompleteAsync(id, request, ct)));
 
     [HttpGet]
-    public async Task<ActionResult<ApiPageResponse<CropSeasonDetail>>> List([FromQuery] PageQuery query, CancellationToken ct)
+    public async Task<ActionResult<ApiPageResponse<CropSeasonDetail>>> List([FromQuery] CropSeasonQuery query, CancellationToken ct)
         => Ok(ApiPageResponse<CropSeasonDetail>.From(await service.ListAsync(query, ct)));
 
     [HttpGet("{id:int}")]

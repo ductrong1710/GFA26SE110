@@ -3,6 +3,13 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.CropSeasons;
 
+public sealed class CropSeasonQuery : PageQuery
+{
+    public int? FarmId { get; init; }
+    public int? ZoneId { get; init; }
+    public bool WholeFarmOnly { get; init; }
+}
+
 public sealed record CropSeasonRequest(int ExpectedRevision, int FarmId, int? ZoneId, string Name, string Crop,
     decimal? AreaHectares, DateOnly? StartDate, DateOnly? ExpectedEndDate, int? CropAgeDays, string? Notes);
 public sealed record CompleteCropSeasonRequest(int ExpectedRevision, DateOnly? EndDate, decimal? YieldKg,

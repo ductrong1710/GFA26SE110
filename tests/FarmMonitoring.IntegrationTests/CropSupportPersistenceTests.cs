@@ -11,6 +11,27 @@ namespace FarmMonitoring.IntegrationTests;
 public sealed class CropSupportPersistenceTests
 {
     [Fact]
+    public async Task Upgrade_keeps_legacy_observation_and_season_unknown_and_protects_new_history_on_downgrade()
+    {
+        await using var factory = new ApiFactory { InitialMigration = "20261104011126_AdminReviewedDossierCustomer" };
+        await factory.InitializeAsync();
+        await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO farms (name, is_active, created_at) VALUES ('MF04 legacy migration', true, now());
+            INSERT INTO crop_condition_reports (farm_id, reporter_id, crop, description, reported_at, status, revision)
+            SELECT f.id, u.id, 'Rice', 'Legacy symptoms', now(), 'RESOLVED', 1
+            FROM farms f CROSS JOIN users u WHERE f.name = 'MF04 legacy migration' AND u.email = 'owner@example.com';
+            """);
+        await db.GetService<IMigrator>().MigrateAsync();
+        var legacy = await db.CropConditionReports.SingleAsync();
+        Assert.Null(legacy.CropSeasonId); Assert.Null(legacy.ObservedAt); Assert.Equal(CropConditionStatus.RESOLVED, legacy.Status);
+        db.CropConsultationUpdates.Add(new() { ReportId = legacy.Id, UserId = legacy.ReporterId,
+            Action = CropConsultationAction.REVIEW_REQUESTED, FollowUpType = "NOT_IMPROVED", Content = "Review legacy case", CreatedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync("20261104011126_AdminReviewedDossierCustomer"));
+        Assert.Equal("NOT_IMPROVED", (await db.CropConsultationUpdates.AsNoTracking().SingleAsync()).FollowUpType);
+    }
+    [Fact]
     public async Task Crop_report_preserves_communication_and_image_ownership()
     {
         // Downgrades can commit newer migrations before an older guard rejects them.

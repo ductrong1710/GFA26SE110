@@ -27,7 +27,7 @@ public interface ICropSeasonRepository
     Task<PagedResult<ActivitySummary>> ActivitiesAsync(int actor, int id, PageQuery query, CancellationToken ct);
     Task<EvidenceImageData[]> ImagesAsync(int actor, int id, int activityId, CancellationToken ct);
     Task CompleteAsync(int actor, int id, CompleteCropSeasonRequest request, DateTimeOffset now, CancellationToken ct);
-    Task<PagedResult<CropSeasonDetail>> ListAsync(int actor, PageQuery query, CancellationToken ct);
+    Task<PagedResult<CropSeasonDetail>> ListAsync(int actor, CropSeasonQuery query, CancellationToken ct);
     Task<CropSeasonDetail> GetAsync(int actor, int id, CancellationToken ct);
     Task<int> SaveAsync(int actor, int? id, CropSeasonRequest request, DateTimeOffset now, CancellationToken ct);
 }
@@ -62,9 +62,11 @@ public sealed class CropSeasonService(ICropSeasonRepository repository, ICurrent
         await repository.CompleteAsync(Actor, id, request, clock.GetUtcNow(), ct);
         return await GetAsync(id, ct);
     }
-    public async Task<PagedResult<CropSeasonDetail>> ListAsync(PageQuery query, CancellationToken ct)
+    public async Task<PagedResult<CropSeasonDetail>> ListAsync(CropSeasonQuery query, CancellationToken ct)
     {
         await pages.ValidateAndThrowAsync(query, ct);
+        if (query.FarmId <= 0 || query.ZoneId <= 0 || query.WholeFarmOnly && query.ZoneId.HasValue)
+            throw new ValidationException("Invalid season scope filters.");
         return await repository.ListAsync(Actor, query, ct);
     }
     public Task<CropSeasonDetail> GetAsync(int id, CancellationToken ct) => repository.GetAsync(Actor, id, ct);
