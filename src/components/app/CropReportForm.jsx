@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { api } from '../../services/api'
 import { listAll } from '../../services/api/resources'
 import { useApiQuery } from '../../services/api/useApiQuery'
@@ -6,12 +7,16 @@ import ApiState from './ApiState'
 import EvidenceImages from './EvidenceImages'
 import { SectionCard } from './ui'
 
-export default function CropReportForm({ onSaved, busy = false, onBusyChange }) {
-  const [farmId, setFarmId] = useState('')
-  const [zoneId, setZoneId] = useState('')
+export default function CropReportForm({ onSaved, busy = false, onBusyChange, initialSeason = null }) {
+  const { user } = useAuth()
+  const [farmId, setFarmId] = useState(initialSeason ? String(initialSeason.farmId) : '')
+  const [zoneId, setZoneId] = useState(initialSeason?.zoneId ? String(initialSeason.zoneId) : '')
+  const [season, setSeason] = useState(initialSeason)
+  const [seasonPage, setSeasonPage] = useState(1)
+  const [observedAt, setObservedAt] = useState('')
   const [nodeId, setNodeId] = useState('')
   const [selected, setSelected] = useState([])
-  const [crop, setCrop] = useState('')
+  const [crop, setCrop] = useState(initialSeason?.crop ?? '')
   const [description, setDescription] = useState('')
   const [images, setImages] = useState([])
   const [pending, setPending] = useState(false)
@@ -21,30 +26,46 @@ export default function CropReportForm({ onSaved, busy = false, onBusyChange }) 
   const zones = useApiQuery(`crop-zones:${farmId}`, signal => listAll(`/api/farms/${farmId}/zones`, {}, signal), Boolean(farmId))
   const nodes = useApiQuery(`crop-nodes:${farmId}:${zoneId}`, signal => listAll('/api/sensor-nodes', { farmId: Number(farmId), ...(zoneId ? { zoneId: Number(zoneId) } : {}) }, signal), Boolean(farmId))
   const channels = useApiQuery(`crop-channels:${nodeId}`, signal => listAll(`/api/sensor-nodes/${nodeId}/channels`, {}, signal), Boolean(nodeId))
+  const seasons = useApiQuery(`crop-season-options:${farmId}:${zoneId}:${seasonPage}`, signal => api.request('/api/crop-seasons', {
+    query: { farmId: Number(farmId), ...(zoneId ? { zoneId: Number(zoneId) } : { wholeFarmOnly: true }), page: seasonPage }, signal,
+  }), Boolean(farmId))
+  const options = (seasons.data?.items ?? []).filter(item => item.ownerId === user.id && item.farmId === Number(farmId) && (item.zoneId ?? null) === (zoneId ? Number(zoneId) : null))
   async function submit(event) {
     event.preventDefault(); if (pending || reading || busy) return
     setError('')
     if (!farms.data?.some(farm => farm.id === Number(farmId) && farm.isActive) || !crop.trim() || !description.trim()) { setError('Select an active farm and describe the crop symptoms.'); return }
     if (zoneId && !zones.data?.some(zone => zone.id === Number(zoneId))) { setError('Select a zone in this farm.'); return }
+    if (!observedAt || !Number.isFinite(new Date(observedAt).getTime())) { setError('Enter when the symptoms were observed.'); return }
     setPending(true); onBusyChange?.(true)
     try {
       const row = await api.request('/api/crop-condition-reports', { method: 'POST', toastMessage: 'Crop condition report submitted successfully.', body: { farmId: Number(farmId), zoneId: zoneId ? Number(zoneId) : null,
-        crop: crop.trim(), description: description.trim(), sensorChannelIds: selected.map(channel => channel.id), images } })
-      setCrop(''); setDescription(''); setImages([]); setSelected([]); onSaved(row)
+        crop: crop.trim(), description: description.trim(), cropSeasonId: season?.id ?? null, observedAt: new Date(observedAt).toISOString(), sensorChannelIds: selected.map(channel => channel.id), images } })
+      setDescription(''); setImages([]); setSelected([]); setObservedAt(''); onSaved(row)
     } catch (cause) { setError(cause.message) } finally { setPending(false); onBusyChange?.(false) }
   }
   return <SectionCard title="Report crop condition"><form onSubmit={submit} className="management-form" aria-label="Report crop condition">
     {error && <p role="alert">{error}</p>}
     <fieldset disabled={pending || reading || busy} className="management-form"><legend>Crop symptoms</legend>
       <ApiState loading={farms.loading} error={farms.error} reload={farms.reload} />
-      <label>Farm<select required value={farmId} onChange={event => { setFarmId(event.target.value); setZoneId(''); setNodeId(''); setSelected([]) }}>
+      <label>Farm<select required value={farmId} onChange={event => { setFarmId(event.target.value); setZoneId(''); setNodeId(''); setSelected([]); setSeason(null); setSeasonPage(1) }}>
         <option value="">Choose a farm</option>{(farms.data ?? []).filter(farm => farm.isActive).map(farm => <option key={farm.id} value={farm.id}>{farm.name}</option>)}
       </select></label>
       <ApiState loading={zones.loading} error={zones.error} reload={zones.reload} />
-      <label>Zone<select disabled={!farmId} value={zoneId} onChange={event => { setZoneId(event.target.value); setNodeId(''); setSelected([]) }}>
+      <label>Zone<select disabled={!farmId} value={zoneId} onChange={event => { setZoneId(event.target.value); setNodeId(''); setSelected([]); setSeason(null); setSeasonPage(1) }}>
         <option value="">Whole farm</option>{(zones.data ?? []).map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
       </select></label>
-      <label>Crop<input required maxLength={200} value={crop} onChange={event => setCrop(event.target.value)} /></label>
+      <ApiState loading={seasons.loading} error={seasons.error} reload={seasons.reload} />
+      <label>Crop season (optional)<select disabled={!farmId} value={season?.id ?? ''} onChange={event => {
+        const chosen = options.find(item => item.id === Number(event.target.value)) ?? null
+        setSeason(chosen); if (chosen) setCrop(chosen.crop)
+      }}><option value="">No season / standalone report</option>
+        {season && !options.some(item => item.id === season.id) && <option value={season.id}>{season.name}</option>}
+        {options.map(item => <option key={item.id} value={item.id}>{item.name} ({item.status})</option>)}
+      </select></label>
+      <div><button type="button" disabled={seasonPage === 1 || seasons.loading} onClick={() => setSeasonPage(seasonPage - 1)}>Previous season options</button>
+        <span> Page {seasonPage} </span><button type="button" disabled={seasons.loading || seasonPage >= (seasons.data?.pagination?.totalPages ?? 0)} onClick={() => setSeasonPage(seasonPage + 1)}>Next season options</button></div>
+      <label>Crop<input required readOnly={Boolean(season)} maxLength={200} value={crop} onChange={event => setCrop(event.target.value)} /></label>
+      <label>Observed at (local time)<input required type="datetime-local" value={observedAt} onChange={event => setObservedAt(event.target.value)} /></label>
       <label>Symptoms<textarea required maxLength={4000} value={description} onChange={event => setDescription(event.target.value)} /></label>
       <EvidenceImages images={images} onChange={setImages} onBusyChange={value => { setReading(value); onBusyChange?.(value) }} />
       <ApiState loading={nodes.loading} error={nodes.error} reload={nodes.reload} />

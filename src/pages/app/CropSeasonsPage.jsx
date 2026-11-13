@@ -8,6 +8,8 @@ import CultivationLog, { CultivationActivityForm } from '../../components/app/Cu
 import CropSeasonComparison from '../../components/app/CropSeasonComparison'
 import CropSeasonCompletion from '../../components/app/CropSeasonCompletion'
 import CropSeasonForm from '../../components/app/CropSeasonForm'
+import CropReportForm from '../../components/app/CropReportForm'
+import CropSupportDetail from '../../components/app/CropSupportDetail'
 import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
 
 export default function CropSeasonsPage() {
@@ -17,6 +19,8 @@ export default function CropSeasonsPage() {
   const [id, setId] = useState(null)
   const [form, setForm] = useState(null)
   const [notice, setNotice] = useState('')
+  const [support, setSupport] = useState(null)
+  const [supportBusy, setSupportBusy] = useState(false)
   const list = useApiQuery(`seasons:${page}`, signal => api.request('/api/crop-seasons', { query: { page }, signal }))
   const detail = useApiQuery(`season:${id}`, signal => api.request(`/api/crop-seasons/${id}`, { signal }), id !== null)
   const season = detail.data
@@ -41,7 +45,7 @@ export default function CropSeasonsPage() {
         <input type="checkbox" aria-label={`Compare season #${row.id}`} checked={selected.includes(row.id)}
           disabled={selected.length >= 50 && !selected.includes(row.id)}
           onChange={event => setSelected(event.target.checked ? [...selected, row.id] : selected.filter(id => id !== row.id))} /> }] : []),
-      { key: 'open', header: 'Details', render: (_, row) => <button disabled={Boolean(form)} onClick={() => { setId(row.id); setNotice('') }}>Open season #{row.id}</button> },
+      { key: 'open', header: 'Details', render: (_, row) => <button disabled={Boolean(form) || supportBusy} onClick={() => { setId(row.id); setNotice(''); setSupport(null) }}>Open season #{row.id}</button> },
     ]} footer={<div><button disabled={page === 1} onClick={() => setPage(page - 1)}>Previous seasons</button> Page {page} <button disabled={page >= (list.data?.pagination?.totalPages ?? 0)} onClick={() => setPage(page + 1)}>Next seasons</button></div>} />
     {selected.length > 0 && <p>{selected.length} selected · Choose 2–50 seasons to compare. <button onClick={() => setSelected([])}>Clear selection</button></p>}
     {can(P.CROP_SEASONS_MANAGE) && selected.length >= 2 && <CropSeasonComparison ids={selected} />}
@@ -56,6 +60,12 @@ export default function CropSeasonsPage() {
         <button onClick={() => setForm('activity')}>Record activity</button>
         <button onClick={() => setForm('complete')}>Complete season</button></>}
       {form === 'activity' && <CultivationActivityForm season={season} onSaved={saved} onCancel={() => setForm(null)} />}
+      {!form && can(P.CROP_SUPPORT_CREATE) && season.ownerId === user.id && <button disabled={supportBusy} onClick={() => setForm('report')}>Report abnormal crop condition</button>}
+      {form === 'report' && <><CropReportForm key={season.id} initialSeason={season} busy={supportBusy} onBusyChange={setSupportBusy}
+        onSaved={row => { setSupport(row); setForm(null); setNotice('Crop report submitted. The season remains unchanged.') }} />
+        <button disabled={supportBusy} onClick={() => setForm(null)}>Cancel report</button></>}
+      {support && <CropSupportDetail key={support.id} report={support} onSaved={setSupport} busy={supportBusy} onBusyChange={setSupportBusy}
+        onReload={async () => { try { setSupport(await api.request(`/api/crop-condition-reports/${support.id}`)) } catch (error) { setNotice(error.message) } }} />}
       <CultivationLog key={season.id} season={season} />
       {form === 'complete' && <CropSeasonCompletion season={season} onSaved={saved} onCancel={() => setForm(null)} />}
     </SectionCard>}

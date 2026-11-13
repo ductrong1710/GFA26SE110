@@ -9,6 +9,28 @@ const auth = vi.hoisted(() => ({ user: { id: 4 }, can: () => true }))
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => auth }))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); auth.can = () => true })
 const season = { id: 1, ownerId: 4, farmId: 2, zoneId: null, revision: 3, status: 'ACTIVE', name: 'Spring', crop: 'Rice', cropAgeDays: 0 }
+
+test('owner opens a crop report from a completed season with existing context', async () => {
+  const completed = { ...season, status: 'COMPLETED' }
+  vi.spyOn(api, 'get').mockImplementation(async path => ({ items: path === '/api/farms' ? [{ id: 2, name: 'Rice farm', isActive: true }] : [], pagination: { totalPages: 1 } }))
+  const request = vi.spyOn(api, 'request').mockImplementation(async (path, options) => {
+    if (options?.method === 'POST') return { id: 44, farmId: 2, cropSeasonId: 1, crop: 'Rice', status: 'NEW', reporterId: 4, revision: 1, allowedActions: [], canReadEvidence: true, images: [], updates: [] }
+    return path === '/api/crop-seasons/1' ? completed : { items: path.endsWith('/activities') ? [] : [completed], pagination: { totalPages: 1 } }
+  })
+  render(<CropSeasonsPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Open season #1' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Report abnormal crop condition' }))
+  await screen.findByRole('option', { name: 'Rice farm' })
+  expect(screen.getByLabelText('Farm').value).toBe('2')
+  expect(screen.getByLabelText('Crop season (optional)').value).toBe('1')
+  expect(screen.getByLabelText('Crop').value).toBe('Rice')
+  fireEvent.change(screen.getByLabelText('Symptoms'), { target: { value: 'Stored crop issue' } })
+  fireEvent.change(screen.getByLabelText('Observed at (local time)'), { target: { value: '2026-11-01T10:00' } })
+  fireEvent.submit(screen.getByRole('form', { name: 'Report crop condition' }))
+  await screen.findByText('Crop report submitted. The season remains unchanged.')
+  expect(request).toHaveBeenCalledWith('/api/crop-condition-reports', expect.objectContaining({ body: expect.objectContaining({ cropSeasonId: 1, farmId: 2, zoneId: null, crop: 'Rice' }) }))
+  expect(request.mock.calls.some(([path]) => path.endsWith('/complete'))).toBe(false)
+})
 test('creating a season uses creation feedback and preserves unknown optional values', async () => {
   const saved = vi.fn()
   vi.spyOn(api, 'get').mockImplementation(async path => ({ items: path === '/api/farms' ? [{ id: 2, name: 'Rice farm', isActive: true }] : [], pagination: { totalPages: 1 } }))

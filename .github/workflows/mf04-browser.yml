@@ -1,0 +1,115 @@
+name: MF-04 browser acceptance
+
+on:
+  push:
+    branches: [FrontEnd]
+  pull_request:
+    branches: [FrontEnd]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mf04-browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mf04-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: auth_test
+          POSTGRES_PASSWORD: isolated_ci_only
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U auth_test -d postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      TEST_POSTGRES_CONNECTION: Host=127.0.0.1;Port=5432;Database=postgres;Username=auth_test;Password=isolated_ci_only
+      ConnectionStrings__DefaultConnection: Host=127.0.0.1;Port=5432;Database=postgres;Username=auth_test;Password=isolated_ci_only
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_ENVIRONMENT: Development
+      Jwt__Issuer: BrowserTests
+      Jwt__Audience: BrowserTests
+      SEED_ADMIN_EMAIL: browser-admin@example.com
+      Monitoring__Enabled: 'false'
+      Email__Enabled: 'false'
+      MaintenanceScheduler__Enabled: 'false'
+      RentalExpiration__Enabled: 'false'
+      Cors__AllowedOrigins__0: http://127.0.0.1:5179
+      VITE_API_BASE_URL: http://127.0.0.1:5189
+      E2E_API_URL: http://127.0.0.1:5189
+      E2E_BROWSER: chrome
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: FrontEnd
+          persist-credentials: false
+      - name: Check out backend contract
+        uses: actions/checkout@v6
+        with:
+          ref: BackEnd
+          path: BackEnd
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: FrontEnd/package-lock.json
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Set disposable credentials and record tested backend
+        shell: bash
+        run: |
+          echo "Jwt__SecretKey=$(openssl rand -base64 48 | tr -d '\n')" >> "$GITHUB_ENV"
+          echo "SEED_ADMIN_PASSWORD=Browser-$(openssl rand -hex 16)-1!" >> "$GITHUB_ENV"
+          echo "Backend commit: $(git -C BackEnd rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install browser and frontend dependencies
+        working-directory: FrontEnd
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          echo "E2E_BROWSER_EXECUTABLE=$(node --input-type=module -e "import { chromium } from '@playwright/test'; console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
+      - name: Build and migrate disposable API
+        working-directory: BackEnd
+        run: |
+          dotnet build --configuration Release
+          dotnet tool restore
+          dotnet ef database update --project src/FarmMonitoring.Infrastructure --startup-project src/FarmMonitoring.Api --configuration Release --no-build
+      - name: Start API
+        working-directory: BackEnd/src/FarmMonitoring.Api
+        shell: bash
+        run: |
+          dotnet bin/Release/net10.0/FarmMonitoring.Api.dll --urls "$E2E_API_URL" > "$RUNNER_TEMP/mf04-api.log" 2>&1 &
+          echo "MF04_API_PID=$!" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 60); do
+            if curl -fsS "$E2E_API_URL/swagger/v1/swagger.json" -o "$RUNNER_TEMP/mf04-swagger.json"; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/mf04-api.log"
+          exit 1
+      - name: Run three-role MF-04 browser scenario
+        working-directory: FrontEnd
+        run: npx playwright test e2e/crop-support.spec.js
+      - name: Stop API
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "$MF04_API_PID" ]; then kill "$MF04_API_PID" || true; fi
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mf04-browser-evidence
+          path: |
+            FrontEnd/test-results/
+            ${{ runner.temp }}/mf04-api.log
+            ${{ runner.temp }}/mf04-swagger.json
+          if-no-files-found: warn
+          retention-days: 7

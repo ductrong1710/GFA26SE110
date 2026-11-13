@@ -23,7 +23,7 @@ export default function CropSupportPage() {
     {can(P.CROP_SUPPORT_CREATE) && <CropReportForm onSaved={saved} busy={busy} onBusyChange={setBusy} />}
     {notice && <p role="status">{notice}</p>}
     <ApiState loading={detail.loading} error={detail.error} reload={detail.reload} />
-    {detail.data && <CropSupportDetail key={`${detail.data.id}:${detail.data.revision}`} report={detail.data} onSaved={saved} onReload={detail.reload} onBusyChange={setBusy} busy={busy} />}
+    {detail.data && <CropSupportDetail key={detail.data.id} report={detail.data} onSaved={saved} onReload={detail.reload} onBusyChange={setBusy} busy={busy} />}
     <ApiState loading={query.loading} error={query.error} reload={query.reload} />
     <DataTable caption="Crop reports" rows={query.data?.items ?? []} loading={query.loading} columns={[
       { key: 'id', header: 'Report' }, { key: 'farmId', header: 'Farm' }, { key: 'crop', header: 'Crop' },

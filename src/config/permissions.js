@@ -6,6 +6,7 @@ export const PERMISSIONS = Object.freeze({
   CROP_SUPPORT_VIEW: 'cropSupport.view',
   CROP_SUPPORT_CREATE: 'cropSupport.create',
   CROP_SUPPORT_PROCESS: 'cropSupport.process',
+  CROP_SUPPORT_ASSIGN: 'cropSupport.assign',
   MAINTENANCE_MANAGE: 'maintenance.manage',
   DASHBOARD_VIEW: 'dashboard.view',
   CONSULTATIONS_MANAGE: 'consultations.manage',
@@ -65,7 +66,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
   ]),
   [ROLES.ADMINISTRATOR]: Object.freeze([
     P.CROP_SEASONS_VIEW,
-    P.CROP_SUPPORT_VIEW,
+    P.CROP_SUPPORT_VIEW, P.CROP_SUPPORT_ASSIGN,
     P.MAINTENANCE_MANAGE,
     P.SERVICE_JOBS_VIEW, P.SERVICE_JOBS_MANAGE, P.INCIDENTS_VIEW,
     P.RENTALS_VIEW, P.RENTALS_MANAGE,
