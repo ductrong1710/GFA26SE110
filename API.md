@@ -1399,4 +1399,4 @@ Administrators can read GET /api/sensor-channels/{id}/threshold/history with the
 
 An owner must be the recorded mission creator and a current member of its farm to read a mission, its launch state, results, telemetry or collection attempts. The same scope applies to mission filters, lists, mission reports and dashboard counts. Admin reads across owners. A device support request may only link a mission created by the reporting owner.
 
-MF-04 season picker: GET /api/crop-seasons additionally accepts farmId, zoneId and wholeFarmOnly=true (mutually exclusive with zoneId). Owner lists are always restricted to their seasons and current membership; filters apply before pagination. An explicitly inaccessible farm returns403.
+MF-04 season picker: GET /api/crop-seasons additionally accepts farmId, zoneId and wholeFarmOnly=true (mutually exclusive with zoneId). Owner lists are always restricted to their seasons and current membership; filters apply before pagination. An explicitly inaccessible farm or zone returns403; a missing zone returns404 and a mismatched farm/zone returns422.

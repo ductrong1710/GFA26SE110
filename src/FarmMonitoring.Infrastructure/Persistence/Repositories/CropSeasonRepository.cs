@@ -49,13 +49,21 @@ public sealed class CropSeasonRepository(AppDbContext db) : ICropSeasonRepositor
     public async Task<PagedResult<CropSeasonDetail>> ListAsync(int actor, CropSeasonQuery query, CancellationToken ct)
     {
         var rows = await VisibleAsync(actor, ct);
-        if (query.FarmId is int farmId)
+        int? zoneFarmId = null;
+        if (query.ZoneId is int selectedZone)
+        {
+            zoneFarmId = await db.Zones.Where(x => x.Id == selectedZone).Select(x => (int?)x.FarmId).SingleOrDefaultAsync(ct)
+                ?? throw new NotFoundException("Zone not found.");
+            if (query.FarmId.HasValue && query.FarmId != zoneFarmId)
+                throw new BusinessRuleException("The selected zone must belong to the requested farm.");
+        }
+        if ((query.FarmId ?? zoneFarmId) is int requestedFarm)
         {
             if (!await db.UserRoles.AnyAsync(x => x.UserId == actor && x.User.IsActive && x.Role.Name == RoleNames.FarmAdministrator, ct)
-                && !await FarmAccessQuery.AssignedFarmIds(db, actor).ContainsAsync(farmId, ct))
+                && !await FarmAccessQuery.AssignedFarmIds(db, actor).ContainsAsync(requestedFarm, ct))
                 throw AccessDeniedException.OutsideScope();
-            rows = rows.Where(x => x.FarmId == farmId);
         }
+        if (query.FarmId is int farmId) rows = rows.Where(x => x.FarmId == farmId);
         if (query.ZoneId is int zoneId) rows = rows.Where(x => x.ZoneId == zoneId);
         if (query.WholeFarmOnly) rows = rows.Where(x => x.ZoneId == null);
         var total = await rows.CountAsync(ct);

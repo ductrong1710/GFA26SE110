@@ -45,6 +45,8 @@ public sealed class CropSeasonApiTests(ApiFactory factory)
         Assert.Empty(whole.GetProperty("data").EnumerateArray());
         await db.UserFarms.Where(x => x.FarmId == farm.Id).ExecuteDeleteAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(path, Body(farm.Id, zone.Id, season.Id))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync($"/api/crop-seasons?zoneId={zone.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync("/api/crop-seasons?zoneId=2147483647")).StatusCode);
     }
     [Fact]
     public async Task Comparison_preserves_unknown_values_and_requires_access_to_every_selected_season()
