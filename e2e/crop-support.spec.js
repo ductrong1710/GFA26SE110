@@ -15,12 +15,12 @@ test('Owner season journal → Admin assignment → Engineer advice → follow-u
   const assigned = await post('/api/users', { email: 'browser-engineer@example.com', fullName: 'Browser Engineer', password, roles: ['FarmEngineer'] }, admin.accessToken)
   const farm = await post('/api/farms', { name: 'Browser rice farm' }, admin.accessToken)
   await post(`/api/farms/${farm.id}/members`, { userId: owner.id }, admin.accessToken)
-  async function login(email) {
+  async function login(email, loginPassword = password) {
     const context = await browser.newContext({ baseURL: 'http://127.0.0.1:5179' })
     const page = await context.newPage()
     await page.goto('/dang-nhap')
     await page.getByLabel('Email', { exact: true }).fill(email)
-    await page.locator('input[name="password"]').fill(password)
+    await page.locator('input[name="password"]').fill(loginPassword)
     await page.locator('button[type="submit"]').click()
     await expect(page).toHaveURL(/\/app/)
     await page.getByRole('link', { name: 'Crop support', exact: true }).click()
@@ -28,7 +28,7 @@ test('Owner season journal → Admin assignment → Engineer advice → follow-u
   }
   const ownerUi = await login(owner.email)
   const engineerUi = await login('browser-engineer@example.com')
-  const adminUi = await login('browser-admin@example.com')
+  const adminUi = await login('admin@sep.local', '123456')
   try {
     const page = ownerUi.page
     await page.getByRole('link', { name: 'Crop seasons', exact: true }).click()

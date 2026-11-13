@@ -79,7 +79,7 @@ jobs:
       - name: Build and migrate disposable API
         working-directory: BackEnd
         run: |
-          dotnet build --configuration Release
+          dotnet build src/FarmMonitoring.Api --configuration Release
           dotnet tool restore
           dotnet ef database update --project src/FarmMonitoring.Infrastructure --startup-project src/FarmMonitoring.Api --configuration Release --no-build
       - name: Start API
