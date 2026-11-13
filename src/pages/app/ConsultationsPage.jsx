@@ -4,6 +4,7 @@ import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from '../../components/app/ApiState'
 import SurveyPanel from '../../components/app/SurveyPanel'
+import SiteVisitPanel from '../../components/app/SiteVisitPanel'
 import ProposalPanel from '../../components/app/ProposalPanel'
 import ConsultationBinding from '../../components/app/ConsultationBinding'
 import { useAuth } from '../../context/AuthContext'
@@ -63,6 +64,10 @@ function ConsultationDetail({ id }) {
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
   const row = query.data
+  const visit = useApiQuery('site-visit:' + id, signal => api.request('/api/consultations/' + id + '/site-visit', { signal }), Boolean(row))
+  const channel = visit.data?.channel ?? row?.channel
+  const pendingSite = visit.data?.current?.channel === 'ON_SITE' && visit.data.current.reviewStatus === 'PENDING'
+  const canSurvey = Boolean(visit.data && ((channel !== 'ON_SITE' && !pendingSite) || visit.data.current?.scheduledAt))
   const dossierDecision = row?.history.filter(item => ['INSTALLATION_SUBMITTED', 'INSTALLATION_APPROVED', 'INSTALLATION_RETURNED'].includes(item.action)).at(-1)
   const locked = submitted || (dossierDecision && dossierDecision.action !== 'INSTALLATION_RETURNED')
   const editable = manages && row?.engineerId === user?.id && row?.status === 'IN_PROGRESS'
@@ -75,7 +80,9 @@ function ConsultationDetail({ id }) {
       <SectionCard title="Follow-up history"><ol>{row.history.map(item => <li key={item.id}><strong>{item.action}</strong> · {displayTime(item.createdAt)}
         {item.userId && <span> · User #{item.userId}</span>}<p>{item.notes}</p><p>{item.contactResult}</p><p>{item.nextAction}</p></li>)}</ol></SectionCard>
       {can(P.USERS_MANAGE) && <ConsultationBinding consultation={row} onSaved={query.replaceData} />}
-      <SurveyPanel key={id} consultationId={id} editable={editable && !locked} />
+      <ApiState {...visit} />
+      {visit.data && <SiteVisitPanel consultationId={id} visit={visit.data} onSaved={visit.replaceData} editable={editable && !locked} admin={can(P.USERS_MANAGE)} />}
+      <SurveyPanel key={id} consultationId={id} editable={editable && !locked && canSurvey} />
       <ProposalPanel key={`proposal:${id}`} consultationId={id} linked={Boolean(row.ownerId && row.farmId)} customerName={row.customerName} customerEmail={row.email ?? ''} onSubmitted={() => setSubmitted(true)} editable={editable && !locked} canConfirmDeposit={editable || can(P.USERS_MANAGE)} />
       {editable && <SectionCard title="Record follow-up"><form className="management-form" onSubmit={followUp}>
         <fieldset disabled={pending} className="management-form">{[['notes', 'Notes', 4000], ['contactResult', 'Contact result', 1000], ['nextAction', 'Next action', 1000]].map(([name, label, max]) =>

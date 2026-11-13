@@ -4,7 +4,7 @@ import { PageHeader, SectionCard } from '../components/app/ui'
 import '../styles/management.css'
 
 export default function ConsultationPage() {
-  const [values, setValues] = useState({ customerName: '', phone: '', email: '', farmLocation: '', farmArea: '', serviceNeed: '', content: '' })
+  const [values, setValues] = useState({ customerName: '', phone: '', email: '', farmLocation: '', farmArea: '', serviceNeed: '', content: '', channel: '' })
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState(null)
@@ -36,6 +36,7 @@ export default function ConsultationPage() {
       {receipt ? <p role="status">Đã tiếp nhận yêu cầu #{receipt.id}. Kỹ sư sẽ liên hệ theo thông tin bạn cung cấp.</p> :
         <form aria-label="Yêu cầu tư vấn" className="management-form" onSubmit={submit}>
           <fieldset disabled={pending} className="management-form">
+            <label>Hình thức tư vấn<select required {...field('channel', 'consultation channel')}><option value="">Chọn hình thức</option><option value="ONLINE">Trực tuyến (miễn phí)</option><option value="ON_SITE">Khảo sát tại vườn</option></select></label>
             <label>Họ tên<input required maxLength={150} autoComplete="name" {...field('customerName', 'customer name')} /></label>
             <label>Số điện thoại<input required type="tel" pattern="\+?(?:[ \(\)\-]*[0-9]){7,15}[ \(\)\-]*" maxLength={30} autoComplete="tel" {...field('phone', 'phone')} /></label>
             <label>Email (không bắt buộc)<input type="email" maxLength={255} autoComplete="email" {...field('email', 'email')} /></label>
