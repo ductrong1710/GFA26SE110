@@ -20,7 +20,7 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
             Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
             FarmLocation = request.FarmLocation.Trim(), FarmArea = request.FarmArea,
             ServiceNeed = request.ServiceNeed.Trim(), Content = request.Content.Trim(),
-            Status = ConsultationStatus.NEW, CreatedAt = clock.GetUtcNow()
+            Channel = request.Channel, Status = ConsultationStatus.NEW, CreatedAt = clock.GetUtcNow()
         };
         consultation.History.Add(new() { Action = ConsultationAction.SUBMITTED, Status = consultation.Status, CreatedAt = consultation.CreatedAt });
         await repository.CreateAsync(consultation, ct);
@@ -42,7 +42,7 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         return new(row.Id, row.CustomerName, row.Phone, row.Email, row.FarmLocation, row.FarmArea,
             row.ServiceNeed, row.Content, row.Status.ToString(), row.EngineerId, row.CreatedAt,
             row.History.OrderBy(x => x.Id).Select(x => new ConsultationHistoryResponse(x.Id, x.UserId,
-                x.Action.ToString(), x.Status.ToString(), x.Notes, x.ContactResult, x.NextAction, x.CreatedAt)).ToArray(), row.OwnerId, row.FarmId);
+                x.Action.ToString(), x.Status.ToString(), x.Notes, x.ContactResult, x.NextAction, x.CreatedAt)).ToArray(), row.OwnerId, row.FarmId, row.Channel);
     }
 
     public async Task<ConsultationResponse> ClaimAsync(int id, CancellationToken ct)

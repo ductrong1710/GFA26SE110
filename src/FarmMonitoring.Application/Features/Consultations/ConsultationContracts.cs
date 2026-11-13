@@ -4,7 +4,7 @@ using FluentValidation;
 namespace FarmMonitoring.Application.Features.Consultations;
 
 public sealed record SubmitConsultationRequest(string CustomerName, string Phone, string? Email,
-    string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content);
+    string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string? Channel = null);
 public sealed record FollowUpRequest(string Notes, string ContactResult, string NextAction);
 public sealed record CustomerFarmRequest(int OwnerId, int FarmId);
 public sealed class ConsultationQuery : PageQuery { public bool Inbox { get; init; } }
@@ -14,7 +14,7 @@ public sealed record ConsultationHistoryResponse(int Id, int? UserId, string Act
     string? Notes, string? ContactResult, string? NextAction, DateTimeOffset CreatedAt);
 public sealed record ConsultationResponse(int Id, string CustomerName, string Phone, string? Email,
     string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string Status,
-    int? EngineerId, DateTimeOffset CreatedAt, IReadOnlyList<ConsultationHistoryResponse> History, int? OwnerId, int? FarmId);
+    int? EngineerId, DateTimeOffset CreatedAt, IReadOnlyList<ConsultationHistoryResponse> History, int? OwnerId, int? FarmId, string? Channel);
 
 public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsultationRequest>
 {
@@ -30,6 +30,7 @@ public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsul
         RuleFor(x => x.FarmArea).GreaterThan(0).LessThanOrEqualTo(100000000);
         RuleFor(x => x.ServiceNeed).NotEmpty().WithMessage("The service need field is required.").MaximumLength(500);
         RuleFor(x => x.Content).NotEmpty().WithMessage("The content field is required.").MaximumLength(4000);
+        RuleFor(x => x.Channel).Must(value => value is null or "ONLINE" or "ON_SITE").WithMessage("Channel must be ONLINE or ON_SITE.");
     }
 }
 

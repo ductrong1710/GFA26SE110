@@ -1,11 +1,12 @@
 namespace FarmMonitoring.Domain.Entities;
 
 public enum ConsultationStatus { NEW, IN_PROGRESS, COMPLETED, CANCELLED }
-public enum ConsultationAction { SUBMITTED, CLAIMED, FOLLOW_UP, SURVEY_RECORDED, CUSTOMER_BOUND, PROPOSAL_CREATED, PLAN_CONFIRMED, DEPOSIT_CONFIRMED, INSTALLATION_SUBMITTED, INSTALLATION_APPROVED, INSTALLATION_RETURNED }
+public enum ConsultationAction { SUBMITTED, CLAIMED, FOLLOW_UP, SURVEY_RECORDED, CUSTOMER_BOUND, PROPOSAL_CREATED, PLAN_CONFIRMED, DEPOSIT_CONFIRMED, INSTALLATION_SUBMITTED, INSTALLATION_APPROVED, INSTALLATION_RETURNED, CHANNEL_CHANGED }
 
 public sealed class Consultation
 {
     public int Id { get; set; }
+    public string? Channel { get; set; }
     public string CustomerName { get; set; } = "";
     public string Phone { get; set; } = "";
     public string? Email { get; set; }

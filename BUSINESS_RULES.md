@@ -1100,3 +1100,7 @@ Survey zones retain submitted proposed installation locations and optional nonne
 ### Mission ownership on shared farms
 
 An owner must be the recorded mission creator and a current member of its farm to read a mission, its launch state, results, telemetry or collection attempts. The same scope applies to mission filters, lists, mission reports and dashboard counts. Admin reads across owners. A device support request may only link a mission created by the reporting owner.
+
+### MF-01: pre-survey travel charge
+
+The nullable consultation channel preserves legacy leads. ONLINE is free. For ON_SITE the assigned engineer submits an immutable itinerary, fee and appointment revision. Admin approves it or returns it with a reason. Zero-fee visits still require approval and a separate scheduling decision; no payment row is created. Positive fees require an exact, verified external receipt for the current revision before scheduling. Confirmed receipts and finalized appointments block automatic amendments pending administrator reconciliation. The survey write checks the latest schedule before first-save assignment under the consultation row lock. Site-visit receipts do not confirm rental payments, proposal deposits or installation dossiers. See the MF-01 section in API.md for thresholds, manual quotes above 150 km, permissions, examples and rollout.
