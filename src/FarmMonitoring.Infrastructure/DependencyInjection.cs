@@ -1,3 +1,4 @@
+using FarmMonitoring.Application.Features.Consultations;
 using FarmMonitoring.Application.Features.PublicInformation;
 using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Application.Features.CropSeasons;
@@ -36,6 +37,10 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordResetQueue>(provider => provider.GetRequiredService<PasswordResetQueue>());
         services.AddHostedService<PasswordResetWorker>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ISiteVisitRepository, ConsultationRepository>();
+        services.AddScoped<SiteVisitService>();
+        services.AddScoped(_ => configuration.GetSection("SiteVisitPricing").Get<SiteVisitPricingSettings>() ?? new SiteVisitPricingSettings());
+        services.AddScoped<SiteVisitPricing>();
         services.AddScoped<IConsultationRepository, ConsultationRepository>();
         services.AddScoped<IProposalRepository, ProposalRepository>();
         services.AddScoped<IInstallationDossierRepository, InstallationDossierRepository>();

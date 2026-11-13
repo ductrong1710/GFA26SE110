@@ -283,6 +283,11 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Channel")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("channel");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -3447,6 +3452,137 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("service_reports", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitBill", b =>
+                {
+                    b.Property<int>("ProposalId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImagesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("ProposalId");
+
+                    b.ToTable("site_visit_bills", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitPayment", b =>
+                {
+                    b.Property<int>("ProposalId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("PaidAmountVnd")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("VerifiedBy")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ProposalId");
+
+                    b.HasIndex("VerifiedBy");
+
+                    b.ToTable("site_visit_payments", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitProposal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<long>("AmountVnd")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ChangeReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ConsultationId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("DistanceKm")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("numeric(9,2)");
+
+                    b.Property<string>("ManualReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MapsUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OfficeCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OfficeLabel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PricingMethod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PricingVersion")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ProposedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReviewReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReviewedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ScheduledBy")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ReviewedBy");
+
+                    b.HasIndex("ScheduledBy");
+
+                    b.HasIndex("ConsultationId", "Revision")
+                        .IsUnique();
+
+                    b.ToTable("site_visit_proposals", (string)null);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.SurveyZone", b =>
                 {
                     b.Property<int>("Id")
@@ -5080,6 +5216,55 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Replacement");
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitBill", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.SiteVisitPayment", null)
+                        .WithOne("Bill")
+                        .HasForeignKey("FarmMonitoring.Domain.Entities.SiteVisitBill", "ProposalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitPayment", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.SiteVisitProposal", null)
+                        .WithOne("Payment")
+                        .HasForeignKey("FarmMonitoring.Domain.Entities.SiteVisitPayment", "ProposalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("VerifiedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitProposal", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.Consultation", null)
+                        .WithMany()
+                        .HasForeignKey("ConsultationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ScheduledBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.SurveyZone", b =>
                 {
                     b.HasOne("FarmMonitoring.Domain.Entities.FarmSurvey", "Survey")
@@ -5294,6 +5479,16 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.ServiceReport", b =>
                 {
                     b.Navigation("Images");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitPayment", b =>
+                {
+                    b.Navigation("Bill");
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitProposal", b =>
+                {
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.User", b =>

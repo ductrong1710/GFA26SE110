@@ -44,6 +44,14 @@ public class AuthContractTests(ApiFactory factory)
         foreach (var path in new[] { "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/me" })
             Assert.True(paths.TryGetProperty(path, out _));
         Assert.False(paths.TryGetProperty("/api/auth/register", out _));
+        foreach (var (route, method) in new[] {
+            ("channel","put"), ("site-visit","get"), ("site-visit/fee-preview","post"),
+            ("site-visit/proposals","post"), ("site-visit/review","post"),
+            ("site-visit/payments/confirm","post"), ("site-visit/schedule","post") })
+        {
+            var operation = paths.GetProperty("/api/consultations/{id}/" + route).GetProperty(method);
+            Assert.Contains(operation.GetProperty("security").EnumerateArray(), s => s.TryGetProperty("Bearer", out _));
+        }
         var scheme = spec.GetProperty("components").GetProperty("securitySchemes").GetProperty("Bearer");
         Assert.Equal("http", scheme.GetProperty("type").GetString());
         Assert.Equal("bearer", scheme.GetProperty("scheme").GetString());

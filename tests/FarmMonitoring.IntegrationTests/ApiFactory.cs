@@ -36,6 +36,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["SEED_ADMIN_EMAIL"] = "", ["SEED_ADMIN_PASSWORD"] = "",
             ["Logging:LogLevel:Default"] = "Warning",
             ["Monitoring:Enabled"] = "false",
+            // Fictional MF-01 thresholds for integration tests only.
+            ["SiteVisitPricing:Version"] = "TEST-1",
+            ["SiteVisitPricing:T1Km"] = "20",
+            ["SiteVisitPricing:T2Km"] = "80",
             ["MaintenanceScheduler:Enabled"] = "false"
         }));
         builder.ConfigureServices(services => services.AddControllers().AddApplicationPart(typeof(RoleProbeController).Assembly));
@@ -128,6 +132,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         if (InitialMigration is not null)
         {
             // Historical fixtures cannot insert columns introduced by the current model.
+            consultation.Id = await db.Database.SqlQuery<int>($"INSERT INTO consultations (customer_name,phone,farm_location,service_need,content,farm_id,owner_id,engineer_id,created_at,status) VALUES ({consultation.CustomerName},{consultation.Phone},{consultation.FarmLocation},{consultation.ServiceNeed},{consultation.Content},{farmId},{owner.Id},{engineer.Id},{now},'COMPLETED') RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();
+            db.Attach(consultation);
             proposal.Lines.Clear();
             db.Set<SurveyZone>().Add(zone); await db.SaveChangesAsync();
             proposal.Id = await db.Database.SqlQuery<int>($"INSERT INTO device_proposals (consultation_id,survey_id,revision,created_by_user_id,rental_months,requested_installation_at,status,created_at) VALUES ({consultation.Id},{survey.Id},1,{engineer.Id},12,{now},'SUBMITTED',{now}) RETURNING id AS \"Value\"").AsAsyncEnumerable().FirstAsync();

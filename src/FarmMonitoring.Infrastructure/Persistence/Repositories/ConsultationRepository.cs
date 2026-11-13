@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
-public sealed class ConsultationRepository(AppDbContext db) : IConsultationRepository
+public sealed partial class ConsultationRepository(AppDbContext db) : IConsultationRepository
 {
     public async Task CreateAsync(Consultation consultation, CancellationToken ct)
     {
@@ -83,6 +83,12 @@ public sealed class ConsultationRepository(AppDbContext db) : IConsultationRepos
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await LockEngineerAsync(survey.EngineerId, ct);
         var consultation = await LockAsync(survey.ConsultationId, ct);
+        if (consultation.EngineerId is int assigned && assigned != survey.EngineerId)
+            throw new AccessDeniedException("Only the assigned engineer can record a survey.");
+        var visit = await db.Set<SiteVisitProposal>().Where(x => x.ConsultationId == consultation.Id)
+            .OrderByDescending(x => x.Revision).Select(x => new { x.Channel, x.ReviewStatus, x.ScheduledAt }).FirstOrDefaultAsync(ct);
+        if ((consultation.Channel == "ON_SITE" || visit is { Channel: "ON_SITE", ReviewStatus: "PENDING" }) && visit?.ScheduledAt is null)
+            throw new ConflictException("Confirm the on-site visit schedule before recording the survey.");
         if (consultation.EngineerId == null && consultation.Status == ConsultationStatus.NEW) { consultation.EngineerId=survey.EngineerId; consultation.Status=ConsultationStatus.IN_PROGRESS; }
         if (consultation.EngineerId != survey.EngineerId) throw new AccessDeniedException("Only the assigned engineer can record a survey.");
         if (consultation.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");

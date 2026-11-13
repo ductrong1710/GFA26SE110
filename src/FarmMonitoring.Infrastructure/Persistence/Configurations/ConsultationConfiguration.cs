@@ -12,6 +12,7 @@ public sealed class ConsultationConfiguration : IEntityTypeConfiguration<Consult
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         b.Property(x => x.CustomerName).HasColumnName("customer_name").HasMaxLength(150).IsRequired();
+        b.Property(x => x.Channel).HasColumnName("channel").HasMaxLength(10);
         b.Property(x => x.Phone).HasColumnName("phone").HasMaxLength(30).IsRequired();
         b.Property(x => x.Email).HasColumnName("email").HasMaxLength(255);
         b.Property(x => x.FarmLocation).HasColumnName("farm_location").HasMaxLength(500).IsRequired();
