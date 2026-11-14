@@ -1,33 +1,34 @@
-import { useState } from 'react'
-import { API_BASE_URL } from '../config/api'
+import { Link } from 'react-router-dom'
 import { api } from '../services/api'
 import { useApiQuery } from '../services/api/useApiQuery'
 import ConsultationButton from './ConsultationButton'
-
-const labels = { SERVICE: 'Dịch vụ', DEVICE: 'Thiết bị', COMPONENT: 'Linh kiện', INSTALLATION: 'Lắp đặt', WARRANTY: 'Bảo hành',
-  MAINTENANCE: 'Bảo trì', RETURN: 'Hoàn trả thiết bị', CONTACT: 'Liên hệ' }
-const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 })
+import Icon from './Icon'
+import PublicDeviceCard from './PublicDeviceCard'
 
 export default function PublicInformation() {
-  const [page, setPage] = useState(1)
-  const { data, loading, error, reload } = useApiQuery(`public-content:${page}`, signal =>
-    api.request('/api/public-content', { auth: false, query: { page }, signal }))
-  return <section id="rental" className="equipment-catalog page-width" aria-labelledby="public-information-heading">
-    <h2 id="public-information-heading">Thiết bị, dịch vụ và chính sách thuê</h2>
-    {loading && <p role="status">Đang tải thông tin…</p>}
-    {error && <p role="alert">Chưa tải được thông tin. <button onClick={reload}>Thử lại</button></p>}
-    {data && !data.items.length && <p>Chưa có thông tin được công bố. Bạn có thể gửi yêu cầu tư vấn cho nông trại của mình.</p>}
-    <div className="equipment-grid">{data?.items.map(entry => <article className="equipment-card" key={entry.id}>
-      {entry.hasImage && <img loading="lazy" src={`${API_BASE_URL.replace(/\/$/, '')}/api/public-content/${entry.id}/image`} alt={entry.title} />}
-      <div className="equipment-card-copy"><span>{labels[entry.kind]}</span><h3>{entry.title}</h3>
-        <p style={{ whiteSpace: 'pre-wrap' }}>{entry.body}</p>
-        {entry.estimatedMonthlyRentVnd != null && <p>Giá thuê tham khảo mỗi tháng: {money.format(entry.estimatedMonthlyRentVnd)}</p>}
-        {entry.replacementPriceVnd != null && <p>Giá thay thế mỗi đơn vị: {money.format(entry.replacementPriceVnd)}</p>}
-      </div></article>)}</div>
-    {(page > 1 || data?.pagination.totalPages > 1) && <nav aria-label="Trang thông tin">
-      <button disabled={loading || page === 1} onClick={() => setPage(page - 1)}>Trang trước</button> Trang {page} <button
-        disabled={loading || page >= (data?.pagination.totalPages ?? 0)} onClick={() => setPage(page + 1)}>Trang sau</button>
-    </nav>}
-    <ConsultationButton />
+  const { data, loading, error, reload } = useApiQuery('homepage-public-devices', signal =>
+    api.request('/api/public-devices', { auth: false, signal }))
+  return <>
+  <section className="equipment-band">
+    <div id="rental" className="equipment-catalog page-width" aria-labelledby="public-information-heading">
+      <header className="catalog-heading">
+        <h2 id="public-information-heading">Thiết bị cho nông trại</h2>
+        <p>Khám phá một số thiết bị đang có và giá thuê tham khảo.</p>
+      </header>
+      {loading && <p role="status">Đang tải thiết bị…</p>}
+      {error && <p role="alert">Chưa tải được thiết bị. <button onClick={reload}>Thử lại</button></p>}
+      {data && !data.length && <p>Chưa có thiết bị được công khai.</p>}
+      <div className="equipment-grid">{data?.slice(0, 4).map(device => <PublicDeviceCard device={device} key={device.id} />)}</div>
+      <div className="all-devices-action"><Link className="all-devices-link" to="/thiet-bi">Xem toàn bộ thiết bị <Icon name="arrow" size={15} /></Link></div>
+    </div>
   </section>
+  <section className="equipment-consultation" aria-labelledby="equipment-consultation-heading">
+    <div className="equipment-consultation-inner page-width">
+      <div className="equipment-consultation-copy">
+        <h2 id="equipment-consultation-heading">Chưa biết chọn thiết bị nào?</h2>
+      </div>
+      <ConsultationButton />
+    </div>
+  </section>
+  </>
 }

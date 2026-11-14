@@ -44,7 +44,7 @@ export default function SensorsPage() {
       { key: 'batteryPercent', header: 'Battery', render: (value) => <BatteryIndicator value={value} /> }, { key: 'displayStatus', header: 'Status', render: (status) => <StatusBadge status={status} label={status === 'INACTIVE' ? 'Disabled' : undefined} /> },
       { key: 'lastSeenAt', header: 'Last Seen', render: displayTime }, { key: 'lastCollectedAt', header: 'Last Collected', render: displayTime },
       { key: 'actions', header: 'Actions', render: (_, row) => manage ? <div className="management-row-actions"><button onClick={() => open(row)}>Edit Sensor</button><button onClick={() => open(row, 'assign')}>Assign to Zone</button><button onClick={() => open(row, 'toggle')}>{row.isActive ? 'Disable' : 'Enable'}</button></div> : <Link className="operations-link" to={`/app/sensors/${row.id}`}>View</Link> },
-    ]} footer={`${rows.length} of ${operations.sensorNodes.length} sensors`} />
+    ]} clientPageSize={10} footer={`${rows.length} of ${operations.sensorNodes.length} sensors`} />
     {dialog && (manage || (create && !dialog.record)) && <EquipmentDialog kind="sensor" {...dialog} workspace={farmWorkspace} operations={operations} currentFarm={currentFarm} onSave={save} onClose={() => setDialog(null)} />}
   </div>
 }

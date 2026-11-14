@@ -4,7 +4,7 @@ import { useApiQuery } from '../../services/api/useApiQuery'
 import { displayTime } from '../../utils/display'
 import ApiState from './ApiState'
 import EvidenceImages from './EvidenceImages'
-import { DataTable } from './ui'
+import { DataTable, TablePagination } from './ui'
 
 export function CropHistoryEntry({ update }) {
   return <article>
@@ -39,8 +39,7 @@ function EvidenceTable({ report, resource, title, columns, query, onActivity }) 
     {!context.loading && !context.error && !context.data?.items?.length && <p>No data recorded in this scope.</p>}
     <DataTable caption={title} rows={context.data?.items ?? []} loading={context.loading} columns={onActivity ? [...columns,
       { key: 'imageCount', header: 'Evidence', render: (count, row) => count > 0 ? <button onClick={() => onActivity(row.id)}>View images for activity #{row.id}</button> : 'No images recorded' },
-    ] : columns} footer={<div><button disabled={page === 1 || context.loading} onClick={() => setPage(page - 1)}>Previous {resource}</button>
-      <span> Page {page} </span><button disabled={context.loading || page >= (context.data?.pagination?.totalPages ?? 0)} onClick={() => setPage(page + 1)}>Next {resource}</button></div>} />
+    ] : columns} footer={(context.data?.pagination?.totalItems ?? 0) > 0 && <TablePagination page={page} totalPages={context.data?.pagination?.totalPages} pageSize={context.data?.pagination?.pageSize} totalItems={context.data?.pagination?.totalItems} onPageChange={setPage} disabled={context.loading} label={`${title} pagination`} />} />
   </section>
 }
 

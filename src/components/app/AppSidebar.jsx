@@ -20,13 +20,23 @@ export default function AppSidebar({ sidebarRef, mobile, open, onClose }) {
     </div>
     <nav className="app-sidebar-nav" aria-label="Main navigation">
       {groups.map((group) => <div className="app-nav-group" key={group}>
-        <p className="app-nav-label">{group}</p>
-        <ul>{navigation.filter((item) => item.group === group).map(({ path, label, icon }) => <li key={path}>
-          <NavLink to={path} end={path === '/app/dashboard'} onClick={onClose}
-            className={({ isActive }) => `app-nav-link${isActive ? ' is-active' : ''}`}>
-            <AppIcon name={icon} /><span>{label}</span>
-          </NavLink>
-        </li>)}</ul>
+        {group === 'Administration' ? <details className="app-nav-disclosure" open>
+          <summary className="app-nav-label"><span>{group}</span><AppIcon name="down" size={14} /></summary>
+          <ul>{navigation.filter((item) => item.group === group).map(({ path, label, icon }) => <li key={path}>
+            <NavLink to={path} end={path === '/app/dashboard'} onClick={onClose}
+              className={({ isActive }) => `app-nav-link${isActive ? ' is-active' : ''}`}>
+              <AppIcon name={icon} /><span>{label}</span>
+            </NavLink>
+          </li>)}</ul>
+        </details> : <>
+          <p className="app-nav-label">{group}</p>
+          <ul>{navigation.filter((item) => item.group === group).map(({ path, label, icon }) => <li key={path}>
+            <NavLink to={path} end={path === '/app/dashboard'} onClick={onClose}
+              className={({ isActive }) => `app-nav-link${isActive ? ' is-active' : ''}`}>
+              <AppIcon name={icon} /><span>{label}</span>
+            </NavLink>
+          </li>)}</ul>
+        </>}
       </div>)}
     </nav>
     <div className="app-sidebar-footer">

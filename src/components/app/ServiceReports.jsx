@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
-import { DataTable, SectionCard } from './ui'
+import { DataTable, SectionCard, TablePagination } from './ui'
 import ApiState from './ApiState'
 import { PaperGroup, readPaper } from './PaperEvidence'
 import EvidenceImages from './EvidenceImages'
@@ -65,7 +65,6 @@ export default function ServiceReports({ job, canConfirm, canReview, onUpdated }
     <DataTable caption="Service report revisions" loading={query.loading} rows={query.data?.items ?? []} columns={[
       { key: 'revision', header: 'Revision' }, { key: 'technicianId', header: 'Technician' }, { key: 'createdAt', header: 'Submitted', render: displayTime },
       { key: 'action', header: 'Action', render: (_, row) => <button disabled={pending} onClick={() => open(row.id)}>View report revision {row.revision}</button> },
-    ]} footer={<div className="management-row-actions"><button disabled={page === 1 || query.loading} onClick={() => setPage(page - 1)}>Previous reports</button>
-      <span>Page {page}</span><button disabled={query.loading || page * 20 >= (query.data?.pagination.totalItems ?? 0)} onClick={() => setPage(page + 1)}>More reports</button></div>} />
+    ]} footer={(query.data?.pagination?.totalItems ?? 0) > 0 && <TablePagination page={page} totalPages={query.data?.pagination?.totalPages} pageSize={query.data?.pagination?.pageSize} totalItems={query.data?.pagination?.totalItems} onPageChange={setPage} disabled={query.loading} label="Service report revisions pagination" />} />
   </SectionCard>
 }

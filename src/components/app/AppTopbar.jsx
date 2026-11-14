@@ -2,12 +2,12 @@ import NotificationsPanel from './NotificationsPanel'
 import { useNotifications } from '../../services/api/useNotifications'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getNavigationForRole } from '../../config/navigation'
+import { getCurrentNavigationItem, getNavigationForRole } from '../../config/navigation'
 import { PERMISSIONS as P } from '../../config/permissions'
 import { useAuth } from '../../context/AuthContext'
 import AppIcon from './AppIcon'
 
-export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms, currentFarm, onFarmChange }) {
+export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu }) {
   const { user, logout, activeRole, activeRoleLabel, canAny } = useAuth()
   const notifications = useNotifications(user.id, activeRole)
   const navigate = useNavigate()
@@ -19,7 +19,9 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
   const searchRef = useRef(null)
   const notificationRef = useRef(null)
   const accountRef = useRef(null)
-  const results = getNavigationForRole(activeRole, canAny).filter(({ label }) => label.toLowerCase().includes(query.trim().toLowerCase()))
+  const navigation = getNavigationForRole(activeRole, canAny)
+  const currentPage = getCurrentNavigationItem(navigation, location.pathname)
+  const results = navigation.filter(({ label }) => label.toLowerCase().includes(query.trim().toLowerCase()))
   const initials = user.fullName.trim().split(/\s+/).slice(-2).map((name) => name[0]).join('').toUpperCase()
 
   if (lastLocationKey !== location.key) {
@@ -62,13 +64,9 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
     <div className="app-topbar-context">
       <button ref={menuButtonRef} type="button" className="app-icon-button app-menu-toggle" onClick={onOpenMenu}
         aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded={drawerOpen}><AppIcon name="menu" /></button>
-      <div className="app-farm-control">
-        <span className="app-farm-icon"><AppIcon name="map" /></span>
-        <label className="app-farm-label"><span>Current farm</span>
-          <select aria-label="Current farm" value={currentFarm.id} onChange={(event) => onFarmChange(Number(event.target.value))}>
-            {farms.map((farm) => <option key={farm.id} value={farm.id}>{farm.name}</option>)}
-          </select>
-        </label>
+      <div className="app-current-page" aria-label="Current page">
+        <span className="app-current-page-icon"><AppIcon name={currentPage?.icon ?? 'grid'} /></span>
+        <h1>{currentPage?.label ?? 'Workspace'}</h1>
       </div>
     </div>
     <form className="app-search" role="search" onSubmit={submitSearch}>
@@ -78,7 +76,7 @@ export default function AppTopbar({ menuButtonRef, drawerOpen, onOpenMenu, farms
       {popover === 'search' && query.trim() && <div className="app-popover app-search-results">
         <p className="app-popover-label">Workspace pages</p>
         {results.length ? <ul>{results.map(({ path, label, icon }) => <li key={path}>
-          <Link to={path} onClick={() => setPopover(null)}><AppIcon name={icon} size={17} />{label}</Link>
+          <Link to={path} onClick={() => setPopover(null)}><AppIcon name={icon} size={20} />{label}</Link>
         </li>)}</ul> : <p className="app-empty-message" role="status">No results found.</p>}
       </div>}
     </form>

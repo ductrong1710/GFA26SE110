@@ -43,7 +43,7 @@ export default function MissionsPage() {
       { key: 'status', header: 'Status', render: (status) => <StatusBadge status={status} /> },
       { key: 'scheduledStartAt', header: 'Scheduled Time', render: displayTime },
       { key: 'actions', header: 'Actions', render: (_, row) => create && row.status === 'PENDING' ? <button className="app-ui-button" onClick={() => edit(row)}>Resume Draft</button> : <Link to={`/app/missions/${row.id}`}>View Details</Link> },
-    ]} footer={`${rows.length} missions · Times in Vietnam (UTC+7) · Authorized backend missions`} />
+    ]} clientPageSize={10} footer={`${rows.length} missions · Times in Vietnam (UTC+7) · Authorized backend missions`} />
   </div>
 }
 

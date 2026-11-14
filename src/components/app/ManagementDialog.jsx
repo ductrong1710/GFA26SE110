@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import '../../styles/management.css'
 
-export default function ManagementDialog({ title, onClose, children, drawer = false }) {
+export default function ManagementDialog({ title, onClose, children, drawer = false, className = '' }) {
   const ref = useRef(null)
   const titleId = useId()
   useEffect(() => {
@@ -10,7 +10,7 @@ export default function ManagementDialog({ title, onClose, children, drawer = fa
     dialog.showModal()
     return () => { dialog.close(); if (previous?.isConnected) previous.focus() }
   }, [])
-  return <dialog ref={ref} className={`app-ui management-dialog${drawer ? ' management-drawer' : ''}`} aria-labelledby={titleId}
+  return <dialog ref={ref} className={`app-ui management-dialog${drawer ? ' management-drawer' : ''} ${className}`} aria-labelledby={titleId}
     onCancel={(event) => { event.preventDefault(); onClose() }}>
     <header><h2 id={titleId}>{title}</h2><button className="app-ui-button" type="button" onClick={onClose} aria-label="Close dialog">×</button></header>
     {children}

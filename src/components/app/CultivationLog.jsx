@@ -3,7 +3,7 @@ import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 import EvidenceImages from './EvidenceImages'
-import { DataTable } from './ui'
+import { DataTable, TablePagination } from './ui'
 
 export function CultivationActivityForm({ season, onSaved, onCancel }) {
   const [images, setImages] = useState([])
@@ -52,8 +52,7 @@ export default function CultivationLog({ season }) {
       { key: 'costVnd', header: 'Cost (VND)' }, { key: 'notes', header: 'Notes' }, { key: 'userId', header: 'Recorded by' },
       { key: 'imageCount', header: 'Evidence', render: (count, row) => count > 0
         ? <button onClick={() => setActivityId(row.id)} aria-label={`View images for activity #${row.id}`}>View images ({count})</button> : '—' },
-    ]} footer={<div><button disabled={page === 1} onClick={() => changePage(page - 1)}>Previous activities</button> Page {page} <button
-      disabled={page >= (log.data?.pagination?.totalPages ?? 0)} onClick={() => changePage(page + 1)}>Next activities</button></div>} />
+    ]} footer={(log.data?.pagination?.totalItems ?? 0) > 0 && <TablePagination page={page} totalPages={log.data?.pagination?.totalPages} pageSize={log.data?.pagination?.pageSize} totalItems={log.data?.pagination?.totalItems} onPageChange={changePage} disabled={log.loading} label="Cultivation activities pagination" />} />
     {activityId !== null && <section><h4>Evidence for activity #{activityId}</h4><ApiState loading={evidence.loading} error={evidence.error} reload={evidence.reload} />
       <EvidenceImages images={evidence.data ?? []} /><button onClick={() => setActivityId(null)}>Close images</button></section>}
   </section>
