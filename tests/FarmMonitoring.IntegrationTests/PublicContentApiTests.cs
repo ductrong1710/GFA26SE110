@@ -13,7 +13,7 @@ public sealed class PublicContentApiTests(ApiFactory factory)
     [Fact]
     public async Task Admin_manages_publication_with_revision_checks_and_owner_is_denied()
     {
-        const string path = "/api/admin/public-content";
+        const string path = "/api/admin/public-devices";
         using var client = factory.CreateApiClient();
         var body = new { expectedRevision = 0, kind = "DEVICE", title = "Rental sensor", body = "For field monitoring", estimatedMonthlyRentVnd = 12000 };
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync(path, body)).StatusCode);
@@ -49,7 +49,7 @@ public sealed class PublicContentApiTests(ApiFactory factory)
         db.PublicContent.AddRange(visible, draft);
         await db.SaveChangesAsync();
         using var visitor = factory.CreateApiClient();
-        const string path = "/api/public-content";
+        const string path = "/api/public-devices";
         var response = await visitor.GetFromJsonAsync<JsonElement>(path);
         var entry = Assert.Single(response.GetProperty("data").EnumerateArray());
         Assert.Equal(visible.Id, entry.GetProperty("id").GetInt32());

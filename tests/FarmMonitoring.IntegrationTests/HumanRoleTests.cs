@@ -32,14 +32,9 @@ public class HumanRoleTests(ApiFactory factory)
     {
         var (admin, _) = await Login("admin@example.com");
         using var adminClient = admin;
-        var email = $"matrix-{Guid.NewGuid():N}@example.com";
-        var created = await admin.PostAsJsonAsync("/api/users", new { email, fullName = role, password = "Test-password-123!", roles = new[] { role == "FarmAdministrator" ? "FarmOwner" : role } });
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        if (role == "FarmAdministrator")
-        {
-            var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-            (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new {roles = new[] {role}})).EnsureSuccessStatusCode();
-        }
+        var email = role == "FarmAdministrator" ? "admin@example.com" : $"matrix-{Guid.NewGuid():N}@example.com";
+        var created = role == "FarmAdministrator" ? null : await admin.PostAsJsonAsync("/api/users", new { email, fullName = role, password = "Test-password-123!", roles = new[] { role } });
+        if (created is not null) Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var (client, login) = await Login(email);
         using var human = client;
         Assert.Equal(role, Assert.Single(login.GetProperty("user").GetProperty("roles").EnumerateArray()).GetString());
@@ -108,7 +103,7 @@ public class HumanRoleTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Removing_last_supported_role_blocks_login_refresh_me_and_old_privileges()
+    public async Task User_management_cannot_remove_a_users_only_role()
     {
         var (admin, _) = await Login("admin@example.com");
         using var administrator = admin;
@@ -118,10 +113,8 @@ public class HumanRoleTests(ApiFactory factory)
         var (client, login) = await Login(email);
         using var user = client;
         var id = login.GetProperty("user").GetProperty("id").GetInt32();
-        (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = Array.Empty<string>() })).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Unauthorized, (await user.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await user.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = login.GetProperty("refreshToken").GetString() })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await user.GetAsync("/api/auth/me")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await user.GetAsync("/api/farms")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = Array.Empty<string>() })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await user.GetAsync("/api/auth/me")).StatusCode);
+        Assert.Equal("FarmOwner", Assert.Single((await user.GetFromJsonAsync<JsonElement>("/api/auth/me")).GetProperty("data").GetProperty("roles").EnumerateArray()).GetString());
     }
 }

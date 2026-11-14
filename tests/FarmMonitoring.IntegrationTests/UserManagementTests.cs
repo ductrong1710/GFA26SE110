@@ -53,11 +53,10 @@ public class UserManagementTests(ApiFactory factory)
         Assert.Equal("FarmEngineer", Assert.Single(updatedProfile.GetProperty("data").GetProperty("roles").EnumerateArray()).GetString());
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/users/{id}",
             new { email, fullName = "Updated Owner", roles = new[] { "FarmAdministrator" } })).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator", "FarmOwner" } })).StatusCode);
-        using var promoted = await Login(email);
-        Assert.Equal(HttpStatusCode.OK, (await promoted.GetAsync("/api/users")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator", "FarmOwner" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await account.GetAsync("/api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmOwner" } })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await promoted.GetAsync("/api/users")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await account.GetAsync("/api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.PatchAsJsonAsync($"/api/users/{id}/status", new { isActive = false })).StatusCode);
         var denied = await admin.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" });
         Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
@@ -100,20 +99,19 @@ public class UserManagementTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Disabled_administrator_loses_access_and_role_replacement_can_remove_all_roles()
+    public async Task Disabled_account_loses_access_and_administrator_role_cannot_be_assigned()
     {
         using var admin = await Login();
         var email = $"temporary-admin-{Guid.NewGuid():N}@example.com";
         var created = await admin.PostAsJsonAsync("/api/users", new { email, fullName = "Temporary Admin", password = "Test-password-123!", roles = new[] { "FarmOwner" } });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator" } })).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator" } })).StatusCode);
         using var target = await Login(email);
         (await admin.PatchAsJsonAsync($"/api/users/{id}/status", new { isActive = false })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await target.GetAsync("/api/users")).StatusCode);
-        (await admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = Array.Empty<string>() })).EnsureSuccessStatusCode();
         var user = (await admin.GetFromJsonAsync<JsonElement>($"/api/users/{id}")).GetProperty("data");
-        Assert.Empty(user.GetProperty("roles").EnumerateArray());
+        Assert.Equal("FarmOwner", Assert.Single(user.GetProperty("roles").EnumerateArray()).GetString());
     }
 
     [Fact]
@@ -142,8 +140,8 @@ public class UserManagementTests(ApiFactory factory)
             command.Parameters.AddWithValue("id", id);
             await command.ExecuteScalarAsync();
         }
-        var first = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmAdministrator" } });
-        var second = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmOwner" } });
+        var first = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmOwner" } });
+        var second = admin.PutAsJsonAsync($"/api/users/{id}/roles", new { roles = new[] { "FarmEngineer" } });
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -161,6 +159,6 @@ public class UserManagementTests(ApiFactory factory)
         foreach (var response in await Task.WhenAll(first, second)) response.EnsureSuccessStatusCode();
         var user = (await admin.GetFromJsonAsync<JsonElement>($"/api/users/{id}")).GetProperty("data");
         var role = Assert.Single(user.GetProperty("roles").EnumerateArray()).GetString();
-        Assert.Contains(role, new[] { "FarmAdministrator", "FarmOwner" });
+        Assert.Contains(role, new[] { "FarmOwner", "FarmEngineer" });
     }
 }

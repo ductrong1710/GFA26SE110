@@ -58,9 +58,7 @@ public sealed class MaintenanceScheduleApiTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync(path + "/2147483647")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync(path)).StatusCode);
         var techId = tech.GetProperty("id").GetInt32();
-        (await admin.PutAsJsonAsync($"/api/users/{techId}/roles", new { roles = new[] { "FarmAdministrator", "Technician" } })).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.OK, (await technician.GetAsync(route)).StatusCode);
-        (await admin.PutAsJsonAsync($"/api/users/{techId}/roles", new { roles = new[] { "Technician" } })).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/users/{techId}/roles", new { roles = new[] { "FarmAdministrator", "Technician" } })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await technician.GetAsync(route)).StatusCode);
         (await admin.PatchAsJsonAsync($"/api/users/{techId}/status", new { isActive = false })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PutAsJsonAsync(route, request with { ExpectedRevision = 3 })).StatusCode);

@@ -110,7 +110,7 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         Assert.True(await db.Farms.AnyAsync(x => x.Id == farms[0].Id));
         await Status(HttpStatusCode.NotFound, await admin.DeleteAsync(path + "/" + ownerId));
         // Assignments alone cannot grant access once current roles are removed.
-        await Data(await admin.PutAsJsonAsync($"/api/users/{engineerId}/roles", new { roles = Array.Empty<string>() }));
+        await Status(HttpStatusCode.BadRequest, await admin.PutAsJsonAsync($"/api/users/{engineerId}/roles", new { roles = Array.Empty<string>() }));
         await Status(HttpStatusCode.Forbidden, await engineer.GetAsync($"/api/farms/{farms[0].Id}"));
         Assert.True(await db.UserFarms.AnyAsync(x => x.UserId == engineerId));
     }
@@ -268,11 +268,12 @@ public sealed class FarmScopeSecurityTests : IAsyncLifetime
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Equal(2, await db.UserFarms.CountAsync(x => x.UserId == ownerId));
-        await Data(await admin.PutAsJsonAsync($"/api/users/{engineerId}/roles", new { roles = new[] { "FarmAdministrator", "FarmEngineer" } }));
+        await Status(HttpStatusCode.BadRequest, await admin.PutAsJsonAsync($"/api/users/{engineerId}/roles", new { roles = new[] { "FarmAdministrator", "FarmEngineer" } }));
         await Status(HttpStatusCode.UnprocessableEntity, await admin.PostAsJsonAsync($"/api/farms/{farms[0].Id}/members", new { userId = engineerId }));
-        // Admin status now permits all farms independently of its old memberships.
-        await Status(HttpStatusCode.NoContent, await admin.DeleteAsync($"/api/farms/{farms[0].Id}/members/{engineerId}"));
-        await Status(HttpStatusCode.OK, await engineer.GetAsync($"/api/farms/{farms[1].Id}"));
+        // The seeded administrator retains global access without assigning admin privileges to this engineer.
+        Assert.Equal("FarmAdministrator", Assert.Single((await Data(await admin.GetAsync("/api/auth/me"))).GetProperty("roles").EnumerateArray()).GetString());
+        await Status(HttpStatusCode.OK, await admin.GetAsync($"/api/farms/{farms[1].Id}"));
+        await Status(HttpStatusCode.Forbidden, await engineer.GetAsync($"/api/farms/{farms[1].Id}"));
     }
 
     [Fact]

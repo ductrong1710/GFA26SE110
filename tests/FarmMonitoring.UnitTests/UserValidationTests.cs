@@ -6,7 +6,7 @@ namespace FarmMonitoring.UnitTests;
 public class UserValidationTests
 {
     [Theory]
-    [InlineData("FarmAdministrator", true)]
+    [InlineData("FarmAdministrator", false)]
     [InlineData("FarmOwner", true)]
     [InlineData("FarmEngineer", true)]
     [InlineData("Technician", true)]
@@ -15,7 +15,7 @@ public class UserValidationTests
     public void Human_roles_follow_the_supported_role_contract(string role, bool accepted)
     {
         Assert.Equal(accepted && role != "FarmAdministrator", new CreateUserValidator().Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", [role])).IsValid);
-        Assert.Equal(accepted, new UserRolesValidator().Validate(new UserRolesRequest([role])).IsValid);
+        Assert.Equal(accepted && role != "FarmAdministrator", new UserRolesValidator().Validate(new UserRolesRequest([role])).IsValid);
     }
     [Fact]
     public void Missing_fields_and_unknown_or_duplicate_roles_are_rejected()
@@ -28,10 +28,10 @@ public class UserValidationTests
     }
 
     [Fact]
-    public void Valid_account_and_role_removal_are_accepted()
+    public void Valid_account_and_single_role_are_accepted()
     {
         Assert.True(new CreateUserValidator().Validate(new CreateUserRequest(" X@example.com ", "User", "Test-password-123!", ["FarmOwner"])).IsValid);
-        Assert.True(new UserRolesValidator().Validate(new UserRolesRequest([])).IsValid);
+        Assert.False(new UserRolesValidator().Validate(new UserRolesRequest([])).IsValid);
         Assert.True(new UserStatusValidator().Validate(new UserStatusRequest(false)).IsValid);
     }
 
@@ -59,7 +59,7 @@ public class UserValidationTests
         var validator = new CreateUserValidator();
         foreach (var roles in new string[]?[] { null, [], ["FarmOwner", "FarmOwner"], ["UavDeviceOperator"] })
             Assert.False(validator.Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", roles!)).IsValid);
-        Assert.True(validator.Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", ["FarmOwner", "FarmEngineer"])).IsValid);
+        Assert.False(validator.Validate(new CreateUserRequest("user@example.com", "User", "Test-password-123!", ["FarmOwner", "FarmEngineer"])).IsValid);
     }
     [Theory]
     [InlineData(0, 20)]

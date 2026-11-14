@@ -37,15 +37,15 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         var assignment=await db.RentalDeviceAssignments.SingleAsync(x=>x.UavId==old.Id);
         var job=new ServiceJob{RentalDeviceAssignmentId=assignment.Id,TechnicianId=techId,Type=ServiceJobType.REPAIR,Status=ServiceJobStatus.IN_PROGRESS,ScheduledAt=DateTimeOffset.UtcNow,ScheduledEndAt=DateTimeOffset.UtcNow.AddHours(2),CreatedAt=DateTimeOffset.UtcNow};
         db.ServiceJobs.Add(job);await db.SaveChangesAsync();var path=$"/api/service-jobs/{job.Id}";
-        var price=await Data(await admin.PostAsJsonAsync("/api/admin/public-content",new {kind="COMPONENT",title="Antenna",body="Replacement antenna",expectedRevision=0,replacementPriceVnd=200000}));var priceId=price.GetProperty("id").GetInt32();
-        await Data(await admin.PostAsJsonAsync($"/api/admin/public-content/{priceId}/publish",new {expectedRevision=1}));
+        var price=await Data(await admin.PostAsJsonAsync("/api/admin/public-components",new {title="Antenna",body="Replacement antenna",expectedRevision=0,replacementPriceVnd=200000}));var priceId=price.GetProperty("id").GetInt32();
+        await Data(await admin.PostAsJsonAsync($"/api/admin/public-components/{priceId}/publish",new {expectedRevision=1}));
         var proposed=await Data(await technician.PostAsJsonAsync($"/api/operations/service-jobs/{job.Id}/plans",new {expectedRevision=1,note="Approved repair method requested",uavId=next.Id,lines=new[]{new{publicContentId=priceId,quantity=2,warranty=false,reason="Accidental damage"}}}));
         var planId=proposed[0].GetProperty("id").GetInt32();Assert.Equal(400000,proposed[0].GetProperty("totalVnd").GetDecimal());
         Assert.Null((await db.RentalDeviceAssignments.AsNoTracking().SingleAsync(x=>x.Id==assignment.Id)).ReturnedAt);
         Assert.Equal(HttpStatusCode.Forbidden,(await owner.PostAsJsonAsync($"/api/operations/service-plans/{planId}/review",new{expectedRevision=2,approve=true,note="No"})).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict,(await technician.PostAsJsonAsync($"/api/operations/service-plans/{planId}/execute",new{expectedRevision=2,signedAgreement=new[]{Image},oldDeviceImages=new[]{Image},newDeviceImages=new[]{Image}})).StatusCode);
         await Data(await admin.PostAsJsonAsync($"/api/operations/service-plans/{planId}/review",new{expectedRevision=2,approve=true,note="Method and warranty checked"}));
-        await Data(await admin.PutAsJsonAsync($"/api/admin/public-content/{priceId}",new{kind="COMPONENT",title="Antenna",body="New price",expectedRevision=2,replacementPriceVnd=300000}));
+        await Data(await admin.PutAsJsonAsync($"/api/admin/public-components/{priceId}",new{title="Antenna",body="New price",expectedRevision=2,replacementPriceVnd=300000}));
         var executed=await Data(await technician.PostAsJsonAsync($"/api/operations/service-plans/{planId}/execute",new{expectedRevision=3,signedAgreement=new[]{Image},oldDeviceImages=new[]{Image},newDeviceImages=new[]{Image}}));Assert.Equal(400000,executed[0].GetProperty("totalVnd").GetDecimal());
         var report=await Data(await technician.PostAsJsonAsync(path+"/reports",new{expectedRevision=4,cause="Broken antenna",work="Replace and test",components="Antenna",testResults="Passed",notes="Paper signed",connectivityPassed=true,operationPassed=true,signedHandover=new[]{Image}}));
         Assert.Null((await db.RentalDeviceAssignments.AsNoTracking().SingleAsync(x=>x.Id==assignment.Id)).ReturnedAt);
@@ -121,7 +121,7 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         var survey=await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/surveys",new{expectedRevision=0,farmName="Farm",farmLocation="Address",monitoringNeeds="UAV",zones=new[]{new{name="North",crop="Mango"}}}));
         Assert.Equal("",survey.GetProperty("zones")[0].GetProperty("installationLocation").GetString());Assert.Equal(JsonValueKind.Null,survey.GetProperty("zones")[0].GetProperty("cropAgeDays").ValueKind);
         var ownerId=(await Data(await owner.GetAsync("/api/auth/me"))).GetProperty("id").GetInt32();await Data(await admin.PutAsJsonAsync($"/api/consultations/{lead}/customer-farm",new{ownerId,farmId=farm.Id}));
-        var product=(await Data(await admin.PostAsJsonAsync("/api/admin/public-content",new{kind="DEVICE",title="Rental UAV",body="UAV rental",estimatedMonthlyRentVnd=1000000,expectedRevision=0}))).GetProperty("id").GetInt32();await Data(await admin.PostAsJsonAsync($"/api/admin/public-content/{product}/publish",new{expectedRevision=1}));
+        var product=(await Data(await admin.PostAsJsonAsync("/api/admin/public-devices",new{title="Rental UAV",body="UAV rental",estimatedMonthlyRentVnd=1000000,expectedRevision=0}))).GetProperty("id").GetInt32();await Data(await admin.PostAsJsonAsync($"/api/admin/public-devices/{product}/publish",new{expectedRevision=1}));
         var proposal=await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/proposals",new{expectedRevision=0,surveyId=survey.GetProperty("id").GetInt32(),rentalMonths=3,requestedInstallationAt=DateTimeOffset.UtcNow.AddDays(2),lines=new[]{new{surveyZoneId=survey.GetProperty("zones")[0].GetProperty("id").GetInt32(),deviceType="UAV",quantity=1,publicContentId=product}}}));
         var proposalId=proposal.GetProperty("id").GetInt32();var basePath=$"/api/consultations/{lead}/proposals/{proposalId}";
         await Data(await engineer.PostAsJsonAsync(basePath + "/confirm-plan", new { note = "Rental agreed externally" }));
