@@ -90,7 +90,7 @@ public sealed partial class OperationsRepository(AppDbContext db, TimeProvider c
         foreach (var line in request.Lines)
         {
             if (line is null || line.Quantity is < 1 or > 1000 || string.IsNullOrWhiteSpace(line.Reason) || line.Reason.Length > 1000) throw new ValidationException("Each line requires quantity 1-1000 and warranty/charge reason.");
-            var price = await db.PublicContent.AsNoTracking().SingleOrDefaultAsync(x => x.Id == line.PublicContentId && x.Published && x.ReplacementPriceVnd != null,ct) ?? throw new BusinessRuleException("Choose a published replacement price.");
+            var price = await db.PublicContent.AsNoTracking().SingleOrDefaultAsync(x => x.Id == line.PublicContentId && x.Kind == PublicContentKind.COMPONENT && x.Published && x.ReplacementPriceVnd != null,ct) ?? throw new BusinessRuleException("Choose a published replacement price.");
             prices.Add(new(price.Id,price.Revision,price.Title,line.Quantity,price.ReplacementPriceVnd!.Value,line.Warranty,line.Reason.Trim()));
         }
         var plan = new ServicePlan { JobId = jobId, OldAssignmentId = old.Id, TechnicianId = actor, SensorNodeId = request.SensorNodeId, UavId = request.UavId, GatewayId = request.GatewayId,

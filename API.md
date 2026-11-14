@@ -37,7 +37,7 @@ Periods are `[from,to)` and at most 366 days. Availability appointments max 24h.
 Assignment payloads add optional `scheduledEndAt` (default start +2h), cross-type
 conflicts include 30-minute travel buffer; Admin may reassign an eligible open job.
 
-Homepage content adds `COMPONENT`, `replacementPriceVnd`, public `priceRevision`.
+Homepage device content supports a monthly rental price (`estimatedMonthlyRentVnd`); device entries no longer accept or return replacement pricing. The separate `COMPONENT` resource retains `replacementPriceVnd` for the service-job spare-component workflow. Published entries expose `priceRevision` for proposal price snapshots.
 Proposal lines require a published rental `publicContentId`; responses retain price
 revision/name/monthly-price snapshots. Engineer surveys no longer capture age or
 installation position. The first recorded survey/follow-up can establish context
@@ -1374,11 +1374,9 @@ GET /api/crop-seasons/compare?ids=1&ids=2 returns the selected seasons in reques
 
 ### Public homepage content
 
-Visitors can read the paged list at `GET /api/public-content`. Each entry provides its category, title, body, optional estimated monthly device rent in VND and an image indicator. `GET /api/public-content/{id}/image` serves the published image. A missing, draft or withdrawn image returns 404.
+Homepage resources have separate public endpoints: `GET /api/public-devices`, `GET /api/public-components` and `GET /api/public-contacts`. Each returns all published entries for that resource. Device images are served from `GET /api/public-devices/{id}/image`; a missing, draft or withdrawn image returns 404.
 
-Administrators list all entries or create drafts at `/api/admin/public-content` using GET or POST. Send `kind`, `title`, `body` and `expectedRevision: 0` to create a draft. Supported categories are SERVICE, DEVICE, INSTALLATION, WARRANTY, MAINTENANCE, RETURN and CONTACT. Only DEVICE accepts `estimatedMonthlyRentVnd`. Supply one optional PNG or JPEG as `image` with `contentType` and `dataBase64`, up to 2 MiB decoded.
-
-Update with `PUT /api/admin/public-content/{id}` and the loaded revision. Omitting the image retains it. Set `removeImage` to remove it. Changes to a published entry take effect immediately. Use `POST /api/admin/public-content/{id}/publish` or `/unpublish` with `expectedRevision` to change visibility. A concurrent edit or repeated publication transition returns 409.
+Administrators manage each category through its own API: `/api/admin/public-devices`, `/services`, `/components`, `/installations`, `/warranties`, `/maintenance` and `/returns` (each path is prefixed by `/api/admin/public-`). GET lists that category; POST creates a draft; PUT `/{id}` edits it; POST `/{id}/publish` or `/{id}/unpublish` changes visibility. Requests use the current `expectedRevision`. A category endpoint only accepts its own entries. Omitting the image retains it; set `removeImage` to remove it. A concurrent edit or repeated publication transition returns 409. Quick contacts remain managed through `/api/admin/public-contacts`.
 
 An incident detail response includes nullable `serviceJobId`. After assignment, the Admin or the authorized Farm Owner can open that service job from the incident detail. The incident remains OPEN during repair and changes to RESOLVED when the Admin approves the owner-confirmed service report.
 

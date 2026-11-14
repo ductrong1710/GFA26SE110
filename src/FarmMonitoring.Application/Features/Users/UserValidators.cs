@@ -29,6 +29,10 @@ public sealed class UserRolesValidator : AbstractValidator<UserRolesRequest>
         RuleFor(x => x.Roles).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Distinct(StringComparer.Ordinal).Count() == x.Length)
             .WithMessage("Roles must be unique.").OverridePropertyName("roles");
+        RuleFor(x => x.Roles).Must(roles => roles is { Length: 1 })
+            .WithMessage("Exactly one assignable role is required.").OverridePropertyName("roles");
+        RuleFor(x => x.Roles).Must(roles => roles is not null && !roles.Contains(RoleNames.FarmAdministrator))
+            .WithMessage("Administrator roles cannot be assigned through user management.").OverridePropertyName("roles");
         RuleForEach(x => x.Roles).Must(RoleNames.IsSupported)
             .WithMessage("Unknown role.").OverridePropertyName("roles");
     }
@@ -41,10 +45,6 @@ public sealed class CreateUserValidator : AbstractValidator<CreateUserRequest>
         RuleFor(x => new UpdateUserRequest(x.Email, x.FullName)).SetValidator(new UpdateUserValidator());
         RuleFor(x => x.Password).NotEmpty().MinimumLength(6).MaximumLength(1024).OverridePropertyName("password");
         RuleFor(x => new UserRolesRequest(x.Roles)).SetValidator(new UserRolesValidator());
-        RuleFor(x => x.Roles).Must(roles => roles is { Length: > 0 })
-            .WithMessage("At least one role is required when creating a user.").OverridePropertyName("roles");
-        RuleFor(x => x.Roles).Must(x => x is not null && !x.Contains(RoleNames.FarmAdministrator))
-            .WithMessage("Creating an administrator through this API is not allowed.").OverridePropertyName("roles");
     }
 }
 
