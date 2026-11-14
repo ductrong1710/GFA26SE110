@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import RentalContractsPage from '../src/pages/app/RentalContractsPage'
 import { api } from '../src/services/api'
 import { PERMISSIONS as P } from '../src/config/permissions'
@@ -7,6 +8,7 @@ import { PERMISSIONS as P } from '../src/config/permissions'
 const auth = vi.hoisted(() => ({ admin: true }))
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ can: permission => auth.admin && permission === P.RENTALS_MANAGE }) }))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); auth.admin = true })
+function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
 const row = { id: 6, installationJobId: 3, farmId: 8, ownerId: 9, revision: 2, status: 'ACTIVE', startAt: '2026-01-01T00:00:00Z', endAt: '2030-01-01T00:00:00Z',
   devices: [{ id: 1, sensorNodeId: 2, code: 'SN-42', name: 'North sensor', installationLocation: 'Canal edge', returnedAt: null }],
   history: [{ id: 1, action: 'ACTIVATED', userId: 1, note: 'Agreement confirmed', createdAt: '2026-01-01T00:00:00Z' }] }

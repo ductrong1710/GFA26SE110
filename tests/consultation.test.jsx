@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react'
 import ConsultationPage from '../src/pages/ConsultationPage'
 import SiteVisitPanel from '../src/components/app/SiteVisitPanel'
 import { api } from '../src/services/api/index.js'
@@ -9,34 +9,35 @@ import HeroSection from '../src/components/HeroSection'
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 4 }, can: permission => ['consultations.manage', 'consultations.view'].includes(permission) }) }))
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
+function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
 
 it('homepage consultation CTA opens the public request route', () => {
-  render(<MemoryRouter><HeroSection /></MemoryRouter>)
+  render(<HeroSection />)
   expect(screen.getByRole('link', { name: 'Tư vấn thiết bị' }).getAttribute('href')).toBe('/tu-van')
 })
 
 it('submits an anonymous consultation and displays its receipt', async () => {
   const request = vi.spyOn(api, 'request').mockResolvedValue({ id: 42, status: 'NEW' })
   render(<ConsultationPage />)
-  for (const [label, value] of [['Họ tên', 'Khách hàng'], ['Số điện thoại', '0901234567'],
-    ['Vị trí nông trại', 'Cần Thơ'], ['Nhu cầu dịch vụ', 'Thuê cảm biến'], ['Nội dung tư vấn', 'Theo dõi độ ẩm']])
+  for (const [label, value] of [['Họ tên *', 'Khách hàng'], ['Số điện thoại *', '0901234567'],
+    ['Vị trí nông trại *', 'Cần Thơ'], ['Dịch vụ cần tư vấn *', 'Thuê cảm biến'], ['Mô tả nhu cầu *', 'Theo dõi độ ẩm']])
     fireEvent.change(screen.getByLabelText(label), { target: { value } })
-  fireEvent.change(screen.getByLabelText('Hình thức tư vấn'), { target: { value: 'ON_SITE' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu tư vấn' }))
+  fireEvent.change(screen.getByLabelText('Hình thức tư vấn *'), { target: { value: 'ON_SITE' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations', expect.objectContaining({
-    method: 'POST', auth: false, toast: true, toastMessage: 'Consultation request submitted successfully.', body: expect.objectContaining({ customerName: 'Khách hàng', phone: '0901234567', farmArea: null }),
+    method: 'POST', auth: false, retry: false, toast: true, toastMessage: 'Đã gửi yêu cầu tư vấn.', body: expect.objectContaining({ customerName: 'Khách hàng', phone: '0901234567', farmArea: null }),
   })))
   expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('#42'))
-  expect(screen.queryByRole('button', { name: 'Gửi yêu cầu tư vấn' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Gửi yêu cầu' })).toBeNull()
 })
 
 it('keeps entered contact data available after a failed submission', async () => {
   vi.spyOn(api, 'request').mockRejectedValue(new Error('Service unavailable'))
   render(<ConsultationPage />)
-  fireEvent.change(screen.getByLabelText('Họ tên'), { target: { value: 'Khách hàng' } })
+  fireEvent.change(screen.getByLabelText('Họ tên *'), { target: { value: 'Khách hàng' } })
   fireEvent.submit(screen.getByRole('form', { name: 'Yêu cầu tư vấn' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Service unavailable')
-  expect(screen.getByLabelText('Họ tên').value).toBe('Khách hàng')
+  expect(screen.getByLabelText('Họ tên *').value).toBe('Khách hàng')
 })
 
 it('claims an inbox request then shows assigned work', async () => {
@@ -44,7 +45,7 @@ it('claims an inbox request then shows assigned work', async () => {
     if (path.endsWith('/claim')) return { id: 42 }
     return { items: [{ id: 42, serviceNeed: 'Sensors', status: options.query.inbox ? 'NEW' : 'IN_PROGRESS', createdAt: '2026-10-28T00:00:00Z' }], pagination: { totalItems: 1 } }
   })
-  render(<MemoryRouter><ConsultationsPage /></MemoryRouter>)
+  render(<ConsultationsPage />)
   fireEvent.click(await screen.findByRole('button', { name: 'Claim request #42' }))
   await screen.findByRole('link', { name: 'Open #42' })
   expect(request).toHaveBeenCalledWith('/api/consultations/42/claim', { method: 'POST' })
@@ -54,7 +55,7 @@ it('records follow-up on the assigned detail and renders persisted history', asy
   const detail = { id: 42, engineerId: 4, customerName: 'Customer', phone: '0901234567', farmLocation: 'Can Tho', serviceNeed: 'Sensors', content: 'Monitoring', status: 'IN_PROGRESS', history: [] }
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => (path.endsWith('/surveys') || path.endsWith('/proposals')) ? { items: [], pagination: { totalItems: 0 } } : options.method === 'POST'
     ? { ...detail, history: [{ id: 1, action: 'FOLLOW_UP', ...options.body, createdAt: '2026-10-28T00:00:00Z' }] } : detail)
-  render(<MemoryRouter initialEntries={['/app/consultations/42']}><Routes><Route path="/app/consultations/:id" element={<ConsultationDetailPage />} /></Routes></MemoryRouter>)
+  renderComponent(<MemoryRouter initialEntries={['/app/consultations/42']}><Routes><Route path="/app/consultations/:id" element={<ConsultationDetailPage />} /></Routes></MemoryRouter>)
   await screen.findByText('Customer')
   for (const [name, value] of [['Notes', 'Called customer'], ['Contact result', 'Answered'], ['Next action', 'Arrange survey']])
     fireEvent.change(screen.getByLabelText(name), { target: { value } })

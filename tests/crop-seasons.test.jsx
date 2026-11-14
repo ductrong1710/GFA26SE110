@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, test, vi } from 'vitest'
 import CropSeasonsPage from '../src/pages/app/CropSeasonsPage'
 import CropSeasonForm from '../src/components/app/CropSeasonForm'
@@ -8,6 +9,7 @@ import { PERMISSIONS as P } from '../src/config/permissions'
 const auth = vi.hoisted(() => ({ user: { id: 4 }, can: () => true }))
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => auth }))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); auth.can = () => true })
+function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
 const season = { id: 1, ownerId: 4, farmId: 2, zoneId: null, revision: 3, status: 'ACTIVE', name: 'Spring', crop: 'Rice', cropAgeDays: 0 }
 
 test('reply refreshes the embedded report when report and season have the same id', async () => {

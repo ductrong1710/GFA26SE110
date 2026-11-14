@@ -6,12 +6,12 @@ import { api } from '../src/services/api'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 it('creates a proposal against the selected survey and its zone', async () => {
-  vi.spyOn(api, 'get').mockResolvedValue({ items: [
-    { id: 12, kind: 'DEVICE', title: 'Soil probe', estimatedMonthlyRentVnd: 0 },
-    { id: 13, kind: 'DEVICE', title: 'Unpriced device', estimatedMonthlyRentVnd: null },
-    { id: 14, kind: 'COMPONENT', title: 'Spare board', replacementPriceVnd: 50 },
-  ], pagination: { totalPages: 1 } })
   const request = vi.spyOn(api, 'request').mockImplementation(async (path, options = {}) => {
+    if (path === '/api/public-devices') return [
+      { id: 12, kind: 'DEVICE', title: 'Soil probe', estimatedMonthlyRentVnd: 0 },
+      { id: 13, kind: 'DEVICE', title: 'Unpriced device', estimatedMonthlyRentVnd: null },
+      { id: 14, kind: 'COMPONENT', title: 'Spare board', replacementPriceVnd: 50 },
+    ]
     if (options.method === 'POST') return { id: 7, revision: 1, status: 'DRAFT', ...options.body }
     if (path.endsWith('/surveys/3')) return { id: 3, revision: 1, zones: [{ id: 5, name: 'North' }] }
     if (path.endsWith('/surveys')) return { items: [{ id: 3, revision: 1, farmName: 'Rice farm' }], pagination: { totalItems: 1 } }

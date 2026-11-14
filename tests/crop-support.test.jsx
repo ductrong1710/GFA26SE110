@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, test, vi } from 'vitest'
 import CropSupportDetail from '../src/components/app/CropSupportDetail'
 import CropReportForm from '../src/components/app/CropReportForm'
@@ -8,6 +9,7 @@ import { PERMISSIONS as P } from '../src/config/permissions'
 const auth = vi.hoisted(() => ({ user: { id: 4 }, can: () => true }))
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => auth }))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); auth.user = { id: 4 }; auth.can = () => true })
+function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
 const report = { id: 9, farmId: 1, crop: 'Rice', description: 'Yellow leaves', reporterId: 3, engineerId: 4, revision: 4, status: 'IN_REVIEW', images: [], updates: [] }
 test('owner submits typed farm zone and sensor references and clears references on farm change', async () => {
   vi.spyOn(api, 'get').mockImplementation(async path => ({ items: path === '/api/farms' ? [{ id: 1, name: 'Rice farm', isActive: true }, { id: 2, name: 'Other farm', isActive: true }]
@@ -159,7 +161,7 @@ test('owner requests review on a closed legacy report without an activity and re
   fireEvent.click(screen.getByRole('button', { name: 'Report no improvement / request review' }))
   await screen.findByText('Revision conflict')
   expect(request).toHaveBeenCalledWith('/api/crop-condition-reports/9/follow-ups', { method: 'POST', body: { expectedRevision: 4, type: 'NOT_IMPROVED', content: 'No improvement after care', images: [], cultivationActivityId: null } })
-  ui.rerender(<CropSupportDetail report={{ ...closed, revision: 5 }} {...props} />)
+  ui.rerender(<MemoryRouter><CropSupportDetail report={{ ...closed, revision: 5 }} {...props} /></MemoryRouter>)
   expect(screen.getByLabelText('Consultation note').value).toBe('No improvement after care')
   expect(screen.getByRole('button', { name: 'Report no improvement / request review' }).disabled).toBe(true)
   fireEvent.click(screen.getByRole('button', { name: 'Use latest revision for this draft' }))
