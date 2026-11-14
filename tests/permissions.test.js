@@ -8,7 +8,7 @@ import { appRoutes } from '../src/config/appRoutes.js'
 
 const expectedModules = {
   FARM_OWNER: ['dashboard', 'installation-requests', 'installation-jobs', 'rental-contracts', 'service-jobs', 'device-incidents', 'crop-seasons', 'crop-support', 'farms', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports'],
-  ADMINISTRATOR: ['dashboard', 'consultations', 'installation-requests', 'installation-jobs', 'rental-contracts', 'service-jobs', 'maintenance-schedules', 'device-incidents', 'crop-seasons', 'crop-support', 'farms', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users'],
+  ADMINISTRATOR: ['dashboard', 'consultations', 'installation-requests', 'installation-jobs', 'rental-contracts', 'service-jobs', 'maintenance-schedules', 'device-incidents', 'crop-seasons', 'crop-support', 'farms', 'sensors', 'sensor-data', 'devices', 'missions', 'alerts', 'reports', 'users', 'settings'],
   TECHNICIAN: ['dashboard', 'installation-jobs', 'service-jobs'],
   AGRICULTURAL_ENGINEER: ['dashboard', 'consultations', 'installation-requests', 'installation-jobs', 'rental-contracts', 'crop-support'],
 }
