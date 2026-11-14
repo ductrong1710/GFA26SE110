@@ -8,7 +8,7 @@ import { ROLES } from '../../config/roles'
 import { PERMISSIONS } from '../../config/permissions'
 import { selectAnalytics, formatMetric, readingThreshold } from '../../services/api/analytics'
 import { displayTime } from '../../utils/display'
-import { PageHeader, StatCard, SectionCard, ChartCard, DataTable, FilterBar, StatusBadge, EmptyState } from '../../components/app/ui'
+import { PageHeader, StatCard, SectionCard, ChartCard, DataTable, FilterBar, StatusBadge, EmptyState, TablePagination } from '../../components/app/ui'
 import EnvironmentalChart from '../../components/app/EnvironmentalChart'
 import ZoneComparison from '../../components/app/ZoneComparison'
 import '../../styles/analytics.css'
@@ -52,7 +52,7 @@ function SensorDataView({ currentFarm, selectFarm, farmWorkspace, compareOnly })
         { key: 'band', header: 'Threshold', render: (_, row) => <StatusBadge {...readingThreshold(row.value, row.channel)} /> },
         ...(!simplified ? [{ key: 'receivedAt', header: 'Data Availability', render: (value) => <StatusBadge status={value ? 'SUCCESS' : 'PENDING'} label={value ? 'Synchronized' : 'Buffered locally'} /> }] : []),
         ...(technical ? [{ key: 'sourceRecordKey', header: 'Source Record Key' }, { key: 'gatewayId', header: 'Gateway', render: (id) => operations.gateways.find((gateway) => gateway.id === id)?.code ?? 'Imported' }] : []),
-      ]} footer={<div className="analytics-pagination"><span>{data.rows.length} readings · Page {currentPage + 1} of {pages}</span><button className="app-ui-button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><button className="app-ui-button" disabled={currentPage >= pages - 1} onClick={() => setPage(currentPage + 1)}>Next</button></div>} /></SectionCard>}
+      ]} footer={data.rows.length > 0 && <TablePagination page={currentPage + 1} totalPages={pages} pageSize={20} totalItems={data.rows.length} onPageChange={value => setPage(value - 1)} label="Sensor readings pagination" />} /></SectionCard>}
     </>}
   </div>
 }

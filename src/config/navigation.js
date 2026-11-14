@@ -19,8 +19,20 @@ export const navigation = [
   { path: '/app/alerts', label: 'Alerts', icon: 'alert', group: 'Operations', permissions: [P.ALERTS_VIEW, P.ALERTS_VIEW_RELATED] },
   { path: '/app/reports', label: 'Reports', icon: 'report', group: 'Operations', permissions: [P.REPORTS_VIEW] },
   { path: '/app/users', label: 'Users & Roles', icon: 'users', group: 'Administration', permissions: [P.USERS_MANAGE] },
+  { path: '/app/settings', label: 'Nội dung công khai', icon: 'report', group: 'Administration', permissions: [P.SETTINGS_MANAGE] },
 ]
 
 export function getNavigationForRole(role, canAny = permissions => hasAnyPermission(role, permissions)) {
   return navigation.filter(({ permissions }) => canAny(permissions))
+}
+
+export function getCurrentNavigationItem(items, pathname) {
+  const pathParts = pathname.split('/').filter(Boolean)
+  const matches = items.flatMap(item => {
+    const pattern = item.path.split('/').filter(Boolean)
+    const isExact = pattern.length === pathParts.length && pattern.every((part, index) => part.startsWith(':') || part === pathParts[index])
+    const isParent = pattern.length < pathParts.length && pattern.every((part, index) => !part.startsWith(':') && part === pathParts[index])
+    return isExact || isParent ? [{ ...item, matchedSegments: pattern.length, exact: isExact }] : []
+  })
+  return matches.sort((a, b) => Number(b.exact) - Number(a.exact) || b.matchedSegments - a.matchedSegments)[0]
 }

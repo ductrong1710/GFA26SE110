@@ -22,7 +22,8 @@ export default function FeatureSection() {
   const [activeKey, setActiveKey] = useState(capabilities[0].key)
   const active = capabilities.find((item) => item.key === activeKey)
   return (
-    <section className="feature-section page-width" id="platform">
+    <section className="feature-band" id="platform">
+      <div className="feature-section page-width">
       <Reveal className="section-heading">
         <span className="eyebrow">MỌI DỮ LIỆU Ở ĐÚNG NƠI</span>
         <h2>Một nền tảng đa góc nhìn</h2>
@@ -39,6 +40,7 @@ export default function FeatureSection() {
           <a className="inline-link" href="#how-it-works">Tìm hiểu quy trình <Icon name="arrow" size={15} /></a>
         </Reveal>
         <Reveal className="feature-demo" delay={100}><TelemetryPreview item={active} /></Reveal>
+      </div>
       </div>
     </section>
   )

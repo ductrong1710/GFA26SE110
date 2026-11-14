@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
-import { listAll } from '../../services/api/resources'
 import EvidenceImages from './EvidenceImages'
 import ApiState from './ApiState'
-import { DataTable, SectionCard, StatusBadge } from './ui'
-import { displayTime, parseVietnamDateTime } from '../../utils/display'
+import { DataTable, SectionCard, StatusBadge, TablePagination } from './ui'
+import { displayTime, parseVietnamDateTime, formatVnd } from '../../utils/display'
 
 const emptyLine = () => ({ surveyZoneId: '', publicContentId: '', deviceType: '', quantity: 1, installationLocation: '' })
-const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 })
 
 export default function ProposalPanel({ consultationId, editable = false, canConfirmDeposit = editable, onSubmitted, linked = true, customerName = '', customerEmail = '' }) {
   const [page, setPage] = useState(1)
@@ -25,8 +23,8 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
   const path = `/api/consultations/${consultationId}/proposals`
   const query = useApiQuery(`proposals:${consultationId}:${page}`, signal => api.request(path, { query: { page }, signal }))
   const surveys = useApiQuery(`proposal-surveys:${consultationId}:${!!draft}`, signal => api.request(`/api/consultations/${consultationId}/surveys`, { signal }), !!draft)
-  const catalog = useApiQuery(`proposal-products:${!!draft}`, signal => listAll('/api/public-content', {}, signal), !!draft)
-  const products = catalog.data?.filter(entry => entry.kind === 'DEVICE' && entry.estimatedMonthlyRentVnd != null) ?? []
+  const catalog = useApiQuery(`proposal-products:${!!draft}`, signal => api.request('/api/public-devices', { signal }), !!draft)
+  const products = catalog.data?.filter(entry => entry.estimatedMonthlyRentVnd != null) ?? []
   const survey = useApiQuery(`proposal-survey:${consultationId}:${draft?.surveyId}`, signal => api.request(`/api/consultations/${consultationId}/surveys/${draft.surveyId}`, { signal }), !!draft?.surveyId)
   async function open(id) {
     setPending(true); setError(''); setNotice(''); setNote('')
@@ -84,7 +82,7 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
         <label>Survey zone<select required {...lineField(index, 'surveyZoneId')}><option value="">Select zone</option>{survey.data?.zones.map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
         <label>Device type<input required maxLength={150} {...lineField(index, 'deviceType')} /></label>
         <label>Published rental product<select required {...lineField(index, 'publicContentId')}><option value="">Select priced device</option>
-          {products.map(entry => <option key={entry.id} value={entry.id}>{entry.title} · {price.format(entry.estimatedMonthlyRentVnd)}/month</option>)}
+          {products.map(entry => <option key={entry.id} value={entry.id}>{entry.title} · {formatVnd(entry.estimatedMonthlyRentVnd)}/tháng</option>)}
         </select></label>
         <label>Quantity<input required type="number" min="1" max="1000" step="1" {...lineField(index, 'quantity')} /></label>
         <label>Installation location<textarea required maxLength={1000} {...lineField(index, 'installationLocation')} /></label>
@@ -97,9 +95,9 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
     {selected && <section aria-label="Proposal details"><h3>Proposal revision {selected.revision}</h3><StatusBadge status={selected.status} />
       <p>Survey #{selected.surveyId} · Rental: {selected.rentalMonths} months · Requested installation: {displayTime(selected.requestedInstallationAt)}</p><p>{selected.notes}</p>
       <ul>{selected.lines.map((line, index) => <li key={line.id ?? index}>{line.quantity} × {line.deviceType} · Survey zone #{line.surveyZoneId} · {line.installationLocation}
-        {line.productName && <p>{line.productName} · {price.format(line.monthlyRentVnd)}/month · Price revision {line.priceRevision}</p>}</li>)}</ul>
+        {line.productName && <p>{line.productName} · {formatVnd(line.monthlyRentVnd)}/tháng · Price revision {line.priceRevision}</p>}</li>)}</ul>
       {selected.lines.length > 0 && selected.lines.every(line => line.monthlyRentVnd != null) &&
-        <p>Initial agreed rent: {price.format(selected.lines.reduce((sum, line) => sum + line.monthlyRentVnd * line.quantity, 0) * selected.rentalMonths)}</p>}
+        <p>Initial agreed rent: {formatVnd(selected.lines.reduce((sum, line) => sum + line.monthlyRentVnd * line.quantity, 0) * selected.rentalMonths)}</p>}
       {selected.planConfirmedAt && <p>Plan confirmed {displayTime(selected.planConfirmedAt)} by user #{selected.planConfirmedByUserId}: {selected.planConfirmationNote}</p>}
       {selected.depositConfirmedAt && <p>Deposit confirmed {displayTime(selected.depositConfirmedAt)} by user #{selected.depositConfirmedByUserId}: {selected.depositConfirmationNote}</p>}
       {confirmation && <form className="management-form" onSubmit={event => { event.preventDefault(); transition(confirmation) }}><fieldset disabled={pending}>
@@ -122,7 +120,6 @@ export default function ProposalPanel({ consultationId, editable = false, canCon
       { key: 'revision', header: 'Revision' }, { key: 'status', header: 'Status', render: value => <StatusBadge status={value} /> },
       { key: 'createdAt', header: 'Recorded', render: displayTime },
       { key: 'action', header: 'Action', render: (_, row) => <button disabled={pending} onClick={() => open(row.id)}>View proposal revision {row.revision}</button> },
-    ]} footer={<div className="management-row-actions"><button disabled={page === 1 || query.loading} onClick={() => setPage(page - 1)}>Previous proposals</button>
-      <span>Page {page}</span><button disabled={query.loading || page * 20 >= (query.data?.pagination.totalItems ?? 0)} onClick={() => setPage(page + 1)}>More proposals</button></div>} />
+    ]} footer={(query.data?.pagination?.totalItems ?? 0) > 0 && <TablePagination page={page} totalPages={query.data?.pagination?.totalPages} pageSize={query.data?.pagination?.pageSize} totalItems={query.data?.pagination?.totalItems} onPageChange={setPage} disabled={query.loading} label="Proposal revisions pagination" />} />
   </SectionCard>
 }

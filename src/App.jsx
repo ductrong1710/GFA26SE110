@@ -6,6 +6,7 @@ import ServiceJobsPage from './pages/app/ServiceJobsPage'
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import HomePage from './pages/HomePage'
+import EquipmentPage from './pages/EquipmentPage'
 import AccountPage from './pages/AccountPage'
 import ConsultationPage from './pages/ConsultationPage'
 import ConsultationsPage, { ConsultationDetailPage } from './pages/app/ConsultationsPage'
@@ -46,6 +47,7 @@ export default function App() {
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/thiet-bi" element={<EquipmentPage />} />
         <Route path="/tu-van" element={<ConsultationPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
@@ -53,7 +55,7 @@ export default function App() {
       <Route path="/dat-lai-mat-khau" element={<PasswordPage key="reset" mode="reset" />} />
       <Route path="/doi-mat-khau" element={<ProtectedRoute><PasswordPage key="change" mode="change" /></ProtectedRoute>} />
       <Route path="/dang-nhap" element={<AccountPage key="login" />} />
-      <Route path="/dang-ky" element={<AccountPage key="register" register />} />
+      <Route path="/dang-ky" element={<Navigate to="/dang-nhap" replace />} />
       <Route path="/app" element={<ProtectedRoute />}>
         <Route element={<OperationsProvider><ManagementProvider><AppShell /></ManagementProvider></OperationsProvider>}>
           <Route index element={<Navigate to="dashboard" replace />} />

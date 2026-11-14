@@ -8,7 +8,7 @@ import { displayTime } from '../../utils/display'
 import ApiState from './ApiState'
 import EvidenceImages from './EvidenceImages'
 import CropSupportEvidence, { CropHistory, FollowUpActivityPicker } from './CropSupportEvidence'
-import { DataTable, SectionCard, StatusBadge } from './ui'
+import { DataTable, SectionCard, StatusBadge, TablePagination } from './ui'
 
 function SupportingSeasons({ reportId }) {
   const [page, setPage] = useState(1)
@@ -17,8 +17,7 @@ function SupportingSeasons({ reportId }) {
     <ApiState loading={rows.loading} error={rows.error} reload={rows.reload} />
     <DataTable caption="Crop seasons for this report" rows={rows.data?.items ?? []} loading={rows.loading} columns={[
       { key: 'name', header: 'Season' }, { key: 'crop', header: 'Crop' }, { key: 'status', header: 'Status' },
-    ]} footer={<div><button disabled={page === 1 || rows.loading} onClick={() => setPage(page - 1)}>Previous seasons</button>
-      <span> Page {page} </span><button disabled={rows.loading || page >= (rows.data?.pagination?.totalPages ?? 0)} onClick={() => setPage(page + 1)}>Next seasons</button></div>} />
+    ]} footer={(rows.data?.pagination?.totalItems ?? 0) > 0 && <TablePagination page={page} totalPages={rows.data?.pagination?.totalPages} pageSize={rows.data?.pagination?.pageSize} totalItems={rows.data?.pagination?.totalItems} onPageChange={setPage} disabled={rows.loading} label="Supporting crop seasons pagination" />} />
   </section>
 }
 

@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import InstallationJobsPage from '../src/pages/app/InstallationJobsPage'
 import JobAssignmentForm from '../src/components/app/JobAssignmentForm'
 import { api } from '../src/services/api'
@@ -7,6 +8,7 @@ import { PERMISSIONS as P } from '../src/config/permissions'
 
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 9 }, can: permission => permission === P.INSTALLATIONS_WORK }) }))
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
+function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
 
 it('starts assigned work with the displayed revision', async () => {
   const row = { id: 3, installationRequestId: 8, technicianId: 9, revision: 2, status: 'ASSIGNED', farmName: 'Rice farm', lines: [], history: [] }

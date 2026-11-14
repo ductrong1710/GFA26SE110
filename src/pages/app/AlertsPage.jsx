@@ -91,7 +91,7 @@ function AlertsWorkspace() {
       { key: 'triggeredValue', header: 'Trigger Value', render: (value, alert) => measurement(value, alert.unit) },
       { key: 'status', header: 'Status', render: (status) => <StatusBadge status={status} /> },
       { key: 'openedAt', header: 'Detected At', render: (at) => <time dateTime={at}>{displayTime(at)}</time> },
-    ]} footer={`${rows.length} alerts match the current filters · Select an alert to view details`} />
+    ]} clientPageSize={10} footer={`${rows.length} alerts match the current filters · Select an alert to view details`} />
     {selected && <AlertDrawer key={selected.id} alert={selected} onChanged={() => { query.reload(); detailQuery.reload() }} onClose={() => { setSelectedId(null); query.reload() }} />}
   </div>
 }

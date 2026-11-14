@@ -3,7 +3,7 @@ import { api } from '../../services/api'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 import EvidenceImages from './EvidenceImages'
-import { DataTable, SectionCard } from './ui'
+import { DataTable, SectionCard, TablePagination } from './ui'
 import { displayTime } from '../../utils/display'
 
 const emptyZone = () => ({ name: '', crop: '', cropAgeDays: '', symptoms: '', installationLocation: '' })
@@ -83,7 +83,6 @@ export default function SurveyPanel({ consultationId, editable }) {
     <DataTable caption="Survey revisions" loading={query.loading} rows={query.data?.items ?? []} columns={[
       { key: 'revision', header: 'Revision' }, { key: 'farmName', header: 'Farm' }, { key: 'createdAt', header: 'Recorded', render: displayTime },
       { key: 'action', header: 'Action', render: (_, row) => <button disabled={pending || readingImages} onClick={() => open(row.id)}>View revision {row.revision}</button> },
-    ]} footer={<div className="management-row-actions"><button disabled={page === 1 || query.loading} onClick={() => setPage(page - 1)}>Previous revisions</button>
-      <span>Page {page}</span><button disabled={query.loading || page * 20 >= (query.data?.pagination.totalItems ?? 0)} onClick={() => setPage(page + 1)}>More revisions</button></div>} />
+    ]} footer={(query.data?.pagination?.totalItems ?? 0) > 0 && <TablePagination page={page} totalPages={query.data?.pagination?.totalPages} pageSize={query.data?.pagination?.pageSize} totalItems={query.data?.pagination?.totalItems} onPageChange={setPage} disabled={query.loading} label="Survey revisions pagination" />} />
   </SectionCard>
 }

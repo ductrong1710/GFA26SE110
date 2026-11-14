@@ -232,15 +232,11 @@
 @media (max-width: 680px) { .product-detail-copy h1 { font-size: 30px; }.product-prices { padding: 9px 12px; } }
 /* Header account actions and cart */
 .site-header:not(.site-header--inner) .header-login { color: #fff; }
-.site-header:not(.site-header--inner) .header-register { color: #153d2c; background: #e8fe85; }
-.site-header:not(.site-header--inner) .header-register:hover { background: #f2ffbf; }
 .header-actions { gap: 14px; }
-#root .header-actions .header-login, #root .header-actions .header-register { min-height: 40px; padding: 0 15px; border: 1px solid transparent; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; text-decoration: none; transition: color .2s ease, background .2s ease, border-color .2s ease; }
+#root .header-actions .header-login { min-height: 40px; padding: 0 15px; border: 1px solid transparent; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; text-decoration: none; transition: color .2s ease, background .2s ease, border-color .2s ease; }
 #root .site-header--inner .header-login { color: #264332; }
-#root .site-header--inner .header-register { color: #fff; background: #176346; }
-#root .site-header--inner .header-register:hover { background: #123e2c; }
-#root .header-actions .header-login, #root .header-actions .header-register { color: #fff; border-color: #176346; background: #176346; }
-#root .header-actions .header-login:hover, #root .header-actions .header-register:hover { color: #fff; border-color: #123e2c; background: #123e2c; }
+#root .header-actions .header-login { color: #111; border-color: #fff; background: #fff; }
+#root .header-actions .header-login:hover { color: #111; border-color: #e8e8e8; background: #f5f5f5; }
 #root .header-actions .header-cart { width: 42px; height: 42px; position: relative; border: 1px solid #176346; border-radius: 50%; display: grid; place-items: center; color: #176346; background: #fff; transition: color .2s ease, background .2s ease, border-color .2s ease; }
 #root .site-header--inner .header-cart { color: #176346; }
 .header-cart span { min-width: 17px; height: 17px; padding: 0 4px; position: absolute; top: -4px; right: -5px; border-radius: 20px; display: grid; place-items: center; color: #fff; background: #176346; font-size: 10px; font-weight: 700; line-height: 1; }
@@ -249,8 +245,8 @@
 .site-header--inner .wordmark-mark i { background: #fff; }
 .site-header--inner .main-nav a, #root .site-header--inner .header-login { color: #fff; }
 .site-header--inner .main-nav a:hover { color: #dcebdd; }
-#root .site-header--inner .header-login, #root .site-header--inner .header-register { color: #176346; border-color: #fff; background: #fff; }
-#root .site-header--inner .header-login:hover, #root .site-header--inner .header-register:hover { color: #123e2c; border-color: #e7f0e8; background: #e7f0e8; }
+#root .site-header--inner .header-login { color: #111; border-color: #fff; background: #fff; }
+#root .site-header--inner .header-login:hover { color: #111; border-color: #e8e8e8; background: #f5f5f5; }
 #root .site-header--inner .header-cart { border-color: #fff; color: #176346; background: #fff; }
 .site-header--inner .header-cart span { color: #176346; background: #fff; }
 .rental-pricing-table tbody tr { cursor: pointer; transition: background .18s ease; }
@@ -905,3 +901,51 @@
 .engineer-step-form .password-field > input { min-height: 34px !important; padding: 3px 34px 5px 0 !important; border: 0 !important; border-bottom: 1px solid #d2d9d3 !important; border-radius: 0 !important; outline: 0; color: #253229; background: transparent; font: inherit; font-size: 12px !important; }
 .engineer-step-form .password-field > input:focus { border-bottom-color: #176346 !important; box-shadow: 0 1px 0 #176346 !important; }
 @media (max-width: 680px) { .engineer-step-form .password-field > input { min-height: 30px !important; } }
+
+/* Give the equipment consultation its own surface, separate from the platform feature panel. */
+.equipment-consultation { padding: 0 0 72px; }
+.equipment-consultation-inner { padding: clamp(28px, 4vw, 44px) clamp(24px, 5vw, 58px); border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 32px; color: #fff; background: #176346; }
+.equipment-consultation-inner h2 { margin: 0; color: #fff; font-size: clamp(24px, 3vw, 34px); font-weight: 500; line-height: 1.1; letter-spacing: -.04em; text-wrap: balance; }
+.equipment-consultation .consultation-trigger { flex: 0 0 auto; }
+@media (max-width: 680px) {
+  .equipment-consultation { padding-bottom: 48px; }
+  .equipment-consultation-inner { align-items: flex-start; flex-direction: column; gap: 20px; border-radius: 11px; }
+}
+.all-devices-action { margin-top: 28px; display: flex; justify-content: center; }
+.all-devices-link { min-height: 46px; padding: 0 18px; border: 1px solid #176346; border-radius: 8px; display: inline-flex; align-items: center; gap: 11px; color: #176346; background: #fff; font-size: 12px; font-weight: 600; transition: color .18s ease, background-color .18s ease; }
+.all-devices-link:hover { color: #fff; background: #176346; }
+.equipment-page-intro { padding-top: 62px; }
+.equipment-page-intro > .eyebrow { color: #68766a; }
+.equipment-page-intro h1 { margin: 12px 0 10px; color: #142019; font-size: clamp(34px, 4.5vw, 56px); font-weight: 500; line-height: 1.05; letter-spacing: -.05em; text-wrap: balance; }
+.equipment-page-intro p { max-width: 520px; margin: 0; color: #657067; font-size: 14px; line-height: 1.7; }
+.equipment-page-catalog { padding-top: 30px; }
+.equipment-card-copy > span { margin-bottom: 8px; display: block; color: #68766a; font-size: 10px; }
+.equipment-card-copy .equipment-price { min-height: 0; margin-top: 10px; color: #176346; font-size: 14px; font-weight: 600; }
+.equipment-pagination { margin-top: 32px; display: flex; align-items: center; justify-content: center; gap: 18px; color: #526257; font-size: 12px; }
+.equipment-pagination button { min-height: 40px; padding: 0 15px; border: 1px solid #d6e1d7; border-radius: 7px; color: #176346; background: #fff; cursor: pointer; font: inherit; font-weight: 600; }
+.equipment-pagination button:hover:not(:disabled) { color: #fff; background: #176346; }
+.equipment-pagination button:disabled { color: #9aa39b; cursor: not-allowed; }
+.feature-band { background: #fff; }
+.feature-band .feature-panel { background: #f5f6f3; }
+.equipment-band { background: #f5f6f3; }
+@media (max-width: 680px) {
+  .equipment-page-intro { padding-top: 40px; }
+  .equipment-page-catalog { padding-top: 24px; }
+  .equipment-pagination { gap: 10px; }
+  .equipment-pagination button { padding-inline: 10px; }
+}
+
+.consultation-page { min-height: 60vh; padding: 48px 0 72px; background: #f5f6f3; }
+.consultation-page-inner { width: min(760px, 88%); margin-inline: auto; }
+.consultation-page h1 { margin: 0 0 20px; color: #142019; font-size: clamp(32px, 4.3vw, 48px); font-weight: 500; line-height: 1.08; letter-spacing: -.045em; }
+.consultation-page .consultation-form { padding: 24px; border: 1px solid #dce5da; border-radius: 12px; background: #fff; }
+.consultation-page .consultation-fields { margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.consultation-page .consultation-field-wide { grid-column: 1 / -1; }
+.consultation-page .consultation-fields > button { justify-self: start; }
+.consultation-success { padding: 18px 22px; border-radius: 10px; background: #e6f2e8; }
+@media (max-width: 680px) {
+  .consultation-page { padding: 34px 0 50px; }
+  .consultation-page .consultation-form { padding: 18px; }
+  .consultation-page .consultation-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .consultation-page .consultation-field-wide { grid-column: auto; }
+}

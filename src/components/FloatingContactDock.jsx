@@ -1,10 +1,6 @@
-import { useState } from 'react'
-
-const channels = [
-  { id: 'zalo', label: 'Zalo', href: '' },
-  { id: 'messenger', label: 'Messenger', href: '' },
-  { id: 'phone', label: 'Gọi điện', href: '' },
-]
+import { useApiQuery } from '../services/api/useApiQuery'
+import { api } from '../services/api'
+import { contactChannels, contactUrl, findContact } from '../utils/quickContacts'
 
 function ContactIcon({ type }) {
   if (type === 'zalo') return <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 2.5C11.7 2.5 3 11.1 3 22.1c0 5.5 2.2 10.1 6.2 13.3v7.2l7.3-3.8c2.3.7 4.8 1.1 7.5 1.1 12.2 0 21-8.2 21-19.2S36.2 2.5 24 2.5Z" fill="#0866FF"/><path d="M25 5.7c-10.8 0-18.1 7-18.1 16.2 0 4.4 1.6 8 4.7 10.7l1.6 1.4-.2 3.3 4-2.1 1.2.3c2 .6 4.2.9 6.8.9 10.6 0 18.1-6.7 18.1-15.8S35.6 5.7 25 5.7Z" fill="white"/><text x="24" y="26" fill="#0866FF" fontFamily="Arial, sans-serif" fontSize="11.5" fontWeight="600" textAnchor="middle">Zalo</text></svg>
@@ -13,11 +9,15 @@ function ContactIcon({ type }) {
 }
 
 export default function FloatingContactDock() {
-  const [notice, setNotice] = useState('')
+  const query = useApiQuery('public-quick-contacts', signal => api.request('/api/public-contacts', { auth: false, signal }), true, 30000)
+  const channels = contactChannels.map(channel => {
+    const record = findContact(query.data ?? [], channel.id)
+    return { ...channel, href: record?.published === false ? null : contactUrl(channel.id, record?.body ?? '') }
+  }).filter(channel => channel.href)
+  if (!channels.length) return null
   return (
     <aside className="floating-contact-dock" aria-label="Liên hệ Smart Farm">
-      {channels.map((channel) => channel.href ? <a className={`floating-contact-button ${channel.id}`} href={channel.href} key={channel.id} aria-label={channel.label} title={channel.label} target={channel.id === 'phone' ? undefined : '_blank'} rel="noreferrer"><ContactIcon type={channel.id} /></a> : <button className={`floating-contact-button ${channel.id}`} type="button" key={channel.id} aria-label={channel.label} title={channel.label} onClick={() => setNotice((current) => current === channel.label ? '' : channel.label)}><ContactIcon type={channel.id} /></button>)}
-      {notice && <div className="floating-contact-notice" role="status">Thông tin {notice} đang được cập nhật.</div>}
+      {channels.map(channel => <a className={`floating-contact-button ${channel.id}`} href={channel.href} key={channel.id} aria-label={channel.label} title={channel.label} target={channel.id === 'phone' ? undefined : '_blank'} rel="noreferrer"><ContactIcon type={channel.id} /></a>)}
     </aside>
   )
 }

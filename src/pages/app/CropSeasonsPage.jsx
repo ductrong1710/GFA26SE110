@@ -10,7 +10,7 @@ import CropSeasonCompletion from '../../components/app/CropSeasonCompletion'
 import CropSeasonForm from '../../components/app/CropSeasonForm'
 import CropReportForm from '../../components/app/CropReportForm'
 import CropSupportDetail from '../../components/app/CropSupportDetail'
-import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
+import { DataTable, PageHeader, SectionCard, StatusBadge, TablePagination } from '../../components/app/ui'
 
 export default function CropSeasonsPage() {
   const { can, user } = useAuth()
@@ -46,7 +46,8 @@ export default function CropSeasonsPage() {
           disabled={selected.length >= 50 && !selected.includes(row.id)}
           onChange={event => setSelected(event.target.checked ? [...selected, row.id] : selected.filter(id => id !== row.id))} /> }] : []),
       { key: 'open', header: 'Details', render: (_, row) => <button disabled={Boolean(form) || supportBusy} onClick={() => { setId(row.id); setNotice(''); setSupport(null) }}>Open season #{row.id}</button> },
-    ]} footer={<div><button disabled={page === 1} onClick={() => setPage(page - 1)}>Previous seasons</button> Page {page} <button disabled={page >= (list.data?.pagination?.totalPages ?? 0)} onClick={() => setPage(page + 1)}>Next seasons</button></div>} />
+    ]} footer={list.data?.pagination.totalItems > 0 && <TablePagination page={page} totalPages={list.data.pagination.totalPages} pageSize={list.data.pagination.pageSize}
+      totalItems={list.data.pagination.totalItems} onPageChange={setPage} disabled={list.loading} label="Crop seasons table pagination" />} />
     {selected.length > 0 && <p>{selected.length} selected · Choose 2–50 seasons to compare. <button onClick={() => setSelected([])}>Clear selection</button></p>}
     {can(P.CROP_SEASONS_MANAGE) && selected.length >= 2 && <CropSeasonComparison ids={selected} />}
     <ApiState loading={detail.loading} error={detail.error} reload={detail.reload} />

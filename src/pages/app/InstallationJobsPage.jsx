@@ -9,7 +9,7 @@ import JobAssignmentForm from '../../components/app/JobAssignmentForm'
 import InstallationReports from '../../components/app/InstallationReports'
 import InstallationReportForm from '../../components/app/InstallationReportForm'
 import InstallationDeviceAllocation from '../../components/app/InstallationDeviceAllocation'
-import { DataTable, PageHeader, SectionCard, StatusBadge } from '../../components/app/ui'
+import { DataTable, PageHeader, SectionCard, StatusBadge, TablePagination } from '../../components/app/ui'
 import { displayTime } from '../../utils/display'
 
 export default function InstallationJobsPage() {
@@ -52,7 +52,7 @@ export default function InstallationJobsPage() {
       { key: 'id', header: 'Job' }, { key: 'farmId', header: 'Farm' }, { key: 'technicianId', header: 'Technician' },
       { key: 'scheduledAt', header: 'Appointment', render: displayTime }, { key: 'status', header: 'Status', render: value => <StatusBadge status={value} /> },
       { key: 'action', header: 'Action', render: (_, row) => <button disabled={pending} onClick={() => open(row.id)}>Open job #{row.id}</button> },
-    ]} footer={<div className="management-row-actions"><button disabled={page === 1 || query.loading} onClick={() => setPage(page - 1)}>Previous</button>
-      <span>Page {page}</span><button disabled={query.loading || page * 20 >= (query.data?.pagination.totalItems ?? 0)} onClick={() => setPage(page + 1)}>Next</button></div>} />
+    ]} footer={query.data?.pagination.totalItems > 0 && <TablePagination page={page} totalPages={query.data.pagination.totalPages} pageSize={query.data.pagination.pageSize}
+      totalItems={query.data.pagination.totalItems} onPageChange={setPage} disabled={query.loading} label="Installation jobs table pagination" />} />
   </>
 }

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { api } from '../../services/api'
-import { listAll } from '../../services/api/resources'
 import { useApiQuery } from '../../services/api/useApiQuery'
 import ApiState from './ApiState'
 import { PaperGroup, readPaper } from './PaperEvidence'
@@ -18,7 +17,7 @@ export default function ServicePlan({ job, canWork, canReview, onUpdated, childr
   const latest = plans.data?.[0]
   const open = ['IN_PROGRESS', 'REWORK'].includes(job.status)
   const propose = open && canWork && plans.data && (!latest || ['REJECTED', 'APPLIED'].includes(latest.status))
-  const prices = useApiQuery('service-prices', signal => listAll('/api/public-content', {}, signal), Boolean(propose))
+  const prices = useApiQuery('service-prices', signal => api.request('/api/public-components', { signal }), Boolean(propose))
   const options = useApiQuery('service-targets:' + job.id + ':' + job.revision, signal => listAll('/api/service-jobs/' + job.id + '/replacement-options', {}, signal), Boolean(propose))
   const [note, setNote] = useState('')
   const [target, setTarget] = useState('')

@@ -6,3 +6,4 @@ export const vietnamDateTimeInput = at => at && Number.isFinite(Date.parse(at)) 
 export const localDate = at => vietnamDateTimeInput(at).slice(0, 10)
 export const parseVietnamDateTime = value => new Date(value + '+07:00')
 export const formatMetric = value => value === null || value === undefined || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('en-GB', { maximumFractionDigits: 2 })
+export const formatVnd = value => value === null || value === undefined || !Number.isFinite(Number(value)) ? '—' : `${Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}VNĐ`

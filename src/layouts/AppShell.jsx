@@ -75,7 +75,7 @@ export default function AppShell() {
     <div className="app-workspace" inert={showDrawer}>
       <a className="app-skip-link" href="#app-main">Skip to content</a>
       <AppTopbar menuButtonRef={menuButtonRef} drawerOpen={showDrawer} onOpenMenu={() => setDrawerOpen(true)}
-        farms={farms} currentFarm={currentFarm} onFarmChange={setFarmId} />
+      />
       <main ref={mainRef} id="app-main" className="app-main" tabIndex={-1}>
         <ApiState key={real.key} loading={real.loading} error={real.error} reload={real.reload} />
         <AppPageBoundary key={`${location.pathname}:${activeRole}`}>

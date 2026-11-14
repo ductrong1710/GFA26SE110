@@ -6,7 +6,7 @@ import { useApiQuery } from '../../services/api/useApiQuery'
 import CropReportForm from '../../components/app/CropReportForm'
 import CropSupportDetail from '../../components/app/CropSupportDetail'
 import ApiState from '../../components/app/ApiState'
-import { DataTable, PageHeader, StatusBadge } from '../../components/app/ui'
+import { DataTable, PageHeader, StatusBadge, TablePagination } from '../../components/app/ui'
 import { displayTime } from '../../utils/display'
 
 export default function CropSupportPage() {
@@ -37,7 +37,7 @@ export default function CropSupportPage() {
       { key: 'description', header: 'Symptoms' }, { key: 'reportedAt', header: 'Reported', render: displayTime },
       { key: 'status', header: 'Status', render: value => <StatusBadge status={value} /> },
       { key: 'action', header: 'Action', render: (_, row) => <button disabled={busy} onClick={() => { setId(row.id); setNotice('') }}>Open crop report #{row.id}</button> },
-    ]} footer={<div className="management-row-actions"><button disabled={query.loading || page === 1} onClick={() => setPage(page - 1)}>Previous reports</button>
-      <span>Page {page}</span><button disabled={query.loading || page * 20 >= (query.data?.pagination.totalItems ?? 0)} onClick={() => setPage(page + 1)}>Next reports</button></div>} />
+    ]} footer={query.data?.pagination.totalItems > 0 && <TablePagination page={page} totalPages={query.data.pagination.totalPages} pageSize={query.data.pagination.pageSize}
+      totalItems={query.data.pagination.totalItems} onPageChange={setPage} disabled={query.loading} label="Crop reports table pagination" />} />
   </>
 }

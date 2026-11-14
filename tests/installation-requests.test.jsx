@@ -1,10 +1,12 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import InstallationRequestsPage from '../src/pages/app/InstallationRequestsPage'
 import { api } from '../src/services/api'
 
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ can: () => true }) }))
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
+function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
 
 it('shows submitted evidence and returns a request with its correction reason', async () => {
   const row = { id: 8, consultationId: 42, proposalId: 7, farmId: 3, ownerId: 2, status: 'SUBMITTED', lines: [{ id: 1, deviceType: 'Sensor', quantity: 3, installationLocation: 'North' }], rentalMonths: 6, depositConfirmationNote: 'Bank receipt checked' }
