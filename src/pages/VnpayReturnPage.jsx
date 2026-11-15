@@ -28,12 +28,13 @@ function PaymentStatus({ token }) {
     return () => { controller.abort(); clearTimeout(timer) }
   }, [token, refresh])
   return <>
-    <p role="status">{status === 'SUCCEEDED' ? 'Thanh toán thử nghiệm thành công'
+    {!error && <p role="status">{status === 'SUCCEEDED' ? 'Thanh toán thử nghiệm thành công'
       : status === 'FAILED' ? 'Thanh toán thử nghiệm không thành công'
-        : 'Đang xác nhận thanh toán'}</p>
+        : status === 'UNKNOWN' || status === 'RECONCILIATION_REQUIRED' ? 'Chưa xác định được kết quả thanh toán'
+          : 'Đang xác nhận thanh toán'}</p>}
     {['UNKNOWN', 'RECONCILIATION_REQUIRED'].includes(status) && <p>Giao dịch cần được đối soát. Vui lòng liên hệ nhân viên hỗ trợ.</p>}
     {error && <p role="alert">{error}</p>}
-    <p>Nếu chưa có kết quả, bạn có thể cập nhật trạng thái sau.</p>
+    {status === 'PENDING' && !error && <p>Hệ thống đang chờ VNPay xác nhận giao dịch.</p>}
     <button type="button" className="account-submit" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Cập nhật trạng thái</button>
   </>
 }

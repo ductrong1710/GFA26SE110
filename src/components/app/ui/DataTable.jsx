@@ -10,7 +10,7 @@ function cellValue(value, missingValue) {
 }
 
 // Controlled table: the caller owns sorting, filtering, pagination, and permissions.
-export default function DataTable({ columns = [], rows = [], rowKey = 'id', caption = 'Data table', loading = false,
+export default function DataTable({ columns = [], rows = [], rowKey = 'id', caption = 'Data table', loading = false, vietnamese = false,
   error, errorAction, emptyState, missingValue = '—', sort, onSortChange, onRowClick, footer, clientPageSize = 0, className = '', ...props }) {
   const [clientPage, setClientPage] = useState(1)
   const clientPages = clientPageSize > 0 ? Math.max(1, Math.ceil(rows.length / clientPageSize)) : 1
@@ -19,7 +19,7 @@ export default function DataTable({ columns = [], rows = [], rowKey = 'id', capt
   useEffect(() => { setClientPage(1) }, [rows.length, clientPageSize])
   const getRowKey = typeof rowKey === 'function' ? rowKey : (row) => row[rowKey]
   return <div {...props} className={`app-ui app-ui-data-table ${className}`}>
-    <div className="app-ui-table-scroll" role="region" aria-label={`${caption} scroll area`} tabIndex={0}>
+    <div className="app-ui-table-scroll" role="region" aria-label={vietnamese ? `Vùng cuộn: ${caption}` : `${caption} scroll area`} tabIndex={0}>
       <table aria-busy={loading}>
         <caption className="app-ui-sr-only">{caption}</caption>
         <thead><tr>{columns.map((column) => {
@@ -33,9 +33,9 @@ export default function DataTable({ columns = [], rows = [], rowKey = 'id', capt
           </th>
         })}</tr></thead>
         <tbody>{loading || error || !rows.length ? <tr><td colSpan={Math.max(1, columns.length)}>
-          {loading ? <p className="app-ui-loading" role="status">Loading data…</p>
-            : error ? <div role="alert"><EmptyState title="Unable to load data" description={error} actions={errorAction} /></div>
-              : emptyState ?? <EmptyState title="No results found." description="Try adjusting your filters or check back later." />}
+          {loading ? <p className="app-ui-loading" role="status">{vietnamese ? 'Đang tải dữ liệu…' : 'Loading data…'}</p>
+            : error ? <div role="alert"><EmptyState title={vietnamese ? 'Không thể tải dữ liệu' : 'Unable to load data'} description={error} actions={errorAction} /></div>
+              : emptyState ?? <EmptyState title={vietnamese ? 'Chưa có dữ liệu' : 'No results found.'} description={vietnamese ? undefined : 'Try adjusting your filters or check back later.'} />}
         </td></tr> : displayedRows.map((row) => <tr key={getRowKey(row)} data-clickable={Boolean(onRowClick)} onClick={onRowClick ? (event) => { if (!event.target.closest('button, a, input, select, textarea')) onRowClick(row) } : undefined}>{columns.map((column) => <td key={column.key} data-align={column.align ?? 'start'}>
           {column.render ? column.render(row[column.key], row) : cellValue(row[column.key], missingValue)}
         </td>)}</tr>)}</tbody>
