@@ -115,7 +115,6 @@ flight or full Web/ESP32/Tello integration was performed by this backend task.
 ## Files created
 
 - docs/DEVICE_MISSION_IMPLEMENTATION.md
-- docs/superpowers/plans/2026-10-08-device-missions.md
 - src/FarmMonitoring.Api/Controllers/DeviceMissionsController.cs
 - src/FarmMonitoring.Application/Features/Missions/DeviceMissionContracts.cs
 - src/FarmMonitoring.Application/Features/Missions/DeviceMissionService.cs

@@ -536,7 +536,7 @@ Sensor-level cross-mission collection history has no sensor-filtered endpoint; t
 
 ## Changed Files
 
-Backend: README.md; src/FarmMonitoring.Api/Program.cs; src/FarmMonitoring.Api/appsettings.Development.json; tests/FarmMonitoring.IntegrationTests/CorsTests.cs; FRONTEND_API_INTEGRATION.md; docs/superpowers/plans/2026-10-11-api-integration.md. No schema or migration changes.
+Backend: README.md; src/FarmMonitoring.Api/Program.cs; src/FarmMonitoring.Api/appsettings.Development.json; tests/FarmMonitoring.IntegrationTests/CorsTests.cs; FRONTEND_API_INTEGRATION.md. No schema or migration changes.
 
 Frontend files differing from the original branch snapshot, normalized for the pre-existing frontend/ relocation (includes any pre-existing content edits; no files were discarded):
 

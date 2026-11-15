@@ -77,7 +77,6 @@ No real/sample gateway API credentials were added to source control or issued ag
 - `tests/FarmMonitoring.IntegrationTests/SyncTests.cs`
 - `tests/FarmMonitoring.IntegrationTests/TelemetryTests.cs`
 - `GATEWAY_CREDENTIAL_IMPLEMENTATION.md`
-- `docs/superpowers/plans/2026-10-13-gateway-credentials.md`
 - `src/FarmMonitoring.Api/Controllers/GatewayCredentialsController.cs`
 - `src/FarmMonitoring.Application/Features/Equipment/GatewayCredentialContracts.cs`
 - `src/FarmMonitoring.Application/Features/Equipment/GatewayCredentialService.cs`

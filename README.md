@@ -229,7 +229,7 @@ dotnet ef migrations has-pending-model-changes --project src/FarmMonitoring.Infr
 dotnet ef migrations script --idempotent --project src/FarmMonitoring.Infrastructure --startup-project src/FarmMonitoring.Api
 ```
 
-The [original authentication implementation report](docs/auth-implementation-report.md) and earlier docs/superpowers designs are historical records, not the current role contract.
+For AI-assisted changes, start with AGENTS.md, then read ARCHITECTURE.md, API.md, DATABASE.md and BUSINESS_RULES.md for the affected area. Retained dated reports and docs/superpowers plans provide implementation context, not current role contracts; check their claims against current code and tests.
 
 
 ## Farm-level access control
@@ -257,7 +257,7 @@ Response conventions: 401 without valid authentication; 403 for denied role/farm
 
 ### Farm access deployment
 
-Apply `20261007094620_AddUserFarmAssignments` after the role-model migration. Existing users receive no automatic farm assignments; an administrator must assign eligible owners/engineers through the membership API. No additional environment variables are required. The earlier [human role-model report](docs/human-role-model-report.md) is historical; current farm-access documentation supersedes its global-permission limitation.
+Apply `20261007094620_AddUserFarmAssignments` after the role-model migration. Existing users receive no automatic farm assignments; an administrator must assign eligible owners through the membership API. No additional environment variables are required. See AGENTS.md for current role and farm-access rules.
 
 
 ### JWT key requirement after audit remediation
