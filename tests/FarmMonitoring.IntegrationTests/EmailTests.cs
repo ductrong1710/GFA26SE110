@@ -17,13 +17,13 @@ public class EmailTests(ApiFactory factory)
     {
         public ConcurrentBag<int> Sent { get; } = [];
         public bool Fail { get; set; }
-        public Func<Task>? AfterSend { get; set; }
+        public Func<EmailMessage, Task>? AfterSend { get; set; }
         public async Task SendAsync(EmailMessage message, CancellationToken ct)
         {
             await Task.Delay(10, ct);
             if (Fail) throw new InvalidOperationException("Secret transport detail must not be persisted");
             Sent.Add(message.NotificationId);
-            if (AfterSend is not null) await AfterSend();
+            if (AfterSend is not null) await AfterSend(message);
         }
     }
 
@@ -39,14 +39,15 @@ public class EmailTests(ApiFactory factory)
         var second = new Notification { UserId = user.Id, Channel = NotificationChannel.EMAIL, Message = "Second", Status = NotificationStatus.PENDING, CreatedAt = DateTimeOffset.UtcNow };
         db.Notifications.Add(first); await db.SaveChangesAsync();
         db.Notifications.Add(second); await db.SaveChangesAsync();
-        var sender = new FakeSender { AfterSend = async () =>
+        var sender = new FakeSender { AfterSend = async message =>
         {
+            if (message.NotificationId != first.Id) return;
             await using var editScope = factory.Services.CreateAsyncScope();
             await editScope.ServiceProvider.GetRequiredService<AppDbContext>().Users.Where(x => x.Id == user.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false));
         } };
         await using var workerScope = factory.Services.CreateAsyncScope();
         var service = new EmailDeliveryService(workerScope.ServiceProvider.GetRequiredService<IEmailDeliveryRepository>(), sender,
-            new EmailDeliverySettings { Enabled = true }, TimeProvider.System);
+            new EmailDeliverySettings { Enabled = true, BatchSize = 1000 }, TimeProvider.System);
         await service.RunOnceAsync(default);
         Assert.Contains(first.Id, sender.Sent);
         Assert.DoesNotContain(second.Id, sender.Sent);
@@ -57,7 +58,11 @@ public class EmailTests(ApiFactory factory)
     public async Task Background_worker_delivers_pending_email()
     {
         var sender = new FakeSender();
-        await using var host = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<IEmailSender>(sender))
+        await using var host = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<IEmailSender>(sender);
+            services.AddSingleton(new EmailDeliverySettings { Enabled = true, WorkerEnabled = true, IntervalSeconds = 1, BatchSize = 1000 });
+        })
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Email:Enabled"] = "true", ["Email:WorkerEnabled"] = "true", ["Email:IntervalSeconds"] = "1",
@@ -84,7 +89,11 @@ public class EmailTests(ApiFactory factory)
     public async Task Configured_email_is_queued_with_committed_alert()
     {
         var sender = new FakeSender();
-        await using var host = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<IEmailSender>(sender)).ConfigureAppConfiguration((_, config) =>
+        await using var host = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<IEmailSender>(sender);
+            services.AddSingleton(new EmailDeliverySettings { Enabled = true, WorkerEnabled = false, BatchSize = 1000 });
+        }).ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Email:Enabled"] = "true", ["Email:WorkerEnabled"] = "false",

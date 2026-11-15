@@ -295,6 +295,16 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("CropType")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("crop_type");
+
+                    b.Property<string>("PreferredChannel")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("preferred_channel");
+
                     b.Property<string>("CustomerName")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -3504,8 +3514,44 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.ToTable("site_visit_payments", (string)null);
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitOfficeLocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("MapsUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("maps_url");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("site_visit_offices", (string)null);
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitProposal", b =>
                 {
+                    b.Property<string>("OfficeMapsUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("office_maps_url");
+
+                    b.Property<string>("GardenAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("garden_address");
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer");

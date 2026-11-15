@@ -32,10 +32,30 @@ public sealed class ConsultationsController(ConsultationService service) : Contr
     public async Task<ActionResult<ApiResponse<ConsultationResponse>>> Get(int id, CancellationToken ct) =>
         Ok(ApiResponse<ConsultationResponse>.Ok(await service.GetAsync(id, ct)));
 
-    [HttpPost("{id:int}/claim")]
+    [HttpGet("{id:int}/assignment-candidates")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<ConsultationAssignmentCandidate>>>> AssignmentCandidates(int id, CancellationToken ct) =>
+        Ok(ApiResponse<IReadOnlyList<ConsultationAssignmentCandidate>>.Ok(await service.AssignmentCandidatesAsync(id, ct)));
+
+    [HttpPost("{id:int}/return-requests")]
     [Authorize(Policy = AccessPolicies.ProcessConsultations)]
-    public async Task<ActionResult<ApiResponse<ConsultationResponse>>> Claim(int id, CancellationToken ct) =>
-        Ok(ApiResponse<ConsultationResponse>.Ok(await service.ClaimAsync(id, ct)));
+    public async Task<ActionResult<ApiResponse<ConsultationResponse>>> RequestReturn(int id, ConsultationReturnRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<ConsultationResponse>.Ok(await service.RequestReturnAsync(id, request, ct)));
+
+    [HttpPost("{id:int}/return-requests/review")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
+    public async Task<ActionResult<ApiResponse<ConsultationResponse>>> ReviewReturn(int id, ConsultationReturnDecision request, CancellationToken ct) =>
+        Ok(ApiResponse<ConsultationResponse>.Ok(await service.ReviewReturnAsync(id, request, ct)));
+
+    [HttpPost("{id:int}/close")]
+    [Authorize(Policy = AccessPolicies.ProcessConsultations)]
+    public async Task<ActionResult<ApiResponse<ConsultationResponse>>> Close(int id, CloseConsultationRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<ConsultationResponse>.Ok(await service.CloseAsync(id, request, ct)));
+
+    [HttpPost("{id:int}/assign")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
+    public async Task<ActionResult<ApiResponse<ConsultationResponse>>> Assign(int id, AssignConsultationRequest request, CancellationToken ct) =>
+        Ok(ApiResponse<ConsultationResponse>.Ok(await service.AssignAsync(id, request, ct)));
 
     [HttpPost("{id:int}/follow-ups")]
     [Authorize(Policy = AccessPolicies.ProcessConsultations)]

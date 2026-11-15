@@ -17,10 +17,10 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         var consultation = new Consultation
         {
             CustomerName = request.CustomerName.Trim(), Phone = request.Phone.Trim(),
-            Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+            Email = request.Email!.Trim(), CropType = request.CropType!.Trim(), PreferredChannel = request.PreferredChannel,
             FarmLocation = request.FarmLocation.Trim(), FarmArea = request.FarmArea,
             ServiceNeed = request.ServiceNeed.Trim(), Content = request.Content.Trim(),
-            Channel = request.Channel, Status = ConsultationStatus.NEW, CreatedAt = clock.GetUtcNow()
+            Status = ConsultationStatus.NEW, CreatedAt = clock.GetUtcNow()
         };
         consultation.History.Add(new() { Action = ConsultationAction.SUBMITTED, Status = consultation.Status, CreatedAt = consultation.CreatedAt });
         await repository.CreateAsync(consultation, ct);
@@ -42,12 +42,50 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         return new(row.Id, row.CustomerName, row.Phone, row.Email, row.FarmLocation, row.FarmArea,
             row.ServiceNeed, row.Content, row.Status.ToString(), row.EngineerId, row.CreatedAt,
             row.History.OrderBy(x => x.Id).Select(x => new ConsultationHistoryResponse(x.Id, x.UserId,
-                x.Action.ToString(), x.Status.ToString(), x.Notes, x.ContactResult, x.NextAction, x.CreatedAt)).ToArray(), row.OwnerId, row.FarmId, row.Channel);
+                x.Action.ToString(), x.Status.ToString(), x.Notes, x.ContactResult, x.NextAction, x.CreatedAt)).ToArray(), row.OwnerId, row.FarmId, row.Channel, row.CropType, row.PreferredChannel);
     }
 
-    public async Task<ConsultationResponse> ClaimAsync(int id, CancellationToken ct)
+    public async Task<IReadOnlyList<ConsultationAssignmentCandidate>> AssignmentCandidatesAsync(int id, CancellationToken ct)
     {
-        await repository.ClaimAsync(id, await RequireEngineerAsync(ct), clock.GetUtcNow(), ct);
+        if (!(await RequireReaderAsync(ct)).Admin) throw new AccessDeniedException("Administrator access required.");
+        return await repository.ListAssignmentCandidatesAsync(id, ct);
+    }
+
+    public async Task<ConsultationResponse> RequestReturnAsync(int id, ConsultationReturnRequest request, CancellationToken ct)
+    {
+        var engineer = await RequireEngineerAsync(ct);
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 1000 || request.Reason.Contains('\0'))
+            throw new ValidationException("Nhập lý do trả hồ sơ, tối đa 1.000 ký tự.");
+        await repository.RequestReturnAsync(id, engineer, request.Reason.Trim(), clock.GetUtcNow(), ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ConsultationResponse> ReviewReturnAsync(int id, ConsultationReturnDecision request, CancellationToken ct)
+    {
+        var actor = await RequireReaderAsync(ct);
+        if (!actor.Admin) throw new AccessDeniedException("Administrator access required.");
+        if (request.RequestId <= 0) throw new ValidationException("Chọn yêu cầu trả hồ sơ cần xử lý.");
+        await repository.ReviewReturnAsync(id, actor.Id, request, clock.GetUtcNow(), ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ConsultationResponse> CloseAsync(int id, CloseConsultationRequest request, CancellationToken ct)
+    {
+        var engineer = await RequireEngineerAsync(ct);
+        if (request.Status is not ("COMPLETED" or "CANCELLED")) throw new ValidationException("Chọn hoàn thành hoặc hủy hồ sơ.");
+        if (request.Reason?.Length > 1000 || request.Reason?.Contains('\0') == true)
+            throw new ValidationException("Ghi chú tối đa 1.000 ký tự.");
+        var status = request.Status == "COMPLETED" ? ConsultationStatus.COMPLETED : ConsultationStatus.CANCELLED;
+        await repository.CloseAsync(id, engineer, status, Optional(request.Reason), clock.GetUtcNow(), ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<ConsultationResponse> AssignAsync(int id, AssignConsultationRequest request, CancellationToken ct)
+    {
+        var actor = await RequireReaderAsync(ct);
+        if (!actor.Admin) throw new AccessDeniedException("Administrator access required.");
+        if (request.EngineerId <= 0) throw new ValidationException("A positive engineerId is required.");
+        await repository.AssignAsync(id, actor.Id, request, clock.GetUtcNow(), ct);
         return await GetAsync(id, ct);
     }
 

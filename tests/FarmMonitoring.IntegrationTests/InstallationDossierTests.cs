@@ -14,8 +14,19 @@ namespace FarmMonitoring.IntegrationTests;
 public sealed class InstallationDossierTests(ApiFactory factory)
 {
     private static readonly EvidenceImageData Bill = new("image/jpeg", Convert.ToBase64String([255, 216, 255, 217]));
+    private string? isolatedEngineerEmail;
+
     private async Task<HttpClient> Login(string email)
     {
+        if (email == "engineer@example.com")
+        {
+            if (isolatedEngineerEmail == null)
+            {
+                using var admin = await Login("admin@example.com");
+                isolatedEngineerEmail = await ConsultationTestAssignment.CreateEngineerAsync(admin);
+            }
+            email = isolatedEngineerEmail;
+        }
         var client = factory.CreateApiClient();
         var data = await Data(await client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" }));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", data.GetProperty("accessToken").GetString());
@@ -29,9 +40,11 @@ public sealed class InstallationDossierTests(ApiFactory factory)
     private async Task<(int Lead, int Proposal, int Survey, int Zone, int Product)> Prepare(HttpClient engineer, bool confirmed = true)
     {
         using var guest = factory.CreateApiClient();
+        using var admin = await Login("admin@example.com");
         var lead = (await Data(await guest.PostAsJsonAsync("/api/consultations", new {
-            customerName = "External customer", phone = "0901234567", farmLocation = "Can Tho", serviceNeed = "Rent sensors", content = "Call outside"
+            customerName = "External customer", cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4,  phone = "0901234567", farmLocation = "Can Tho", serviceNeed = "Rent sensors", content = "Call outside"
         }))).GetProperty("id").GetInt32();
+        await ConsultationTestAssignment.AssignAsync(admin, engineer, $"/api/consultations/{lead}");
         var survey = await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/surveys", new {
             expectedRevision = 0, farmName = "External garden", farmLocation = "Garden address", farmArea = 2,
             monitoringNeeds = "Moisture", zones = new[] { new { name = "North", crop = "Mango" } }

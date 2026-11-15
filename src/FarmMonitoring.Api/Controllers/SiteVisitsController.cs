@@ -12,6 +12,16 @@ namespace FarmMonitoring.Api.Controllers;
 [Authorize]
 public sealed class SiteVisitsController(SiteVisitService service) : ControllerBase
 {
+    [HttpGet("/api/site-visit-offices")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<SiteVisitOffice>>>> Offices(CancellationToken ct) =>
+        Ok(ApiResponse<IReadOnlyList<SiteVisitOffice>>.Ok(await service.ListOfficesAsync(ct)));
+
+    [HttpPost("/api/site-visit-offices")]
+    [Authorize(Policy = AccessPolicies.ManageUsers)]
+    public async Task<ActionResult<ApiResponse<SiteVisitOffice>>> CreateOffice(CreateSiteVisitOfficeRequest request, CancellationToken ct) =>
+        StatusCode(StatusCodes.Status201Created, ApiResponse<SiteVisitOffice>.Ok(await service.AddOfficeAsync(request, ct)));
+
     [HttpPut("/api/consultations/{id:int}/channel")]
     [Authorize(Policy = AccessPolicies.ProcessConsultations)]
     public async Task<ActionResult<ApiResponse<SiteVisitState>>> Channel(int id, SiteVisitChannelRequest request, CancellationToken ct) =>
@@ -35,7 +45,8 @@ public sealed class SiteVisitsController(SiteVisitService service) : ControllerB
     [HttpPost("review")]
     [Authorize(Policy = AccessPolicies.ManageUsers)]
     public async Task<ActionResult<ApiResponse<SiteVisitState>>> Review(int id, SiteVisitReviewRequest request, CancellationToken ct) =>
-        Ok(ApiResponse<SiteVisitState>.Ok(await service.ReviewAsync(id, request, ct)));
+        Ok(ApiResponse<SiteVisitState>.Ok(await service.ReviewAsync(id, request,
+            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1", ct)));
 
     [HttpPost("payments/confirm")]
     [Authorize(Policy = AccessPolicies.ManageUsers)]

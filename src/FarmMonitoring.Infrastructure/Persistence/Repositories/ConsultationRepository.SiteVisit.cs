@@ -27,10 +27,36 @@ public sealed partial class ConsultationRepository : ISiteVisitRepository
         if (admin && revisions.LastOrDefault()?.Payment is { } payment)
             await db.Entry(payment).Reference(x => x.Bill).LoadAsync(ct);
         var count = revisions.Count;
+        var previousReview = revisions.LastOrDefault()?.ReviewStatus;
+        var previousSchedule = revisions.LastOrDefault()?.ScheduledAt;
+        var previousAttempts = revisions.LastOrDefault()?.Transactions.Count ?? 0;
         var result = action(lead, revisions, admin);
         if (write)
         {
-            if (revisions.Count > count) db.Add(revisions[^1]);
+            if (revisions.Count > count)
+            {
+                db.Add(revisions[^1]);
+                await WorkflowNotifications.AddForRoleAsync(db, RoleNames.FarmAdministrator, "Báo cáo tư vấn chờ duyệt",
+                    $"Yêu cầu tư vấn #{id} có báo cáo mới cần xem xét.", lead.UpdatedAt!.Value, ct);
+            }
+            else if (lead.EngineerId is int assigned && previousSchedule == null && revisions.LastOrDefault()?.ScheduledAt != null)
+            {
+                var appointment = revisions[^1].ProposedAt!.Value.ToOffset(TimeSpan.FromHours(7));
+                await WorkflowNotifications.AddForUserAsync(db, assigned, "Đã chốt lịch tư vấn tại vườn",
+                    $"Yêu cầu #{id}: {appointment:dd/MM/yyyy HH:mm} (giờ Việt Nam). Mở yêu cầu để xem địa chỉ và lộ trình.", lead.UpdatedAt!.Value, ct);
+            }
+            else if (lead.EngineerId is int assignedForPayment && revisions.LastOrDefault() is { } paymentProposal &&
+                paymentProposal.Transactions.Count > previousAttempts)
+            {
+                await WorkflowNotifications.AddForUserAsync(db, assignedForPayment, "Đã tạo link thanh toán phí tư vấn",
+                    $"Mở yêu cầu #{id} để sao chép link và gửi cho khách hàng.", paymentProposal.Transactions[^1].CreatedAt, ct);
+            }
+            else if (lead.EngineerId is int assignedForReview && previousReview == "PENDING" && revisions[^1].ReviewStatus != previousReview)
+            {
+                var approved = revisions[^1].ReviewStatus == "APPROVED";
+                await WorkflowNotifications.AddForUserAsync(db, assignedForReview, approved ? "Báo cáo tư vấn đã được duyệt" : "Báo cáo tư vấn cần chỉnh sửa",
+                    $"Mở yêu cầu tư vấn #{id} để xem kết quả duyệt và link thanh toán nếu có.", lead.UpdatedAt!.Value, ct);
+            }
             await db.SaveChangesAsync(ct);
         }
         await transaction.CommitAsync(ct);

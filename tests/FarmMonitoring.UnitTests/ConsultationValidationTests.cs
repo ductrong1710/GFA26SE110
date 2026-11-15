@@ -89,7 +89,7 @@ public class ConsultationValidationTests
     [InlineData("0901234567", true)]
     public void Contact_phone_requires_digits(string phone, bool valid)
     {
-        var request = new SubmitConsultationRequest("Customer", phone, null, "Farm location", null, "Monitoring", "Please contact me");
+        var request = new SubmitConsultationRequest("Customer", phone, "customer@example.com", "Farm location", 4, "Monitoring", "Please contact me", "Coffee", "ONLINE");
         Assert.Equal(valid, new SubmitConsultationValidator().Validate(request).IsValid);
     }
 }

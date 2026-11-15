@@ -9,6 +9,8 @@ public sealed class SiteVisitConfiguration : IEntityTypeConfiguration<SiteVisitP
     public void Configure(EntityTypeBuilder<SiteVisitProposal> b)
     {
         b.ToTable("site_visit_proposals");
+        b.Property(x => x.OfficeMapsUrl).HasColumnName("office_maps_url").HasMaxLength(2048);
+        b.Property(x => x.GardenAddress).HasColumnName("garden_address").HasMaxLength(500);
         b.HasIndex(x => new { x.ConsultationId, x.Revision }).IsUnique();
         b.HasOne<Consultation>().WithMany().HasForeignKey(x => x.ConsultationId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.DistanceKm).HasPrecision(9, 2);

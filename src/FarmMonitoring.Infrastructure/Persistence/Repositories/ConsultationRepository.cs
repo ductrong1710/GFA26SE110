@@ -14,8 +14,8 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.Consultations.Add(consultation);
         await db.SaveChangesAsync(ct);
-        await WorkflowNotifications.AddForRoleAsync(db, RoleNames.FarmEngineer, "New consultation request",
-            $"Consultation #{consultation.Id} is awaiting an Agricultural Engineer. Open the consultation inbox to claim it.",
+        await WorkflowNotifications.AddForRoleAsync(db, RoleNames.FarmAdministrator, "Yêu cầu tư vấn mới",
+            $"Yêu cầu tư vấn #{consultation.Id} đang chờ phân công nhân viên.",
             consultation.CreatedAt, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -23,8 +23,9 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
 
     public async Task<PagedResult<ConsultationSummary>> ListAsync(int engineerId, bool administrator, ConsultationQuery query, CancellationToken ct)
     {
-        var rows = db.Consultations.AsNoTracking().Where(x => query.Inbox
-            ? x.EngineerId == null && x.Status == ConsultationStatus.NEW : administrator || x.EngineerId == engineerId);
+        var rows = db.Consultations.AsNoTracking().Where(x => administrator
+            ? !query.Inbox || x.EngineerId == null && x.Status == ConsultationStatus.NEW
+            : x.EngineerId == engineerId);
         if (!string.IsNullOrWhiteSpace(query.Search)) rows = rows.Where(x => x.ServiceNeed.Contains(query.Search.Trim()));
         var total = await rows.CountAsync(ct);
         var items = await rows.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
@@ -44,17 +45,39 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
         return new(items, total, query.Page, query.PageSize);
     }
 
-    public async Task ClaimAsync(int id, int engineerId, DateTimeOffset now, CancellationToken ct)
+    public async Task AssignAsync(int id, int administratorId, AssignConsultationRequest request, DateTimeOffset now, CancellationToken ct)
     {
+        var engineerId = request.EngineerId;
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await LockEngineerAsync(engineerId, ct);
+        var locked = await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id IN ({administratorId}, {engineerId}) ORDER BY id FOR UPDATE").ToArrayAsync(ct);
+        if (!locked.Any(x => x.Id == administratorId && x.IsActive) || !await db.UserRoles.AnyAsync(x => x.UserId == administratorId && x.Role.Name == RoleNames.FarmAdministrator, ct))
+            throw new AccessDeniedException("Administrator access required.");
+        if (!locked.Any(x => x.Id == engineerId && x.IsActive) || !await db.UserRoles.AnyAsync(x => x.UserId == engineerId && x.Role.Name == RoleNames.FarmEngineer, ct))
+            throw new BusinessRuleException("Chọn nhân viên tư vấn đang hoạt động.");
         var row = await LockAsync(id, ct);
-        if (row.EngineerId is not null || row.Status != ConsultationStatus.NEW)
-            throw new ConflictException("This consultation is no longer available to claim.");
+        var previousEngineerId = row.EngineerId;
+        if (previousEngineerId != request.ExpectedEngineerId ||
+            row.Status != (previousEngineerId == null ? ConsultationStatus.NEW : ConsultationStatus.IN_PROGRESS))
+            throw new ConflictException("Phân công đã thay đổi hoặc hồ sơ đã đóng. Vui lòng tải lại hồ sơ.");
+        if (previousEngineerId == engineerId)
+            throw new ConflictException("Kỹ sư này đang phụ trách hồ sơ.");
+        var returns = await ReturnHistory(id, ct);
+        if (PendingReturn(returns) != null)
+            throw new ConflictException("Hãy xử lý yêu cầu trả hồ sơ trước khi phân công lại.");
+        if (PreviouslyReturned(returns).ContainsKey(engineerId))
+            throw new ConflictException("Kỹ sư này đã được duyệt trả lại hồ sơ.");
+        if (await OpenConsultations().CountAsync(x => x.EngineerId == engineerId, ct) >= AssignmentCapacity)
+            throw new ConflictException("Kỹ sư đã đạt giới hạn công việc.");
         row.EngineerId = engineerId;
         row.Status = ConsultationStatus.IN_PROGRESS;
         row.UpdatedAt = now;
-        row.History.Add(new() { UserId = engineerId, Action = ConsultationAction.CLAIMED, Status = row.Status, CreatedAt = now });
+        row.History.Add(new() { UserId = administratorId, Action = previousEngineerId == null ? ConsultationAction.ASSIGNED : ConsultationAction.REASSIGNED, Status = row.Status,
+            Notes = previousEngineerId == null ? $"Nhân viên tư vấn #{engineerId}" : $"Chuyển từ kỹ sư #{previousEngineerId} sang kỹ sư #{engineerId}", CreatedAt = now });
+        await WorkflowNotifications.AddForUserAsync(db, engineerId, "Yêu cầu tư vấn được phân công",
+            $"Bạn được phân công xử lý yêu cầu tư vấn #{id}.", now, ct);
+        if (previousEngineerId is int previous)
+            await WorkflowNotifications.AddForUserAsync(db, previous, "Yêu cầu tư vấn đã được chuyển",
+                $"Hồ sơ tư vấn #{id} đã được chuyển sang kỹ sư khác.", now, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
@@ -64,7 +87,6 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await LockEngineerAsync(engineerId, ct);
         var row = await LockAsync(id, ct);
-        if (row.EngineerId == null && row.Status == ConsultationStatus.NEW) { row.EngineerId=engineerId; row.Status=ConsultationStatus.IN_PROGRESS; }
         if (row.EngineerId != engineerId) throw new AccessDeniedException("Only the assigned engineer can update this consultation.");
         if (row.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
         row.UpdatedAt = now;
@@ -83,13 +105,12 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await LockEngineerAsync(survey.EngineerId, ct);
         var consultation = await LockAsync(survey.ConsultationId, ct);
-        if (consultation.EngineerId is int assigned && assigned != survey.EngineerId)
+        if (consultation.EngineerId != survey.EngineerId)
             throw new AccessDeniedException("Only the assigned engineer can record a survey.");
         var visit = await db.Set<SiteVisitProposal>().Where(x => x.ConsultationId == consultation.Id)
             .OrderByDescending(x => x.Revision).Select(x => new { x.Channel, x.ReviewStatus, x.ScheduledAt }).FirstOrDefaultAsync(ct);
         if ((consultation.Channel == "ON_SITE" || visit is { Channel: "ON_SITE", ReviewStatus: "PENDING" }) && visit?.ScheduledAt is null)
             throw new ConflictException("Confirm the on-site visit schedule before recording the survey.");
-        if (consultation.EngineerId == null && consultation.Status == ConsultationStatus.NEW) { consultation.EngineerId=survey.EngineerId; consultation.Status=ConsultationStatus.IN_PROGRESS; }
         if (consultation.EngineerId != survey.EngineerId) throw new AccessDeniedException("Only the assigned engineer can record a survey.");
         if (consultation.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
         if (await db.DeviceProposals.AnyAsync(x => x.ConsultationId == survey.ConsultationId && x.Status == ProposalStatus.WAITING_ADMIN, ct))
@@ -120,7 +141,7 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
 
     private async Task LockEngineerAsync(int id, CancellationToken ct)
     {
-        // Serialize with role/status changes so stale eligibility cannot claim work.
+        // Serialize with role/status changes so stale eligibility cannot update work.
         var user = await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id = {id} FOR UPDATE").SingleOrDefaultAsync(ct);
         if (user is not { IsActive: true } || !await db.UserRoles.AnyAsync(x => x.UserId == id && x.Role.Name == RoleNames.FarmEngineer, ct))
             throw new AccessDeniedException("Agricultural Engineer access required.");

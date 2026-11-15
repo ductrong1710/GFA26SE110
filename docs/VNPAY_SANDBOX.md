@@ -30,7 +30,7 @@ Environment keys: `Vnpay__Enabled`, `Vnpay__TmnCode`, `Vnpay__HashSecret`, `Vnpa
 - Dùng DB Sandbox riêng. T1/T2 chưa được nghiệp vụ chốt: không kích hoạt biểu phí thật. Test suite dùng ngưỡng giả lập 20/80; demo 165km có thể dùng báo giá thủ công được Admin duyệt.
 - Kỹ sư gửi ON_SITE → Admin APPROVE → tạo/sao chép link VNPAY Sandbox trong chi tiết tư vấn. Mở link bằng trình duyệt không đăng nhập. Dùng phương thức/thẻ test từ [tài liệu PAY chính thức](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html).
 - Return trước IPN phải là “Đang xác nhận thanh toán”; chỉnh vnp_ResponseCode trong URL không thay đổi DB. Khi IPN hợp lệ đến, hiện thành công; Admin cập nhật trạng thái và gọi Chốt lịch khảo sát riêng. IPN lặp không thu thêm.
-- 0đ/ONLINE không có link. Bill thủ công vẫn hoạt động nếu chưa tạo giao dịch chưa rõ kết quả. Nếu link hết hạn, không tạo link khác hay nhận bill để thử: có thể đã trả tiền nhưng IPN chưa đến.
+- Duyệt báo cáo tại vườn 0đ sẽ chốt lịch và báo cho kỹ sư. Nhánh trực tuyến và chuyến đi 0đ không có link. Xác nhận bill thủ công chỉ áp dụng cho hồ sơ cũ. Link hết hạn cần đối soát trước khi thu tiếp.
 
 ## QueryDr và đối soát
 

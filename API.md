@@ -1217,11 +1217,13 @@ Migration `20261028065024_UpdatedOperationalRoles` adds Technician without conve
 Engineer/Technician job context and rental-based device scoping remain pending subsequent phases; the current generic farm API intentionally denies these roles. Device credentials and sample administrator provisioning are unchanged.
 
 ### Consultation intake and follow-up (Phase 2, partial)
-`POST /api/consultations` is anonymous and returns only `{ id, status }` in the data envelope. Contact name/phone, farm location, service need and content are required; email and farm area (hectares) are optional. Submission persists NEW plus history and queues WEB/EMAIL notifications for active Agricultural Engineers atomically.
+`POST /api/consultations` is anonymous and returns only `{ id, status }` in the data envelope. Required fields are `customerName`, `phone`, `email`, `farmLocation`, `farmArea` (hectares), `cropType`, `serviceNeed`, `content` and `preferredChannel` (`ONLINE` or `ON_SITE`). Submission persists NEW plus history and queues WEB/EMAIL notifications for administrators. The confirmed `channel` starts unset.
 
-Agricultural Engineers use `GET /api/consultations?inbox=true` for unassigned summaries or the default list for their own work, with standard paging/search. Summaries omit contact fields. `POST /api/consultations/{id}/claim` atomically assigns the current engineer and transitions NEW to IN_PROGRESS; a competing/repeated claim returns 409. Detail GET and `POST /api/consultations/{id}/follow-ups` require the assigned current engineer. Follow-up body contains required `notes`, `contactResult`, `nextAction`; events append rather than replacing earlier notes. No unrestricted status PATCH exists.
+Administrators use `GET /api/consultations?inbox=true` for unassigned summaries. Engineers see their own work. Summaries omit contact fields. Administrators read `GET /api/consultations/{id}/assignment-candidates` for active engineers ordered by open count, including capacity and any blocking reason. `POST /api/consultations/{id}/assign` takes `{engineerId}`, transitions NEW to IN_PROGRESS, and rechecks capacity and prior returns atomically. Detail GET allows administrators and the assigned engineer. Follow-up accepts required `notes`, `contactResult`, `nextAction` from the assigned engineer.
 
-Literal statuses, claim-based routing, field length limits and optional area in hectares are implementation assumptions where SRS does not specify them. Survey, proposal, deposit, cancellation/completion and installation submission are not implemented yet. A submitted consultation grants no farm/account/rental privileges.
+To transfer an IN_PROGRESS case directly, the administrator sends `{engineerId,expectedEngineerId}` to the same assignment endpoint, where `expectedEngineerId` is the current assignee. A stale assignment or a pending return request returns 409. Both engineers are notified, and the transfer is recorded in history.
+
+The assigned engineer can POST `/{id}/return-requests` with `{reason}`. The administrator reviews it at `/{id}/return-requests/review` with `{requestId,approve}`. Approval clears the assignment and blocks reassigning that case to the same engineer. Rejection retains the assignment. The assigned engineer can POST `/{id}/close` with `{status:"COMPLETED"|"CANCELLED",reason?}`. Return approval and closure are blocked while a VNPay result is unresolved.
 
 ### Farm survey revisions (Phase 2, partial)
 The assigned Agricultural Engineer records a survey with POST `/api/consultations/{id}/surveys`. Body: `expectedRevision` (0 initially), `farmName`, `farmLocation`, optional `farmArea` in hectares, `monitoringNeeds`, optional `notes`, and 1–100 relational `zones`. Each zone has `name`, optional `crop`, optional `cropAgeDays`, optional `symptoms`, and required `installationLocation`. Optional unknown values stay null; zero crop age is distinct from unknown.
@@ -1403,34 +1405,36 @@ MF-04 season picker: GET /api/crop-seasons additionally accepts farmId, zoneId a
 
 Nguồn: Report 3 SRS §5.11, §5.13–5.17 (BR-001/002, FR-003–005, AT-001, OD-01); Project Register MF-01 F02/F04/F06/F08. Đối chiếu BackEnd `4f4f80d`, FrontEnd `ebf7604`, snapshot review-2 `e7438df`. Đây là khoản thu trước khảo sát, độc lập với `confirm-deposit` và bill hồ sơ lắp đặt.
 
-`POST /api/consultations` công khai nhận thêm `channel: "ONLINE" | "ON_SITE"`; thiếu/null giữ nguyên kênh chưa xác định. Receipt vẫn chỉ có id/status. Chi tiết nội bộ thêm channel. Kỹ sư claim theo API cũ. Đặt `L=/api/consultations/{id}`, `V=L/site-visit`:
+`preferredChannel` là mong muốn ban đầu. Kỹ sư được phân công xác nhận trực tuyến qua PUT channel, hoặc nộp báo cáo tại vườn gồm `channel: "ON_SITE"` và `gardenAddress` cùng thông tin tuyến đường và lịch. Admin duyệt báo cáo miễn phí sẽ chốt lịch và thông báo cho kỹ sư trong cùng giao dịch. Với báo cáo có phí, admin tạo link VNPay sau duyệt. Kỹ sư lấy link trong chi tiết để gửi khách. Admin chốt lịch sau khi IPN xác nhận đã thanh toán. Đặt `L=/api/consultations/{id}`, `V=L/site-visit`:
 
 | Method/path | JWT và điều kiện | Body |
 |---|---|---|
 | PUT L/channel | Kỹ sư phụ trách, IN_PROGRESS, trước đề xuất đầu | {expectedRevision:0,channel} |
 | GET V | Admin hoặc kỹ sư phụ trách | Không; trả {channel,revision,current,history,offices}. Ban đầu revision=0, current=null. History chỉ gồm phiên bản cũ. |
 | POST V/fee-preview | Admin hoặc kỹ sư phụ trách | {officeCode,distanceKm}; chỉ đọc, không phải báo giá đã duyệt |
-| POST V/proposals | Kỹ sư phụ trách | {expectedRevision,officeCode,distanceKm,mapsUrl,proposedAt,pricingVersion}; trên 150 km thêm manualAmountVnd,manualReason. Điều chỉnh sang ONLINE gửi {expectedRevision,channel:"ONLINE",reason}; chuyển lại ON_SITE gửi đủ thông tin tuyến đường và reason. |
+| GET /api/site-visit-offices | Admin | Danh sách trụ sở đã tạo, mỗi mục có code, label và mapsUrl |
+| POST /api/site-visit-offices | Admin | {name,mapsUrl}; mapsUrl phải là link HTTPS Google Maps hợp lệ |
+| POST V/proposals | Kỹ sư phụ trách | Báo cáo tại vườn gửi `{expectedRevision,channel:"ON_SITE",officeCode,gardenAddress,distanceKm,mapsUrl,proposedAt,pricingVersion}`. Nếu chuyển từ trực tuyến, bổ sung `reason` trong cùng báo cáo. Chuyển từ tại vườn sang trực tuyến chỉ gửi `{expectedRevision,channel:"ONLINE"}`. Hình thức mới có hiệu lực sau khi admin duyệt. |
 | POST V/review | Admin | {expectedRevision,decision:"APPROVE" hoặc "RETURN",reason}; trả sửa bắt buộc có lý do |
 | POST V/payments/confirm | Admin | {expectedRevision,paidAmountVnd,paidAt,reference,bills:[{contentType,dataBase64}]} |
 | POST V/schedule | Admin | {expectedRevision}; chốt đúng proposedAt ở revision đã duyệt, còn trong tương lai |
 
 Dùng `api.request` (trả về data đã bóc envelope). Preview trả 200; các mutation trong bảng trả 200 và cùng cấu trúc với GET V. Envelope HTTP thành công: `{"success":true,"data":{...},"message":null}`. 400: sai định dạng, km, URL, bill hoặc thiếu lý do; 401: chưa đăng nhập; 403: sai quyền/phân công; 404: không có lead; 409: xung đột phiên bản, biểu phí đã đổi hoặc sai bước; 422: số tiền không khớp hoặc chưa cấu hình được mức phí. Lỗi dùng envelope chung success=false/message/errors/traceId. Giữ nội dung form khi lỗi. Sau 409 đọc lại GET V; nếu biểu phí đổi, lấy preview mới rồi chủ động gửi lại. Không tự retry xác nhận tiền.
 
-**Biểu phí.** Offices gồm hai cặp code/label cấu hình. distanceKm: JSON number thập phân cố định, dương, tối đa 9 chữ số tổng và 2 chữ số lẻ (numeric(9,2)); không nhận chuỗi hoặc ký pháp mũ. Không làm tròn qua mốc. `SiteVisitPricing.Version/T1Km/T2Km` phải được chốt và cấu hình thống nhất trên mọi instance: 0<T1<T2<150. Với km lần lượt ≤T1, ≤T2, ≤150, tiền là 0, 200000, 400000 VND. Thiếu/sai cấu hình thì trả PRICING_NOT_CONFIGURED, amountVnd=null cho biểu phí tự động. Trên 150 km luôn là MANUAL_QUOTE_REQUIRED, không tự suy ra tiền. Nếu cấu hình hai trụ sở không hợp lệ, không thể lập đề xuất. Token pricingVersion là chuỗi opaque bao gồm fingerprint cấu hình; không dùng expectedRevision thay thế. API tính lại khi submit. URL Maps chỉ lưu làm tham chiếu: HTTPS, cổng mặc định, không userinfo, host/path Google Maps hợp lệ hoặc maps.app.goo.gl với mã chia sẻ. Không fetch/resolve link trên server.
+**Biểu phí.** Tính theo quãng đường một chiều do kỹ sư nhập, tối đa hai chữ số thập phân. Mặc định đến 40 km miễn phí, trên 40 đến 100 km là 200.000 VND, trên 100 đến 150 km là 400.000 VND. Trên 150 km, phí là 400.000 VND + (distanceKm − 150) × 3.000 VND. GET V trả `tariff` để giao diện hiển thị đúng biểu phí đang dùng. Backend tính lại phí khi nộp báo cáo và từ chối phiên bản biểu phí đã cũ.
 
-**Ví dụ** (các response dưới đây chỉ trích trường dùng để render; mọi ngưỡng/số tiền báo tay minh họa là dữ liệu test, không phải quyết định giá vận hành):
+**Ví dụ phí tự động**
 
-1. **165 km**: POST V/fee-preview `{"officeCode":"OFFICE_1","distanceKm":165}` → `{"officeCode":"OFFICE_1","officeLabel":"Trụ sở 1","distanceKm":165,"status":"MANUAL_QUOTE_REQUIRED","amountVnd":null,"pricingVersion":"<token>"}`. Hiển thị **Cần báo giá riêng**. POST V/proposals:
-   `{"expectedRevision":0,"officeCode":"OFFICE_1","distanceKm":165,"mapsUrl":"https://maps.app.goo.gl/Example123","proposedAt":"2030-05-10T08:00:00+07:00","pricingVersion":"<token>","manualAmountVnd":550000,"manualReason":"Báo giá di chuyển cho tuyến 165 km"}` → current.revision=1, reviewStatus=PENDING, amountVnd=550000, pricingMethod=MANUAL_QUOTE.
+1. **165 km**: POST V/fee-preview với `distanceKm: 165` trả `status: CALCULATED` và `amountVnd: 445000`.
+   POST V/proposals gửi `pricingVersion` từ preview cùng thông tin tuyến đường và lịch. Backend lưu phí 445.000 VND, với `pricingMethod: CALCULATED`.
 2. **Tại vườn 0 đồng**: test riêng dùng T1=20, T2=80. Preview `{"officeCode":"OFFICE_1","distanceKm":5}` → `{"status":"CALCULATED","amountVnd":0,"pricingVersion":"<token>"}`. Submit như trên với distanceKm=5, bỏ hai trường manual. Admin POST V/review `{"expectedRevision":1,"decision":"APPROVE"}` → current.reviewStatus=APPROVED, paymentStatus=NOT_REQUIRED, payment=null. POST V/schedule `{"expectedRevision":1}` → current.scheduledAt khác null. Không POST payment. Thiếu cấu hình biểu phí phải hiển thị **Chưa cấu hình biểu phí**, không hiển thị 0 đồng.
-3. **Đúng phí đã duyệt**: với báo giá 165 km đã duyệt, Admin POST V/payments/confirm `{"expectedRevision":1,"paidAmountVnd":550000,"paidAt":"2026-11-10T10:00:00+07:00","reference":"BANK-001","bills":[{"contentType":"image/png","dataBase64":"<ảnh PNG hợp lệ mã hóa base64>"}]}` → `{"current":{"revision":1,"amountVnd":550000,"reviewStatus":"APPROVED","paymentStatus":"CONFIRMED","scheduledAt":null,"payment":{"paidAmountVnd":550000,"reference":"BANK-001","verifiedBy":12,"verifiedAt":"2026-11-13T06:00:00Z"}}}`. Chỉ POST V/schedule riêng mới chốt lịch. proposedAt là lúc hẹn, scheduledAt là lúc Admin chốt. Bill không có URL công khai; chỉ Admin nhận nội dung ảnh. Từ 1–5 ảnh PNG/JPEG, ≤2 MiB/ảnh.
+3. **Báo giá có phí**: admin duyệt và tạo link VNPay. Sau khi IPN được xác minh thành công, admin mới chốt lịch. `proposedAt` là giờ hẹn và `scheduledAt` là thời điểm admin chốt.
 
 Phiên bản tăng khi gửi đề xuất mới. Review, xác nhận thu và chốt lịch áp dụng vào đúng revision, lưu actor/thời gian server. Thu tiền/chốt lịch xong thì khóa thay thế, yêu cầu Admin đối soát bên ngoài; không có endpoint tự hoàn tiền, sinh khoản thu mới hay mở khóa. Đề xuất mới không kế thừa duyệt hoặc thanh toán. Khi đổi kênh qua revision, kênh mới chỉ có hiệu lực sau duyệt. ON_SITE (kể cả điều chỉnh sang tại vườn đang chờ duyệt) không được ghi kết quả trước chốt lịch. ONLINE miễn phí, lead cũ chưa chọn kênh tiếp tục sử dụng API khảo sát hiện có.
 
 ### MF-01: VNPAY Sandbox 2.1.0
 
-Sandbox bị tắt mặc định. Chỉ Admin tạo link cho revision hiện hành ON_SITE, APPROVED, phí >0, chưa thu/chốt lịch, lead IN_PROGRESS. Tiền lấy từ DB, kể cả báo giá thủ công trên 150 km; request không nhận số tiền. ONLINE/0đ giữ luồng cũ. Bill thủ công vẫn được hỗ trợ khi không có giao dịch VNPAY chưa rõ kết quả.
+Sandbox bị tắt mặc định. Khi admin duyệt báo cáo tại vườn có phí, backend tạo link trong cùng giao dịch nếu VNPay đã cấu hình và chưa có khoản thanh toán cần đối soát. Kỹ sư phụ trách nhận thông báo và lấy link trong chi tiết hồ sơ. Admin có thể dùng endpoint checkout để tạo link cho hồ sơ đã duyệt trước đó hoặc thử lại sau thất bại đã xác minh. Tiền lấy từ báo giá đã duyệt. Yêu cầu mới có phí thanh toán qua VNPay. Xác nhận bill thủ công chỉ áp dụng cho yêu cầu cũ và cần kết quả VNPay đã rõ.
 
 Đặt V=/api/consultations/{id}/site-visit.
 
@@ -1440,7 +1444,7 @@ Sandbox bị tắt mặc định. Chỉ Admin tạo link cho revision hiện hà
 | GET /api/payments/vnpay/status?token=... | Công khai | Chỉ `{status,sandbox:true}`; token ngẫu nhiên 64 hex, không dùng consultationId/txnRef để tra công khai |
 | GET /api/payments/vnpay/ipn | Công khai, xác thực HMACSHA512 | Query VNPAY; JSON nguyên dạng `{"RspCode":"00","Message":"Confirm Success"}`, không bọc envelope |
 
-GET V bổ sung `vnpayEnabled` (đã bật và đủ cấu hình). Snapshot bổ sung `vnpay: {txnRef,status,expiresAt,checkoutUrl} | null`, chỉ Admin nhận thông tin này. Current có thể hiển thị giao dịch chưa giải quyết từ revision cũ để cảnh báo khóa khoản phí. Link chỉ trả khi PENDING còn hạn. Receipt bổ sung `source: "MANUAL" | "VNPAY_SANDBOX"`; `verifiedBy` null cho IPN, `verifiedAt` do server ghi. Không tạo bill giả.
+GET V trả `vnpayEnabled` và `vnpay: {txnRef,status,expiresAt,checkoutUrl} | null` cho Admin và kỹ sư phụ trách. Current có thể hiển thị giao dịch chưa giải quyết từ revision cũ. Link chỉ trả khi PENDING còn hạn. Receipt có `source: "MANUAL" | "VNPAY_SANDBOX"`. `verifiedBy` null cho IPN và `verifiedAt` do server ghi.
 
 Checkout cùng revision tái sử dụng link còn hiệu lực. 400: thiếu expectedRevision hoặc vượt giới hạn PAY (1–9999999999 VND); 409: sai revision/bước hoặc kết quả chưa rõ; 422: Sandbox tắt/chưa cấu hình. Checkout/status dùng envelope hiện có. Giao dịch commit trước khi trả link. Checkout, IPN, bill và chốt lịch dùng chung khóa tư vấn; receipt duy nhất theo proposal và txnRef. IPN chỉ tạo receipt khi chữ ký, merchant, số tiền ×100, revision và cả responseCode/transactionStatus=00 hợp lệ; ngày thanh toán phải nằm trong thời hạn giao dịch.
 
@@ -1450,6 +1454,6 @@ Trạng thái: PENDING chờ IPN; UNKNOWN là PENDING đã hết hạn nhưng ch
 
 Return URL là FrontEnd `/payments/vnpay/return?token=...`. Trang chỉ đọc DB, bỏ qua mọi vnp_ResponseCode/vnp_SecureHash trong URL, không ghi thanh toán. Về trước IPN hiển thị “Đang xác nhận thanh toán”. Khách không cần đăng nhập; response không có tiền, hồ sơ, contact, bill hay actor. Tự kiểm tra tối đa 12 lần, cách 5 giây, và cho cập nhật thủ công.
 
-Ví dụ demo (giá test): revision1 đã duyệt 200000 VND → checkout trả link có `vnp_Amount=20000000`. Trước IPN: status PENDING, payment null; sau IPN hợp lệ: status SUCCEEDED, current.paymentStatus CONFIRMED, payment.source VNPAY_SANDBOX, scheduledAt vẫn null. Admin gọi riêng `POST V/schedule {"expectedRevision":1}`. Với 165km đã duyệt báo tay 620000 VND, PAY dùng 62000000; với 0đ checkout409, Admin chốt lịch theo NOT_REQUIRED như cũ.
+Ví dụ demo (giá test): revision1 đã duyệt 200000 VND → checkout trả link có `vnp_Amount=20000000`. Trước IPN: status PENDING, payment null; sau IPN hợp lệ: status SUCCEEDED, current.paymentStatus CONFIRMED, payment.source VNPAY_SANDBOX, scheduledAt vẫn null. Admin gọi riêng `POST V/schedule {"expectedRevision":1}`. Với 165 km có phí 445.000 VND, PAY dùng 44500000. Duyệt báo giá 0 đồng đồng thời chốt lịch.
 
 Thiết lập HTTPS/IPN, QueryDr và demo: [VNPAY_SANDBOX.md](docs/VNPAY_SANDBOX.md). Không có endpoint tự bỏ khóa đối soát hoặc tự hoàn tiền.

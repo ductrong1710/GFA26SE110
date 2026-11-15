@@ -52,35 +52,40 @@ public sealed class VnpayTests(ApiFactory factory)
 
     private static async Task<HttpClient> Login(WebApplicationFactory<Program> host, string role)
     {
+        var email = role + "@example.com";
+        if (role == "engineer")
+        {
+            using var admin = await Login(host, "admin");
+            email = await ConsultationTestAssignment.CreateEngineerAsync(admin);
+        }
         var client = Client(host);
-        var login = await Data(client.PostAsJsonAsync("/api/auth/login", new { email = role + "@example.com", password = "Test-password-123!" }));
+        var login = await Data(client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" }));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("accessToken").GetString());
         return client;
     }
 
-    private static async Task Propose(HttpClient engineer, string path, int revision, decimal km, long? manualAmountVnd = null)
+    private static async Task Propose(HttpClient engineer, string path, int revision, decimal km)
     {
         var preview = await Data(engineer.PostAsJsonAsync(path + "/fee-preview", new { officeCode = "OFFICE_1", distanceKm = km }));
         await Data(engineer.PostAsJsonAsync(path + "/proposals", new
         {
-            expectedRevision = revision, officeCode = "OFFICE_1", distanceKm = km,
+            expectedRevision = revision, channel = "ON_SITE", gardenAddress = "Can Tho", officeCode = "OFFICE_1", distanceKm = km,
             mapsUrl = "https://maps.app.goo.gl/example", proposedAt = DateTimeOffset.UtcNow.AddDays(4),
-            pricingVersion = preview.GetProperty("pricingVersion").GetString(), manualAmountVnd,
-            manualReason = manualAmountVnd.HasValue ? "Ferry and long route" : null
+            pricingVersion = preview.GetProperty("pricingVersion").GetString()
         }));
     }
 
-    private static async Task<string> Visit(HttpClient engineer, HttpClient admin, bool approve = true, decimal km = 45, long? manualAmountVnd = null)
+    private static async Task<string> Visit(HttpClient engineer, HttpClient admin, bool approve = true, decimal km = 45)
     {
         var lead = await Data(engineer.PostAsJsonAsync("/api/consultations", new
         {
-            customerName = "Private VNPay customer", phone = "0901234567", farmLocation = "Can Tho",
-            content = "Call before visiting", serviceNeed = "Sensor monitoring", channel = "ON_SITE"
+            customerName = "Private VNPay customer", cropType = "Coffee", preferredChannel = "ON_SITE", email = "customer@example.com", farmArea = 4,  phone = "0901234567", farmLocation = "Can Tho",
+            content = "Call before visiting", serviceNeed = "Sensor monitoring"
         }));
         var path = $"/api/consultations/{lead.GetProperty("id").GetInt32()}";
-        await Data(engineer.PostAsJsonAsync(path + "/claim", new { }));
+        await ConsultationTestAssignment.AssignAsync(admin, engineer, path);
         path += "/site-visit";
-        await Propose(engineer, path, 0, km, manualAmountVnd);
+        await Propose(engineer, path, 0, km);
         if (approve) await Data(admin.PostAsJsonAsync(path + "/review", new { expectedRevision = 1, decision = "APPROVE" }));
         return path;
     }
@@ -141,7 +146,11 @@ public sealed class VnpayTests(ApiFactory factory)
         await using var host = Host();
         using var admin = await Login(host, "admin"); using var engineer = await Login(host, "engineer"); using var visitor = Client(host);
         var path = await Visit(engineer, admin);
+        var engineerVisit = (await Data(engineer.GetAsync(path))).GetProperty("current");
+        var generatedLink = engineerVisit.GetProperty("vnpay").GetProperty("checkoutUrl").GetString();
+        Assert.False(string.IsNullOrEmpty(generatedLink));
         var checkout = await Data(Checkout(admin, path));
+        Assert.Equal(generatedLink, checkout.GetProperty("checkoutUrl").GetString());
         Assert.True(checkout.GetProperty("sandbox").GetBoolean());
         Assert.Equal("PENDING", checkout.GetProperty("status").GetString());
         Assert.InRange(checkout.GetProperty("expiresAt").GetDateTimeOffset(), DateTimeOffset.UtcNow.AddMinutes(14), DateTimeOffset.UtcNow.AddMinutes(16));
@@ -207,9 +216,7 @@ public sealed class VnpayTests(ApiFactory factory)
         await Expect(HttpStatusCode.Conflict, Checkout(admin, path, 2));
         var free = await Visit(engineer, admin, km: 5);
         await Expect(HttpStatusCode.Conflict, Checkout(admin, free));
-        await Data(engineer.PostAsJsonAsync(free + "/proposals", new { expectedRevision = 1, channel = "ONLINE", reason = "Customer chooses online" }));
-        await Data(admin.PostAsJsonAsync(free + "/review", new { expectedRevision = 2, decision = "APPROVE" }));
-        await Expect(HttpStatusCode.Conflict, Checkout(admin, free, 2));
+        Assert.NotEqual(JsonValueKind.Null, (await Data(admin.GetAsync(free))).GetProperty("current").GetProperty("scheduledAt").ValueKind);
         await using var disabled = Host(false);
         using var disabledAdmin = await Login(disabled, "admin");
         using var rejected = await Checkout(disabledAdmin, path);
@@ -360,19 +367,19 @@ public sealed class VnpayTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Manual_quote_beyond_150km_uses_approved_amount_for_checkout_and_receipt()
+    public async Task Calculated_quote_beyond_150km_uses_approved_amount_for_checkout_and_receipt()
     {
         await using var host = Host();
         using var admin = await Login(host, "admin"); using var engineer = await Login(host, "engineer"); using var visitor = Client(host);
-        var path = await Visit(engineer, admin, km: 165, manualAmountVnd: 620000);
+        var path = await Visit(engineer, admin, km: 165);
         var checkout = await Data(Checkout(admin, path));
-        Assert.Equal("62000000", Parameters(checkout.GetProperty("checkoutUrl").GetString()!)["vnp_Amount"]);
+        Assert.Equal("44500000", Parameters(checkout.GetProperty("checkoutUrl").GetString()!)["vnp_Amount"]);
         Assert.Equal("04", await Ipn(visitor, IpnUrl(Callback(checkout))));
-        var callback = Callback(checkout); callback["vnp_Amount"] = "62000000";
+        var callback = Callback(checkout); callback["vnp_Amount"] = "44500000";
         Assert.Equal("00", await Ipn(visitor, IpnUrl(callback)));
         await Status(visitor, checkout, "SUCCEEDED");
         var current = (await Data(admin.GetAsync(path))).GetProperty("current");
-        Assert.Equal(620000L, current.GetProperty("payment").GetProperty("paidAmountVnd").GetInt64());
+        Assert.Equal(445000L, current.GetProperty("payment").GetProperty("paidAmountVnd").GetInt64());
     }
 
     [Fact]

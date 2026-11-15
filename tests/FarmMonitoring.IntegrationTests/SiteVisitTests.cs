@@ -30,23 +30,51 @@ public sealed class SiteVisitTests(ApiFactory factory)
         Assert.True(response.StatusCode == status, $"Expected {status}, got {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
     }
 
+    private string? isolatedEngineerEmail;
+
     private async Task<HttpClient> Login(string email)
     {
+        if (email == "engineer@example.com")
+        {
+            if (isolatedEngineerEmail == null)
+            {
+                using var admin = await Login("admin@example.com");
+                isolatedEngineerEmail = await ConsultationTestAssignment.CreateEngineerAsync(admin);
+            }
+            email = isolatedEngineerEmail;
+        }
         var client = factory.CreateApiClient();
         var auth = await Data(client.PostAsJsonAsync("/api/auth/login", new { email, password = "Test-password-123!" }));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.GetProperty("accessToken").GetString());
         return client;
     }
 
-    private async Task<string> Lead(string? channel)
+    private async Task<string> Lead(string? channel, bool assign = true)
     {
         using var visitor = factory.CreateApiClient();
-        var body = new Dictionary<string,string> { ["customerName"]="Site visit customer", ["phone"]="0901234567",
-            ["farmLocation"]="Can Tho", ["content"]="Please call", ["serviceNeed"]="Sensor monitoring" };
-        if (channel is not null) body["channel"] = channel;
-        var receipt = await Data(visitor.PostAsJsonAsync("/api/consultations", body));
+        var receipt = await Data(visitor.PostAsJsonAsync("/api/consultations", new
+        {
+            customerName = "Site visit customer", phone = "0901234567", email = "visitor@example.com",
+            farmLocation = "Can Tho", farmArea = 4, cropType = "Coffee", preferredChannel = channel ?? "ONLINE",
+            content = "Please call", serviceNeed = "Sensor monitoring"
+        }));
         Assert.False(receipt.TryGetProperty("payment", out _));
-        return $"/api/consultations/{receipt.GetProperty("id").GetInt32()}";
+        var id = receipt.GetProperty("id").GetInt32();
+        var path = $"/api/consultations/{id}";
+
+        // These compatibility cases exercise requests created before the intake workflow changed.
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Consultations.Where(x => x.Id == id).ExecuteUpdateAsync(setters => setters
+            .SetProperty(x => x.PreferredChannel, (string?)null)
+            .SetProperty(x => x.Channel, channel));
+        if (assign)
+        {
+            using var admin = await Login("admin@example.com");
+            using var engineer = await Login("engineer@example.com");
+            await ConsultationTestAssignment.AssignAsync(admin, engineer, path);
+        }
+        return path;
     }
 
     private static Task<HttpResponseMessage> Survey(HttpClient engineer, string lead) => engineer.PostAsJsonAsync(lead + "/surveys",
@@ -96,11 +124,48 @@ public sealed class SiteVisitTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Admin_office_catalog_supports_multiple_offices_and_snapshots_the_selected_location()
+    {
+        using var admin = await Login("admin@example.com");
+        using var engineer = await Login("engineer@example.com");
+        var lead = await Lead("ON_SITE");
+        var path = lead + "/site-visit";
+        const string officeUrl = "https://maps.app.goo.gl/Office123";
+
+        await Expect(HttpStatusCode.Forbidden, engineer.PostAsJsonAsync("/api/site-visit-offices", new { name = "Trụ sở", mapsUrl = officeUrl }));
+        await Expect(HttpStatusCode.BadRequest, admin.PostAsJsonAsync("/api/site-visit-offices", new { name = "Trụ sở", mapsUrl = "https://example.com" }));
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        try
+        {
+            var first = await Data(admin.PostAsJsonAsync("/api/site-visit-offices", new { name = "Chi nhánh A", mapsUrl = officeUrl }));
+            await Data(admin.PostAsJsonAsync("/api/site-visit-offices", new { name = "Chi nhánh B", mapsUrl = "https://maps.app.goo.gl/Office456" }));
+            await Data(admin.PostAsJsonAsync("/api/site-visit-offices", new { name = "Chi nhánh C", mapsUrl = "https://maps.app.goo.gl/Office789" }));
+            Assert.Equal(3, (await Data(engineer.GetAsync(path))).GetProperty("offices").GetArrayLength());
+            var officeCode = first.GetProperty("code").GetString();
+            var preview = await Data(engineer.PostAsJsonAsync(path + "/fee-preview", new { officeCode, distanceKm = 45 }));
+            Assert.Equal(200000, preview.GetProperty("amountVnd").GetInt64());
+            var state = await Data(engineer.PostAsJsonAsync(path + "/proposals", new
+            {
+                expectedRevision = 0, officeCode, distanceKm = 45, mapsUrl = Maps,
+                proposedAt = DateTimeOffset.UtcNow.AddDays(4), pricingVersion = Version(preview)
+            }));
+            var report = state.GetProperty("current");
+            Assert.Equal("Chi nhánh A", report.GetProperty("officeLabel").GetString());
+            Assert.Equal(officeUrl, report.GetProperty("officeMapsUrl").GetString());
+        }
+        finally
+        {
+            await db.Set<FarmMonitoring.Domain.Entities.SiteVisitOfficeLocation>().ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
     public async Task Actual_tariff_change_requires_new_preview_and_missing_tariff_disables_proposals()
     {
         using var engineer = await Login("engineer@example.com");
         var lead = await Lead("ON_SITE"); var path = lead + "/site-visit";
-        await Data(engineer.PostAsJsonAsync(lead+"/claim",new {}));
         var oldPreview = await Data(Preview(engineer,path,45));
         async Task CheckTariff(string threshold, bool enabled)
         {
@@ -142,11 +207,11 @@ public sealed class SiteVisitTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task First_on_site_survey_cannot_claim_or_create_history_before_schedule()
+    public async Task Unassigned_engineer_cannot_create_on_site_survey()
     {
         using var engineer = await Login("engineer@example.com");
-        var lead = await Lead("ON_SITE");
-        await Expect(HttpStatusCode.Conflict, Survey(engineer,lead));
+        var lead = await Lead("ON_SITE", assign: false);
+        await Expect(HttpStatusCode.Forbidden, Survey(engineer,lead));
         var id = int.Parse(lead.Split('/')[^1]);
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -158,13 +223,65 @@ public sealed class SiteVisitTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Assigned_engineer_sets_legacy_channel_and_zero_fee_still_requires_approval_and_schedule()
+    public async Task First_report_can_switch_to_online_without_a_reason()
+    {
+        using var engineer = await Login("engineer@example.com");
+        using var admin = await Login("admin@example.com");
+        var lead = await Lead("ON_SITE");
+        var path = lead + "/site-visit";
+
+        var pending = await Data(engineer.PostAsJsonAsync(path + "/proposals", new
+        {
+            expectedRevision = 0, channel = "ONLINE"
+        }));
+        Assert.Equal("ON_SITE", pending.GetProperty("channel").GetString());
+        var report = pending.GetProperty("current");
+        Assert.Equal("ONLINE", report.GetProperty("channel").GetString());
+        Assert.Equal("PENDING", report.GetProperty("reviewStatus").GetString());
+        Assert.Equal(JsonValueKind.Null, report.GetProperty("changeReason").ValueKind);
+        Assert.Equal(0, report.GetProperty("amountVnd").GetInt64());
+
+        var approved = await Data(Review(admin, path, 1, true));
+        Assert.Equal("ONLINE", approved.GetProperty("channel").GetString());
+        await Expect(HttpStatusCode.Created, Survey(engineer, lead));
+    }
+
+    [Fact]
+    public async Task First_on_site_report_can_switch_from_online_after_administrator_approval()
+    {
+        using var engineer = await Login("engineer@example.com");
+        using var admin = await Login("admin@example.com");
+        var lead = await Lead("ONLINE");
+        var path = lead + "/site-visit";
+        var preview = await Data(Preview(engineer, path, 45));
+
+        Task<HttpResponseMessage> Submit(string? reason) => engineer.PostAsJsonAsync(path + "/proposals", new
+        {
+            expectedRevision = 0, channel = "ON_SITE", officeCode = Office, distanceKm = 45,
+            mapsUrl = Maps, proposedAt = DateTimeOffset.UtcNow.AddDays(4), pricingVersion = Version(preview), reason
+        });
+
+        await Expect(HttpStatusCode.BadRequest, Submit(null));
+        const string reason = "Khách xác nhận muốn được tư vấn tại vườn.";
+        var pending = await Data(Submit(reason));
+        Assert.Equal("ONLINE", pending.GetProperty("channel").GetString());
+        Assert.Equal("ON_SITE", pending.GetProperty("current").GetProperty("channel").GetString());
+        Assert.Equal("PENDING", pending.GetProperty("current").GetProperty("reviewStatus").GetString());
+        Assert.Equal(reason, pending.GetProperty("current").GetProperty("changeReason").GetString());
+        await Expect(HttpStatusCode.Conflict, Survey(engineer, lead));
+
+        var approved = await Data(Review(admin, path, 1, true));
+        Assert.Equal("ON_SITE", approved.GetProperty("channel").GetString());
+        Assert.Equal("UNPAID", approved.GetProperty("current").GetProperty("paymentStatus").GetString());
+    }
+
+    [Fact]
+    public async Task Approval_of_zero_fee_visit_confirms_schedule_without_payment()
     {
         using var engineer = await Login("engineer@example.com");
         using var admin = await Login("admin@example.com");
         var lead = await Lead(null);
         var path = lead + "/site-visit";
-        await Data(engineer.PostAsJsonAsync(lead + "/claim",new {}));
         await Data(engineer.PutAsJsonAsync(lead + "/channel",new { channel="ON_SITE", expectedRevision=0 }));
         var preview = await Data(Preview(engineer,path, 5m));
         Assert.Equal(0L,preview.GetProperty("amountVnd").GetInt64());
@@ -173,29 +290,30 @@ public sealed class SiteVisitTests(ApiFactory factory)
         await Expect(HttpStatusCode.Conflict,Schedule(admin,path,1));
         await Expect(HttpStatusCode.Conflict,engineer.PutAsJsonAsync(lead + "/channel",new { channel="ONLINE",expectedRevision=1 }));
         await OneTransition(()=>Review(admin,path,1,true));
-        await Expect(HttpStatusCode.Conflict,Survey(engineer,lead));
-        var scheduled = await Data(Schedule(admin,path,1));
+        await Expect(HttpStatusCode.Conflict,Schedule(admin,path,1));
+        var scheduled = await Data(admin.GetAsync(path));
         var current = scheduled.GetProperty("current");
         Assert.Equal("NOT_REQUIRED",current.GetProperty("paymentStatus").GetString());
+        Assert.NotEqual(JsonValueKind.Null, current.GetProperty("scheduledAt").ValueKind);
         Assert.Equal(JsonValueKind.Null,current.GetProperty("payment").ValueKind);
         await Expect(HttpStatusCode.Conflict,Proposal(engineer,path,1,5,Version(preview)));
         await Expect(HttpStatusCode.Created,Survey(engineer,lead));
     }
 
     [Fact]
-    public async Task Manual_quote_return_then_channel_adjustment_waits_for_admin_and_preserves_old_quote()
+    public async Task Calculated_quote_return_then_channel_adjustment_waits_for_admin_and_preserves_old_quote()
     {
         using var engineer = await Login("engineer@example.com");
         using var admin = await Login("admin@example.com");
         var lead = await Lead("ON_SITE"); var path = lead + "/site-visit";
-        await Data(engineer.PostAsJsonAsync(lead+"/claim",new {}));
         var preview = await Data(Preview(engineer,path,165m));
-        Assert.Equal("MANUAL_QUOTE_REQUIRED",preview.GetProperty("status").GetString());
-        Assert.Equal(JsonValueKind.Null,preview.GetProperty("amountVnd").ValueKind);
-        await Data(Proposal(engineer,path,0,165,Version(preview),620000,"Ferry and long route"));
+        Assert.Equal("CALCULATED",preview.GetProperty("status").GetString());
+        Assert.Equal(445000L,preview.GetProperty("amountVnd").GetInt64());
+        await Expect(HttpStatusCode.BadRequest,Proposal(engineer,path,0,165,Version(preview),620000,"Manual override"));
+        await Data(Proposal(engineer,path,0,165,Version(preview)));
         await Expect(HttpStatusCode.BadRequest,Review(admin,path,1,false));
         await Data(Review(admin,path,1,false,"Offer remote consultation first"));
-        var adjust = new { expectedRevision=1,channel="ONLINE",reason="Customer chose an online meeting" };
+        var adjust = new { expectedRevision=1,channel="ONLINE" };
         var change = await Data(engineer.PostAsJsonAsync(path+"/proposals",adjust));
         Assert.Equal("ON_SITE",change.GetProperty("channel").GetString());
         await Expect(HttpStatusCode.Conflict,Survey(engineer,lead));
@@ -203,7 +321,7 @@ public sealed class SiteVisitTests(ApiFactory factory)
         var approved = await Data(Review(admin,path,2,true));
         Assert.Equal("ONLINE",approved.GetProperty("channel").GetString());
         var original = Assert.Single(approved.GetProperty("history").EnumerateArray(),r=>r.GetProperty("revision").GetInt32()==1);
-        Assert.Equal(620000L,original.GetProperty("amountVnd").GetInt64());
+        Assert.Equal(445000L,original.GetProperty("amountVnd").GetInt64());
         Assert.Equal("RETURNED",original.GetProperty("reviewStatus").GetString());
         Assert.Equal(165m,original.GetProperty("distanceKm").GetDecimal());
         await Expect(HttpStatusCode.Created,Survey(engineer,lead));
@@ -215,7 +333,6 @@ public sealed class SiteVisitTests(ApiFactory factory)
         using var engineer = await Login("engineer@example.com");
         using var admin = await Login("admin@example.com");
         var lead = await Lead("ON_SITE"); var path = lead + "/site-visit";
-        await Data(engineer.PostAsJsonAsync(lead+"/claim",new {}));
         var first = await Data(Preview(engineer,path,45));
         await Data(Proposal(engineer,path,0,45,Version(first)));
         await Data(Review(admin,path,1,true));
@@ -244,7 +361,6 @@ public sealed class SiteVisitTests(ApiFactory factory)
         using var engineer = await Login("engineer@example.com");
         using var admin = await Login("admin@example.com");
         var lead = await Lead("ON_SITE"); var path = lead + "/site-visit";
-        await Data(engineer.PostAsJsonAsync(lead+"/claim",new {}));
         var outsiderEmail = $"outside-{Guid.NewGuid():N}@example.com";
         await Data(admin.PostAsJsonAsync("/api/users",new {email=outsiderEmail,fullName="Other engineer", password="Test-password-123!",roles=new[]{"FarmEngineer"}}));
         using var outsider = await Login(outsiderEmail);

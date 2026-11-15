@@ -31,19 +31,27 @@ public sealed class VnpayService(ISiteVisitRepository visits, IVnpayRepository r
                 var attempts = revisions.SelectMany(x => x.Transactions).ToArray();
                 var blocking = attempts.Where(IsUnresolved).ToArray();
                 var now = clock.GetUtcNow();
+                if (current.ProposedAt <= now) throw new ConflictException("Ngày giờ tư vấn đã qua.");
                 if (blocking.Length == 1 && blocking[0] is { Status: "PENDING" } pending && pending.ProposalId == current.Id
                     && pending.ExpiresAt > now && pending.TmnCode == protocol.TmnCode)
                     return new(pending.CheckoutUrl,pending.TxnRef,pending.Status,pending.ExpiresAt);
                 if (blocking.Length != 0) throw new ConflictException("Payment outcome is unknown. Reconcile with VNPAY QueryDr before another payment.");
-                var row = new VnpayTransaction {
-                    TxnRef = VnpayProtocol.NewTransactionReference(), ProposalId = current.Id, AmountVnd = current.AmountVnd,
-                    TmnCode = protocol.TmnCode!, CreatedAt = now, ExpiresAt = now.AddMinutes(protocol.ExpiryMinutes),
-                    CreatedBy = user.UserId!.Value, PublicToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant()
-                };
-                row.CheckoutUrl = protocol.BuildPayUrl(row.TxnRef,row.AmountVnd,row.CreatedAt,row.ExpiresAt,ip,row.PublicToken);
-                current.Transactions.Add(row);
+                var row = CreateAttempt(current, protocol, user.UserId!.Value, now, ip);
                 return new(row.CheckoutUrl,row.TxnRef,row.Status,row.ExpiresAt);
             }, ct);
+
+    internal static VnpayTransaction CreateAttempt(SiteVisitProposal proposal, VnpayProtocol protocol, int actor, DateTimeOffset now, string ip)
+    {
+        var row = new VnpayTransaction {
+            TxnRef = VnpayProtocol.NewTransactionReference(), ProposalId = proposal.Id, AmountVnd = proposal.AmountVnd,
+            TmnCode = protocol.TmnCode!, CreatedAt = now, ExpiresAt = now.AddMinutes(protocol.ExpiryMinutes),
+            CreatedBy = actor, PublicToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant()
+        };
+        row.CheckoutUrl = protocol.BuildPayUrl(row.TxnRef,row.AmountVnd,row.CreatedAt,row.ExpiresAt,ip,row.PublicToken);
+        proposal.Transactions.Add(row);
+
+        return row;
+    }
 
     public async Task<VnpayStatus> StatusAsync(string token,CancellationToken ct)
     {

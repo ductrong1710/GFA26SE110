@@ -40,6 +40,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["SiteVisitPricing:Version"] = "TEST-1",
             ["SiteVisitPricing:T1Km"] = "20",
             ["SiteVisitPricing:T2Km"] = "80",
+            ["SiteVisitPricing:Offices:OFFICE_1"] = "Trụ sở 1",
+            ["SiteVisitPricing:Offices:OFFICE_2"] = "Trụ sở 2",
             ["MaintenanceScheduler:Enabled"] = "false"
         }));
         builder.ConfigureServices(services => services.AddControllers().AddApplicationPart(typeof(RoleProbeController).Assembly));

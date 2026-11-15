@@ -117,7 +117,8 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
         using var tech=await Login(emails[1]);
         await using var scope=factory.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var farm=new Farm{Name="Paper installation farm",CreatedAt=DateTimeOffset.UtcNow};var uav=new Uav{Code=Guid.NewGuid().ToString("N"),Name="Installed UAV",CreatedAt=DateTimeOffset.UtcNow};db.Farms.Add(farm);db.Uavs.Add(uav);await db.SaveChangesAsync();await factory.AssignFarmAsync(farm.Id,"owner@example.com");
-        var lead=(await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName="Paper customer",phone="0901234567",farmLocation="Farm",serviceNeed="UAV",content="Rent UAV"}))).GetProperty("id").GetInt32();
+        var lead=(await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName="Paper customer", cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4, phone="0901234567",farmLocation="Farm",serviceNeed="UAV",content="Rent UAV"}))).GetProperty("id").GetInt32();
+        await ConsultationTestAssignment.AssignAsync(admin, engineer, $"/api/consultations/{lead}");
         var survey=await Data(await engineer.PostAsJsonAsync($"/api/consultations/{lead}/surveys",new{expectedRevision=0,farmName="Farm",farmLocation="Address",monitoringNeeds="UAV",zones=new[]{new{name="North",crop="Mango"}}}));
         Assert.Equal("",survey.GetProperty("zones")[0].GetProperty("installationLocation").GetString());Assert.Equal(JsonValueKind.Null,survey.GetProperty("zones")[0].GetProperty("cropAgeDays").ValueKind);
         var ownerId=(await Data(await owner.GetAsync("/api/auth/me"))).GetProperty("id").GetInt32();await Data(await admin.PutAsJsonAsync($"/api/consultations/{lead}/customer-farm",new{ownerId,farmId=farm.Id}));
@@ -157,7 +158,7 @@ public sealed class OperationalWorkflowTests(ApiFactory factory)
     {
         using var guest=factory.CreateApiClient();using var admin=await Login("admin@example.com");using var owner=await Login("owner@example.com");
         var name="Lead-"+Guid.NewGuid().ToString("N");
-        await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName=name,phone="0901234567",farmLocation="Farm address",serviceNeed="Monitoring",content="Contact me"}));
+        await Data(await guest.PostAsJsonAsync("/api/consultations",new{customerName=name, cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4, phone="0901234567",farmLocation="Farm address",serviceNeed="Monitoring",content="Contact me"}));
         var from=Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(-1).ToString("O"));var to=Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(1).ToString("O"));
         var leads=await Data(await admin.GetAsync($"/api/operations/consultation-requests?from={from}&to={to}&search={name}"));Assert.Equal(1,leads.GetProperty("total").GetInt32());
         await Data(await admin.GetAsync($"/api/operations/dashboard?from={from}&to={to}"));

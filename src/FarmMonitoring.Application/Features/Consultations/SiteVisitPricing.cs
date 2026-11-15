@@ -32,39 +32,48 @@ public sealed class SiteVisitPricingSettings
     public Dictionary<string, string> Offices { get; set; } = [];
 }
 
-public sealed record SiteVisitOffice(string Code, string Label);
+public sealed record SiteVisitOffice(string Code, string Label, string? MapsUrl = null);
 public sealed record SiteVisitFeePreview(string OfficeCode, string OfficeLabel, decimal DistanceKm,
-    string Status, long? AmountVnd, string? PricingVersion);
+    string Status, long? AmountVnd, string? PricingVersion, string? OfficeMapsUrl = null);
+
+public sealed record SiteVisitTariff(decimal FreeThroughKm, decimal FirstTierThroughKm, int BaseThroughKm,
+    long FirstTierVnd, long BaseVnd, long ExtraVndPerKm);
 
 public sealed class SiteVisitPricing(SiteVisitPricingSettings settings)
 {
     public IReadOnlyList<SiteVisitOffice> Offices { get; } = settings.Offices
         .OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => new SiteVisitOffice(x.Key, x.Value)).ToArray();
 
-    public SiteVisitFeePreview Preview(string? officeCode, decimal distanceKm)
+    public SiteVisitTariff? Tariff =>
+        Threshold(settings.T1Km, out var t1) && Threshold(settings.T2Km, out var t2) &&
+        t1 < t2 && !string.IsNullOrWhiteSpace(settings.Version)
+            ? new(t1, t2, 150, 200_000, 400_000, 3_000)
+            : null;
+
+    public SiteVisitFeePreview Preview(string? officeCode, decimal distanceKm, IReadOnlyList<SiteVisitOffice>? configuredOffices = null)
     {
+        var offices = configuredOffices ?? Offices;
         if (distanceKm <= 0 || distanceKm > 9999999.99m || decimal.Round(distanceKm, 2) != distanceKm)
             throw new ValidationException("distanceKm must be positive, at most 9999999.99, with at most two decimal places.");
-        bool validOffices = Offices.Count == 2 && Offices.All(x =>
+        bool validOffices = offices.Count > 0 && offices.All(x =>
             !string.IsNullOrWhiteSpace(x.Code) && x.Code.Length <= 32 && !string.IsNullOrWhiteSpace(x.Label) && x.Label.Length <= 120);
         if (string.IsNullOrWhiteSpace(officeCode) || officeCode.Length > 32) throw new ValidationException("Invalid officeCode.");
         if (!validOffices) return new(officeCode, "", distanceKm, "PRICING_NOT_CONFIGURED", null, null);
-        var office = Offices.SingleOrDefault(x => x.Code == officeCode);
+        var office = offices.SingleOrDefault(x => x.Code == officeCode);
         if (office is null) throw new ValidationException("Unknown site visit officeCode.");
-        bool validT1 = Threshold(settings.T1Km, out var t1);
-        bool validT2 = Threshold(settings.T2Km, out var t2);
-        if (distanceKm <= 150 && (!validT1 || !validT2 || t1 >= t2 || string.IsNullOrWhiteSpace(settings.Version)))
+        var tariff = Tariff;
+        if (tariff is null)
             return new(office.Code, office.Label, distanceKm, "PRICING_NOT_CONFIGURED", null, null);
 
-        // Bind the token to the published rules even if an operator forgets to bump Version.
         var version = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
         {
-            Policy = "MF01-0-200000-400000-150-manual-v1", settings.Version, settings.T1Km, settings.T2Km, Offices
+            settings.Version, Tariff = tariff, Office = office
         })));
-        if (distanceKm > 150)
-            return new(office.Code, office.Label, distanceKm, "MANUAL_QUOTE_REQUIRED", null, version);
-        return new(office.Code, office.Label, distanceKm, "CALCULATED",
-            distanceKm <= t1 ? 0 : distanceKm <= t2 ? 200000 : 400000, version);
+        var amount = distanceKm <= tariff.FreeThroughKm ? 0
+            : distanceKm <= tariff.FirstTierThroughKm ? tariff.FirstTierVnd
+            : distanceKm <= tariff.BaseThroughKm ? tariff.BaseVnd
+            : tariff.BaseVnd + (long)((distanceKm - tariff.BaseThroughKm) * tariff.ExtraVndPerKm);
+        return new(office.Code, office.Label, distanceKm, "CALCULATED", amount, version, office.MapsUrl);
     }
 
     private static bool Threshold(string? raw, out decimal value) =>

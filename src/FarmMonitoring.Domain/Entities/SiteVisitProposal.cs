@@ -7,8 +7,10 @@ public sealed class SiteVisitProposal
     public int Revision { get; set; }
     public string Channel { get; set; } = "ON_SITE";
     public string? OfficeCode { get; set; }
+    public string? OfficeMapsUrl { get; set; }
     public string? OfficeLabel { get; set; }
     public decimal? DistanceKm { get; set; }
+    public string? GardenAddress { get; set; }
     public string? MapsUrl { get; set; }
     public DateTimeOffset? ProposedAt { get; set; }
     public long AmountVnd { get; set; }

@@ -4,7 +4,12 @@ using FluentValidation;
 namespace FarmMonitoring.Application.Features.Consultations;
 
 public sealed record SubmitConsultationRequest(string CustomerName, string Phone, string? Email,
-    string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string? Channel = null);
+    string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string? CropType, string? PreferredChannel);
+public sealed record AssignConsultationRequest(int EngineerId, int? ExpectedEngineerId = null);
+public sealed record ConsultationAssignmentCandidate(int Id, string FullName, int OpenCount, int Capacity, string? BlockedReason);
+public sealed record ConsultationReturnRequest(string? Reason);
+public sealed record ConsultationReturnDecision(int RequestId, bool Approve);
+public sealed record CloseConsultationRequest(string Status, string? Reason);
 public sealed record FollowUpRequest(string Notes, string ContactResult, string NextAction);
 public sealed record CustomerFarmRequest(int OwnerId, int FarmId);
 public sealed class ConsultationQuery : PageQuery { public bool Inbox { get; init; } }
@@ -14,7 +19,7 @@ public sealed record ConsultationHistoryResponse(int Id, int? UserId, string Act
     string? Notes, string? ContactResult, string? NextAction, DateTimeOffset CreatedAt);
 public sealed record ConsultationResponse(int Id, string CustomerName, string Phone, string? Email,
     string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string Status,
-    int? EngineerId, DateTimeOffset CreatedAt, IReadOnlyList<ConsultationHistoryResponse> History, int? OwnerId, int? FarmId, string? Channel);
+    int? EngineerId, DateTimeOffset CreatedAt, IReadOnlyList<ConsultationHistoryResponse> History, int? OwnerId, int? FarmId, string? Channel, string? CropType, string? PreferredChannel);
 
 public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsultationRequest>
 {
@@ -25,12 +30,15 @@ public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsul
             .WithMessage("Invalid phone format.")
             .Must(phone => phone is not null && phone.Count(char.IsAsciiDigit) is >= 7 and <= 15)
             .WithMessage("Invalid phone format.");
-        RuleFor(x => x.Email).MaximumLength(255).EmailAddress().WithMessage("Invalid email format.").When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email).Cascade(CascadeMode.Stop).NotEmpty().WithMessage("The email field is required.")
+            .MaximumLength(255).EmailAddress().WithMessage("Invalid email format.");
         RuleFor(x => x.FarmLocation).NotEmpty().WithMessage("The farm location field is required.").MaximumLength(500);
-        RuleFor(x => x.FarmArea).GreaterThan(0).LessThanOrEqualTo(100000000);
+        RuleFor(x => x.FarmArea).Cascade(CascadeMode.Stop).NotNull().GreaterThan(0).LessThanOrEqualTo(100000000);
         RuleFor(x => x.ServiceNeed).NotEmpty().WithMessage("The service need field is required.").MaximumLength(500);
         RuleFor(x => x.Content).NotEmpty().WithMessage("The content field is required.").MaximumLength(4000);
-        RuleFor(x => x.Channel).Must(value => value is null or "ONLINE" or "ON_SITE").WithMessage("Channel must be ONLINE or ON_SITE.");
+        RuleFor(x => x.PreferredChannel).Must(value => value is "ONLINE" or "ON_SITE")
+            .WithMessage("Vui lòng chọn hình thức tư vấn mong muốn.");
+        RuleFor(x => x.CropType).NotEmpty().WithMessage("The crop type field is required.").MaximumLength(500);
     }
 }
 

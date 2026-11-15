@@ -29,7 +29,7 @@ public sealed class ConsultationTests(ApiFactory factory)
         using var visitor = factory.CreateApiClient();
         var submitted = await visitor.PostAsJsonAsync("/api/consultations", new
         {
-            customerName = "Consultation customer", phone = "+84901234567", email = "customer@example.com",
+            customerName = "Consultation customer", cropType = "Coffee", preferredChannel = "ONLINE", phone = "+84901234567", email = "customer@example.com",
             farmLocation = "Can Tho", farmArea = 1.5m, serviceNeed = "Sensor rental", content = "Monitor soil moisture"
         });
         Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
@@ -40,17 +40,19 @@ public sealed class ConsultationTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Unauthorized, (await visitor.GetAsync($"/api/consultations/{id}")).StatusCode);
         using var owner = await Login("owner@example.com");
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync("/api/consultations")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync($"/api/consultations/{id}/claim", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync($"/api/consultations/{id}/assign", new { })).StatusCode);
         using var engineer = await Login("engineer@example.com");
-        var notifications = await engineer.GetFromJsonAsync<JsonElement>("/api/notifications?pageSize=100");
+        using var admin = await Login("admin@example.com");
+        var notifications = await admin.GetFromJsonAsync<JsonElement>("/api/notifications?pageSize=100");
         Assert.Contains(notifications.GetProperty("data").EnumerateArray(), x =>
-            x.GetProperty("message").GetString()!.Contains($"Consultation #{id} "));
+            x.GetProperty("message").GetString()!.Contains($"Yêu cầu tư vấn #{id} "));
         Assert.Equal(HttpStatusCode.Forbidden, (await engineer.GetAsync($"/api/consultations/{id}")).StatusCode);
-        var inbox = await engineer.GetFromJsonAsync<JsonElement>("/api/consultations?inbox=true&pageSize=100");
+        var inbox = await admin.GetFromJsonAsync<JsonElement>("/api/consultations?inbox=true&pageSize=100");
         var item = inbox.GetProperty("data").EnumerateArray().Single(x => x.GetProperty("id").GetInt32() == id);
         Assert.False(item.TryGetProperty("phone", out _));
-        (await engineer.PostAsJsonAsync($"/api/consultations/{id}/claim", new { })).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Conflict, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/claim", new { })).StatusCode);
+        using var assigningAdmin = await Login("admin@example.com");
+        await ConsultationTestAssignment.AssignAsync(assigningAdmin, engineer, $"/api/consultations/{id}");
+        Assert.Equal(HttpStatusCode.Forbidden, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/assign", new { engineerId = 1 })).StatusCode);
         (await engineer.PostAsJsonAsync($"/api/consultations/{id}/follow-ups", new
         { notes = "Called customer", contactResult = "Customer answered", nextAction = "Arrange survey" })).EnsureSuccessStatusCode();
         var detail = (await engineer.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}")).GetProperty("data");
@@ -63,7 +65,67 @@ public sealed class ConsultationTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Concurrent_claims_have_one_winner_and_other_engineer_cannot_read_or_write()
+    public async Task Assignment_limit_is_atomic_and_approved_return_excludes_only_that_case()
+    {
+        using var admin = await Login("admin@example.com");
+        using var visitor = factory.CreateApiClient();
+        var email = $"capacity-{Guid.NewGuid():N}@example.com";
+        using var created = await admin.PostAsJsonAsync("/api/users",
+            new { email, fullName = "Capacity engineer", password = "Test-password-123!", roles = new[] { "FarmEngineer" } });
+        created.EnsureSuccessStatusCode();
+        using var engineer = await Login(email);
+        var engineerId = await ConsultationTestAssignment.EngineerIdAsync(engineer);
+
+        async Task<string> Submit()
+        {
+            using var submitted = await visitor.PostAsJsonAsync("/api/consultations", new
+            {
+                customerName = "Customer", phone = "0901234567", email = "customer@example.com",
+                farmLocation = "Can Tho", farmArea = 4, cropType = "Coffee", preferredChannel = "ONLINE",
+                serviceNeed = "Monitoring", content = "Request"
+            });
+            submitted.EnsureSuccessStatusCode();
+            var data = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+            return $"/api/consultations/{data.GetProperty("id").GetInt32()}";
+        }
+
+        async Task<JsonElement> Candidate(string lead) =>
+            (await admin.GetFromJsonAsync<JsonElement>(lead + "/assignment-candidates")).GetProperty("data")
+                .EnumerateArray().Single(item => item.GetProperty("id").GetInt32() == engineerId);
+
+        var first = await Submit();
+        await ConsultationTestAssignment.AssignAsync(admin, engineer, first);
+        for (var index = 0; index < 8; index++)
+            await ConsultationTestAssignment.AssignAsync(admin, engineer, await Submit());
+        var next = await Submit();
+        var last = await Submit();
+        var results = await Task.WhenAll(admin.PostAsJsonAsync(next + "/assign", new { engineerId }),
+            admin.PostAsJsonAsync(last + "/assign", new { engineerId }));
+        Assert.Single(results, response => response.IsSuccessStatusCode);
+        Assert.Single(results, response => response.StatusCode == HttpStatusCode.Conflict);
+        var unassigned = results[0].IsSuccessStatusCode ? last : next;
+        Assert.Equal(10, (await Candidate(unassigned)).GetProperty("openCount").GetInt32());
+
+        const string reason = "Bận đột xuất";
+        using var requested = await engineer.PostAsJsonAsync(first + "/return-requests", new { reason });
+        requested.EnsureSuccessStatusCode();
+        var history = (await requested.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("history");
+        var requestId = history.EnumerateArray().Last().GetProperty("id").GetInt32();
+        Assert.Equal(10, (await Candidate(unassigned)).GetProperty("openCount").GetInt32());
+        using var reviewed = await admin.PostAsJsonAsync(first + "/return-requests/review", new { requestId, approve = true });
+        reviewed.EnsureSuccessStatusCode();
+        var returnedCandidate = await Candidate(first);
+        Assert.Equal(9, returnedCandidate.GetProperty("openCount").GetInt32());
+        Assert.Equal(reason, returnedCandidate.GetProperty("blockedReason").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(first + "/assign", new { engineerId })).StatusCode);
+        await ConsultationTestAssignment.AssignAsync(admin, engineer, unassigned);
+        using var closed = await engineer.PostAsJsonAsync(unassigned + "/close", new { status = "COMPLETED" });
+        closed.EnsureSuccessStatusCode();
+        Assert.Equal(9, (await Candidate(first)).GetProperty("openCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Concurrent_assignments_have_one_winner_and_other_engineer_cannot_read_or_write()
     {
         using var admin = await Login("admin@example.com");
         var email = $"consultant-{Guid.NewGuid():N}@example.com";
@@ -72,16 +134,33 @@ public sealed class ConsultationTests(ApiFactory factory)
         using var second = await Login(email);
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Concurrent claim", phone = "0901234567", farmLocation = "Farm", serviceNeed = "Monitoring", content = "Consultation" });
+        { customerName = "Concurrent claim", cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4,  phone = "0901234567", farmLocation = "Farm", serviceNeed = "Monitoring", content = "Consultation" });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
-        var claims = await Task.WhenAll(first.PostAsJsonAsync($"/api/consultations/{id}/claim", new { }), second.PostAsJsonAsync($"/api/consultations/{id}/claim", new { }));
+        var firstId = await ConsultationTestAssignment.EngineerIdAsync(first);
+        var secondId = await ConsultationTestAssignment.EngineerIdAsync(second);
+        var claims = await Task.WhenAll(admin.PostAsJsonAsync($"/api/consultations/{id}/assign", new { engineerId = firstId }),
+            admin.PostAsJsonAsync($"/api/consultations/{id}/assign", new { engineerId = secondId }));
         Assert.Single(claims, x => x.StatusCode == HttpStatusCode.OK);
         Assert.Single(claims, x => x.StatusCode == HttpStatusCode.Conflict);
         var loser = claims[0].IsSuccessStatusCode ? second : first;
         Assert.Equal(HttpStatusCode.Forbidden, (await loser.GetAsync($"/api/consultations/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await loser.PostAsJsonAsync($"/api/consultations/{id}/follow-ups",
             new { notes = "Unauthorized", contactResult = "Contacted", nextAction = "Survey" })).StatusCode);
+
+        var winner = claims[0].IsSuccessStatusCode ? first : second;
+        var winnerId = await ConsultationTestAssignment.EngineerIdAsync(winner);
+        var loserId = await ConsultationTestAssignment.EngineerIdAsync(loser);
+        var path = $"/api/consultations/{id}";
+        using var changed = await admin.PostAsJsonAsync(path + "/assign", new { engineerId = loserId, expectedEngineerId = winnerId });
+        changed.EnsureSuccessStatusCode();
+        var detail = (await changed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+        Assert.Equal(loserId, detail.GetProperty("engineerId").GetInt32());
+        Assert.Equal("REASSIGNED", detail.GetProperty("history").EnumerateArray().Last().GetProperty("action").GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, (await winner.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await loser.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(path + "/assign",
+            new { engineerId = winnerId, expectedEngineerId = winnerId })).StatusCode);
     }
 
     [Fact]
@@ -89,7 +168,7 @@ public sealed class ConsultationTests(ApiFactory factory)
     {
         using var visitor = factory.CreateApiClient();
         var created = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Survey customer", phone = "0901234567", farmLocation = "Can Tho", serviceNeed = "Sensors", content = "Survey needed" });
+        { customerName = "Survey customer", cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4,  phone = "0901234567", farmLocation = "Can Tho", serviceNeed = "Sensors", content = "Survey needed" });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         using var engineer = await Login("engineer@example.com");
@@ -100,7 +179,8 @@ public sealed class ConsultationTests(ApiFactory factory)
             images = revision == 0 ? new[] { new { contentType = "image/png", dataBase64 = image } } : [],
             zones = new[] { new { name = "North", crop = "Rice", cropAgeDays = 30, symptoms = "", installationLocation = "Along the irrigation canal" } }
         };
-        // Recording the first survey now establishes the engineer context without claiming.
+        using var assigningAdmin = await Login("admin@example.com");
+        await ConsultationTestAssignment.AssignAsync(assigningAdmin, engineer, $"/api/consultations/{id}");
         Assert.Equal(HttpStatusCode.BadRequest, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Invalid image", "not-base64"))).StatusCode);
         var survey = await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", Request(0, "Initial"));
         Assert.Equal(HttpStatusCode.Created, survey.StatusCode);
@@ -129,11 +209,12 @@ public sealed class ConsultationTests(ApiFactory factory)
     {
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Bound customer", phone = "0901234567", farmLocation = "Farm", serviceNeed = "Survey", content = "Please survey" });
+        { customerName = "Bound customer", cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4,  phone = "0901234567", farmLocation = "Farm", serviceNeed = "Survey", content = "Please survey" });
         response.EnsureSuccessStatusCode();
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         using var engineer = await Login("engineer@example.com");
-        (await engineer.PostAsJsonAsync($"/api/consultations/{id}/claim", new { })).EnsureSuccessStatusCode();
+        using var assigningAdmin = await Login("admin@example.com");
+        await ConsultationTestAssignment.AssignAsync(assigningAdmin, engineer, $"/api/consultations/{id}");
         var survey = await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", new
         { expectedRevision = 0, farmName = "Bound farm", farmLocation = "Farm", monitoringNeeds = "Moisture", zones = new[] { new { name = "North", installationLocation = "Edge" } } });
         survey.EnsureSuccessStatusCode();
@@ -163,11 +244,12 @@ public sealed class ConsultationTests(ApiFactory factory)
     {
         using var visitor = factory.CreateApiClient();
         var response = await visitor.PostAsJsonAsync("/api/consultations", new
-        { customerName = "Proposal customer", phone = "0901234567", farmLocation = "Farm", serviceNeed = "Devices", content = "Survey and proposal" });
+        { customerName = "Proposal customer", cropType = "Coffee", preferredChannel = "ONLINE", email = "customer@example.com", farmArea = 4,  phone = "0901234567", farmLocation = "Farm", serviceNeed = "Devices", content = "Survey and proposal" });
         response.EnsureSuccessStatusCode();
         var id = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
         using var engineer = await Login("engineer@example.com");
-        (await engineer.PostAsJsonAsync($"/api/consultations/{id}/claim", new { })).EnsureSuccessStatusCode();
+        using var assigningAdmin = await Login("admin@example.com");
+        await ConsultationTestAssignment.AssignAsync(assigningAdmin, engineer, $"/api/consultations/{id}");
         var surveyResult = await engineer.PostAsJsonAsync($"/api/consultations/{id}/surveys", new
         { expectedRevision = 0, farmName = "Farm", farmLocation = "Can Tho", monitoringNeeds = "Soil moisture", zones = new[] { new { name = "North", installationLocation = "Canal" } } });
         surveyResult.EnsureSuccessStatusCode();

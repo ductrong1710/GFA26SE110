@@ -7,28 +7,27 @@ namespace FarmMonitoring.UnitTests;
 
 public class SiteVisitPricingTests
 {
-    // Test fixtures only: the approved production thresholds have not been supplied.
-    private static SiteVisitPricingSettings Fixture(string? t1 = "20", string? t2 = "80") => new()
+    private static SiteVisitPricingSettings Fixture(string? t1 = "40", string? t2 = "100") => new()
     {
         Version = "test-v1", T1Km = t1, T2Km = t2,
         Offices = new() { ["OFFICE_1"] = "Trụ sở 1", ["OFFICE_2"] = "Trụ sở 2" }
     };
 
     [Theory]
-    [InlineData("19.99", 0)]
-    [InlineData("20", 0)]
-    [InlineData("20.01", 200000)]
-    [InlineData("79.99", 200000)]
-    [InlineData("80", 200000)]
-    [InlineData("80.01", 400000)]
+    [InlineData("39.99", 0)]
+    [InlineData("40", 0)]
+    [InlineData("40.01", 200000)]
+    [InlineData("99.99", 200000)]
+    [InlineData("100", 200000)]
+    [InlineData("100.01", 400000)]
     [InlineData("149.99", 400000)]
     [InlineData("150", 400000)]
-    [InlineData("150.01", null)]
-    [InlineData("165", null)]
-    public void Rates_use_original_km_and_inclusive_upper_bound(string text, int? fee)
+    [InlineData("150.01", 400030)]
+    [InlineData("165", 445000)]
+    public void Rates_use_original_km_and_inclusive_upper_bound(string text, int fee)
     {
         var result = new SiteVisitPricing(Fixture()).Preview("OFFICE_1", decimal.Parse(text, CultureInfo.InvariantCulture));
-        Assert.Equal(fee is null ? "MANUAL_QUOTE_REQUIRED" : "CALCULATED", result.Status);
+        Assert.Equal("CALCULATED", result.Status);
         Assert.Equal((long?)fee, result.AmountVnd);
         Assert.NotNull(result.PricingVersion);
     }
@@ -50,7 +49,7 @@ public class SiteVisitPricingTests
     }
 
     [Fact]
-    public void Absent_configuration_never_activates_automatic_or_manual_pricing()
+    public void Absent_configuration_never_activates_pricing()
     {
         var pricing = new SiteVisitPricing(new SiteVisitPricingSettings());
         Assert.Equal("PRICING_NOT_CONFIGURED", pricing.Preview("OFFICE_1", 20).Status);
@@ -60,8 +59,8 @@ public class SiteVisitPricingTests
     [Fact]
     public void Changed_configuration_invalidates_old_preview_even_with_same_version_label()
     {
-        var before = new SiteVisitPricing(Fixture()).Preview("OFFICE_1", 21);
-        var after = new SiteVisitPricing(Fixture("21")).Preview("OFFICE_1", 21);
+        var before = new SiteVisitPricing(Fixture()).Preview("OFFICE_1", 41);
+        var after = new SiteVisitPricing(Fixture("41")).Preview("OFFICE_1", 41);
         Assert.NotEqual(before.PricingVersion, after.PricingVersion);
         Assert.NotEqual(before.AmountVnd, after.AmountVnd);
     }
