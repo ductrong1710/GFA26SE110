@@ -1,0 +1,23 @@
+{
+  "data_dir": "/var/lib/pi-gateway",
+  "backend_url": "https://backend.example",
+  "gateway_code": "GW-001",
+  "gateway_id": 1,
+  "uav_id": 1,
+  "sensor_interface": "wlan1",
+  "sensor_ip": "192.168.4.1",
+  "sensor_subnet": "192.168.4.0/24",
+  "tello_interface": "wlan0",
+  "tello_ip": "192.168.10.2",
+  "wan_interface": "eth0",
+  "wan_ip": "192.168.1.20",
+  "battery_min": 25,
+  "ground_test": true,
+  "media_contract_enabled": false,
+  "db_max_bytes": 268435456,
+  "video_max_bytes": 536870912,
+  "min_free_bytes": 134217728,
+  "trusted_nodes": [
+    {"deviceCode":"SENSOR-001","farmId":1,"zoneId":1,"token_env":"SENSOR_001_TOKEN"}
+  ]
+}

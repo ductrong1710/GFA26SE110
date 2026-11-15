@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+.env
+.env.*
+!.env.example
+*.db*
+*.sqlite*
+*.h264
+*.mp4
+config/local.json
+data/

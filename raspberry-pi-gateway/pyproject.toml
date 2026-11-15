@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gfa26se110-pi-gateway"
+version = "0.1.0"
+description = "Offline Raspberry Pi sensor and Tello gateway"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+pi-gateway = "gateway.main:main"
+
+[tool.setuptools.packages.find]
+include = ["gateway*", "mocks*"]
+
+[tool.setuptools.package-data]
+gateway = ["migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

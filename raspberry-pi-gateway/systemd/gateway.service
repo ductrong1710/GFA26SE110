@@ -1,0 +1,36 @@
+[Unit]
+Description=GFA26SE110 Raspberry Pi gateway
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pi-gateway
+Group=pi-gateway
+WorkingDirectory=/opt/pi-gateway
+EnvironmentFile=/etc/pi-gateway/gateway.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/pi-gateway/venv/bin/python -m gateway.main --config /etc/pi-gateway/gateway.json service
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+StateDirectory=pi-gateway
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/pi-gateway
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW
+MemoryHigh=160M
+MemoryMax=220M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
