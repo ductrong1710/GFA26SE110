@@ -1,5 +1,6 @@
 import MaintenanceSchedulesPage from './pages/app/MaintenanceSchedulesPage'
 import PasswordPage from './pages/PasswordPage'
+import VnpayReturnPage from './pages/VnpayReturnPage'
 import CropSeasonsPage from './pages/app/CropSeasonsPage'
 import CropSupportPage from './pages/app/CropSupportPage'
 import ServiceJobsPage from './pages/app/ServiceJobsPage'
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/quen-mat-khau" element={<PasswordPage key="forgot" mode="forgot" />} />
+      <Route path="/payments/vnpay/return" element={<VnpayReturnPage />} />
       <Route path="/dat-lai-mat-khau" element={<PasswordPage key="reset" mode="reset" />} />
       <Route path="/doi-mat-khau" element={<ProtectedRoute><PasswordPage key="change" mode="change" /></ProtectedRoute>} />
       <Route path="/dang-nhap" element={<AccountPage key="login" />} />

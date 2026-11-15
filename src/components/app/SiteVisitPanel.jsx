@@ -14,9 +14,13 @@ export default function SiteVisitPanel({ consultationId, visit, editable, admin,
   const [reading, setReading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [checkout, setCheckout] = useState(null)
+  const [copied, setCopied] = useState(false)
   const [retryPreview, setRetryPreview] = useState(0)
   const current = visit.current
   const channel = visit.channel
+  const vnpay = checkout && checkout.revision === visit.revision ? checkout.data : current?.vnpay
+  const vnpayBlocked = Boolean(vnpay && vnpay.status !== 'FAILED')
   const locked = current?.scheduledAt || current?.paymentStatus === 'CONFIRMED'
   const field = key => ({ value: form[key] ?? '', onChange: e => setForm({ ...form, [key]: e.target.value }) })
   const siteForm = editable && !locked && (channel === 'ON_SITE' || (visit.revision > 0 && form.adjustChannel === 'ON_SITE'))
@@ -25,6 +29,23 @@ export default function SiteVisitPanel({ consultationId, visit, editable, admin,
     Boolean(siteForm && form.officeCode && Number(form.distanceKm) > 0))
   const quote = preview.data
   const manual = quote?.status === 'MANUAL_QUOTE_REQUIRED'
+  async function createCheckout() {
+    if (busy || vnpayBlocked || !visit.vnpayEnabled) return
+    setBusy(true); setError(''); setCopied(false)
+    try {
+      const data = await api.request(base + '/site-visit/payments/vnpay/checkout', {
+        method: 'POST', body: { expectedRevision: visit.revision }, retry: false,
+      })
+      setCheckout({ revision: visit.revision, data })
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+  async function refreshVisit() {
+    setBusy(true)
+    try { onSaved(await api.request(base + '/site-visit')); setCheckout(null); setCopied(false); setError('') }
+    catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
   async function save(path, values, method = 'POST') {
     if (busy) return
     setBusy(true); setError('')
@@ -50,11 +71,10 @@ export default function SiteVisitPanel({ consultationId, visit, editable, admin,
       {current.reviewReason && <><dt>Lý do phản hồi</dt><dd>{current.reviewReason}</dd></>}
       {current.proposedAt && <><dt>Lịch đề xuất</dt><dd>{date(current.proposedAt)}</dd></>}
       <dt>Thanh toán</dt><dd>{current.paymentStatus}</dd><dt>Lịch khảo sát</dt><dd>{current.scheduledAt ? 'Đã chốt' : 'Chưa chốt'}</dd></dl>}
-    {admin && current?.payment && <><p>Thực nhận {money(current.payment.paidAmountVnd)} · {date(current.payment.paidAt)} · {current.payment.reference}</p>
+    {admin && current?.payment && <>{current.payment.source === 'VNPAY_SANDBOX' && <p>VNPAY Sandbox · Chỉ dùng thử nghiệm, không thanh toán bằng tiền thật.</p>}
+      <p>Thực nhận {money(current.payment.paidAmountVnd)} · {date(current.payment.paidAt)} · {current.payment.reference}</p>
       <EvidenceImages images={current.payment.bills ?? []} /></>}
-    {error && <p role="alert">{error} <button type="button" onClick={async () => {
-      try { onSaved(await api.request(base + '/site-visit')); setError('') } catch (err) { setError(err.message) }
-    }}>Tải phiên bản hiện hành</button></p>}
+    {error && <p role="alert">{error} <button type="button" disabled={busy} onClick={refreshVisit}>Tải phiên bản hiện hành</button></p>}
     <fieldset disabled={busy} className="management-form">
       {editable && !locked && <>{!visit.revision ? <label>Ghi nhận lựa chọn của khách<select value={channel ?? ''} onChange={e => save('/channel', { channel: e.target.value }, 'PUT')}>
         <option value="" disabled>Chọn hình thức</option><option value="ONLINE">Trực tuyến</option><option value="ON_SITE">Tại vườn</option></select></label>
@@ -79,12 +99,27 @@ export default function SiteVisitPanel({ consultationId, visit, editable, admin,
         <form onSubmit={e => { e.preventDefault(); save('/site-visit/review',{decision:'RETURN',reason:form.reason}) }}>
           <label>Lý do trả sửa<input required {...field('reason')} /></label><button>Trả sửa</button></form></>}
       {admin && current?.reviewStatus === 'APPROVED' && current.channel === 'ON_SITE' && !current.scheduledAt &&
-        (current.paymentStatus === 'UNPAID' ? <form className="management-form" onSubmit={e => { e.preventDefault(); save('/site-visit/payments/confirm',{
+        (current.paymentStatus === 'UNPAID' ? <>
+          <p>VNPAY Sandbox · Chỉ dùng thử nghiệm, không thanh toán bằng tiền thật.</p>
+          {!visit.vnpayEnabled && <p>VNPAY Sandbox chưa được bật hoặc chưa cấu hình.</p>}
+          <button type="button" disabled={!visit.vnpayEnabled || vnpayBlocked} onClick={createCheckout}>Tạo link VNPAY Sandbox</button>
+          {vnpay && <>
+            <p>VNPAY: {vnpay.status} · {vnpay.txnRef}{vnpay.expiresAt && <> · Hết hạn {date(vnpay.expiresAt)}</>}</p>
+            {vnpayBlocked && <p>Đang xác minh giao dịch VNPAY. Chưa thể xác nhận thủ công. Nếu kết quả chưa rõ, Admin cần đối soát bằng QueryDr trước khi thu tiếp.</p>}
+            {vnpay.checkoutUrl && <><label>Link VNPAY Sandbox<input readOnly value={vnpay.checkoutUrl} /></label>
+              <button type="button" onClick={async () => {
+                try { await navigator.clipboard.writeText(vnpay.checkoutUrl); setCopied(true) }
+                catch { setError('Không thể sao chép tự động. Hãy sao chép link trong ô phía trên.') }
+              }}>Sao chép link</button>{copied && <p role="status">Đã sao chép link.</p>}</>}
+            <button type="button" onClick={refreshVisit}>Cập nhật trạng thái VNPAY</button>
+          </>}
+          <form className="management-form" onSubmit={e => { e.preventDefault(); if (vnpayBlocked) return; save('/site-visit/payments/confirm',{
           paidAmountVnd:Number(form.paid), paidAt:new Date(form.paidAt).toISOString(), reference:form.reference, bills }) }}>
+          <fieldset disabled={vnpayBlocked} className="management-form">
           <label>Số tiền thực nhận (VND)<input required type="number" min="1" step="1" {...field('paid')} /></label>
           <label>Thời điểm giao dịch<input required type="datetime-local" {...field('paidAt')} /></label>
           <label>Mã tham chiếu<input required {...field('reference')} /></label><EvidenceImages images={bills} onChange={setBills} onBusyChange={setReading} />
-          <button disabled={reading || !bills.length}>Xác nhận đã nhận tiền</button></form>
+          <button disabled={reading || !bills.length}>Xác nhận đã nhận tiền</button></fieldset></form></>
           : <button type="button" onClick={() => save('/site-visit/schedule',{})}>Chốt lịch khảo sát</button>)}
     </fieldset>
   </SectionCard>
