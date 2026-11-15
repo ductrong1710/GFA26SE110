@@ -43,7 +43,7 @@ describe('Users page role selection', () => {
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } })
-    fireEvent.change(screen.getByLabelText('Initial password'), { target: { value: 'Test-password-123!' } })
+    fireEvent.change(screen.getByLabelText('Initial password'), { target: { value: '123456' } })
     expect(screen.getByRole('button', { name: 'Save', exact: true })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Save User', exact: true })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }))

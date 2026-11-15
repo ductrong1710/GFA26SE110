@@ -21,6 +21,7 @@ import PublicLayout from './layouts/PublicLayout'
 import AppShell from './layouts/AppShell'
 import DashboardPage from './pages/app/DashboardPage'
 import FarmsPage from './pages/app/FarmsPage'
+import SiteVisitOfficesPage from './pages/app/SiteVisitOfficesPage'
 import UsersPage from './pages/app/UsersPage'
 import AlertsPage from './pages/app/AlertsPage'
 import { ManagementProvider } from './context/ManagementProvider'
@@ -40,7 +41,7 @@ const ReportsPage = lazy(() => import('./pages/app/ReportsPage'))
 const SyncPage = lazy(() => import('./pages/app/SyncPage'))
 const SettingsPage = lazy(() => import('./pages/app/SettingsPage'))
 
-const applicationPages = { 'crop-seasons': <CropSeasonsPage />, 'crop-support': <CropSupportPage />, 'maintenance-schedules': <MaintenanceSchedulesPage />, 'service-jobs': <ServiceJobsPage />, 'device-incidents': <DeviceIncidentsPage />, 'rental-contracts': <RentalContractsPage />, 'installation-jobs': <InstallationJobsPage />, 'installation-requests': <InstallationRequestsPage />, consultations: <ConsultationsPage />, 'consultations/:id': <ConsultationDetailPage />, dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage />, 'sensor-data': <SensorDataPage />, 'sensor-data/compare-zones': <SensorDataPage compareOnly />, reports: <ReportsPage /> }
+const applicationPages = { 'crop-seasons': <CropSeasonsPage />, 'crop-support': <CropSupportPage />, 'maintenance-schedules': <MaintenanceSchedulesPage />, 'service-jobs': <ServiceJobsPage />, 'device-incidents': <DeviceIncidentsPage />, 'rental-contracts': <RentalContractsPage />, 'installation-jobs': <InstallationJobsPage />, 'installation-requests': <InstallationRequestsPage />, consultations: <ConsultationsPage />, 'consultations/:id': <ConsultationDetailPage />, dashboard: <DashboardPage />, farms: <FarmsPage />, users: <UsersPage />, 'site-visit-offices': <SiteVisitOfficesPage />, alerts: <AlertsPage />, settings: <SettingsPage />, sensors: <SensorsPage />, 'sensors/:id': <SensorDetailPage />, devices: <DevicesPage />, missions: <MissionsPage />, 'missions/create': <CreateMissionPage />, 'missions/:id': <MissionDetailPage />, sync: <SyncPage />, 'sensor-data': <SensorDataPage />, 'sensor-data/compare-zones': <SensorDataPage compareOnly />, reports: <ReportsPage /> }
 
 export default function App() {
   return <>

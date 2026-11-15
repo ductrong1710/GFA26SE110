@@ -18,24 +18,24 @@ it('creates a proposal against the selected survey and its zone', async () => {
     return { items: [], pagination: { totalItems: 0 } }
   })
   render(<ProposalPanel consultationId={42} editable />)
-  fireEvent.click(await screen.findByRole('button', { name: 'Prepare proposal' }))
-  await screen.findByRole('option', { name: 'Revision 1: Rice farm' })
-  fireEvent.change(screen.getByLabelText('Survey revision'), { target: { value: '3' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Lập phương án' }))
+  await screen.findByRole('option', { name: 'Phiên bản 1: Rice farm' })
+  fireEvent.change(screen.getByLabelText('Phiên bản khảo sát'), { target: { value: '3' } })
   await screen.findByRole('option', { name: 'North' })
-  fireEvent.change(screen.getByLabelText('Survey zone'), { target: { value: '5' } })
-  fireEvent.change(screen.getByLabelText('Device type'), { target: { value: 'Soil moisture sensor' } })
+  fireEvent.change(screen.getByLabelText('Khu vực khảo sát'), { target: { value: '5' } })
+  fireEvent.change(screen.getByLabelText('Loại thiết bị'), { target: { value: 'Soil moisture sensor' } })
   await screen.findByRole('option', { name: /Soil probe/ })
   expect(screen.queryByRole('option', { name: /Unpriced device|Spare board/ })).toBeNull()
-  fireEvent.change(screen.getByLabelText('Published rental product'), { target: { value: '12' } })
-  fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '3' } })
-  fireEvent.change(screen.getByLabelText('Installation location'), { target: { value: 'Canal edge' } })
-  fireEvent.change(screen.getByLabelText('Rental duration (months)'), { target: { value: '6' } })
-  fireEvent.change(screen.getByLabelText('Requested installation time'), { target: { value: '2030-01-15T09:00' } })
-  fireEvent.submit(screen.getByRole('form', { name: 'Device proposal' }))
+  fireEvent.change(screen.getByLabelText('Thiết bị cho thuê đã công khai'), { target: { value: '12' } })
+  fireEvent.change(screen.getByLabelText('Số lượng'), { target: { value: '3' } })
+  fireEvent.change(screen.getByLabelText('Vị trí lắp đặt'), { target: { value: 'Canal edge' } })
+  fireEvent.change(screen.getByLabelText('Thời hạn thuê (tháng)'), { target: { value: '6' } })
+  fireEvent.change(screen.getByLabelText('Thời gian lắp đặt mong muốn'), { target: { value: '2030-01-15T09:00' } })
+  fireEvent.submit(screen.getByRole('form', { name: 'Phương án thiết bị' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/consultations/42/proposals', expect.objectContaining({ method: 'POST', body: expect.objectContaining({
     expectedRevision: 0, surveyId: 3, rentalMonths: 6, requestedInstallationAt: '2030-01-15T02:00:00.000Z', lines: [{ surveyZoneId: 5, publicContentId: 12, deviceType: 'Soil moisture sensor', quantity: 3, installationLocation: 'Canal edge' }],
   }) })))
-  expect(await screen.findByText('Proposal revision 1 saved.')).toBeTruthy()
+  expect(await screen.findByText('Đã lưu phương án số 1.')).toBeTruthy()
 })
 
 it.each([true, false])('submits the confirmed installation dossier (linked customer: %s)', async linked => {
@@ -49,22 +49,22 @@ it.each([true, false])('submits the confirmed installation dossier (linked custo
     return path.endsWith('/7') ? row : { items: [row], pagination: { totalItems: 1 } }
   })
   render(<ProposalPanel consultationId={42} editable linked={linked} customerName="Garden owner" customerEmail="owner@example.com" />)
-  fireEvent.click(await screen.findByRole('button', { name: 'View proposal revision 1' }))
-  for (const [button, evidence] of [['Record customer plan confirmation', 'Customer accepted by phone'], ['Record external deposit confirmation', 'Bank receipt REF-42']]) {
+  fireEvent.click(await screen.findByRole('button', { name: 'Xem phiên bản phương án 1' }))
+  for (const [button, evidence] of [['Ghi nhận khách hàng xác nhận phương án', 'Customer accepted by phone'], ['Ghi nhận xác nhận tiền đặt cọc bên ngoài hệ thống', 'Bank receipt REF-42']]) {
     const action = await screen.findByRole('button', { name: button })
-    fireEvent.change(screen.getByLabelText('Confirmation evidence or reference'), { target: { value: evidence } })
+    fireEvent.change(screen.getByLabelText('Minh chứng hoặc mã tham chiếu xác nhận'), { target: { value: evidence } })
     fireEvent.click(action)
   }
-  const submit = await screen.findByRole('button', { name: 'Submit installation request' })
+  const submit = await screen.findByRole('button', { name: 'Gửi yêu cầu lắp đặt' })
   expect(submit.disabled).toBe(true)
-  fireEvent.change(screen.getByLabelText('Dossier note'), { target: { value: 'Receipt attached' } })
-  fireEvent.change(screen.getByLabelText('Add evidence images'), { target: { files: [new File(['receipt'], 'receipt.png', { type: 'image/png' })] } })
-  await screen.findByAltText('Evidence image 1')
+  fireEvent.change(screen.getByLabelText('Ghi chú hồ sơ'), { target: { value: 'Receipt attached' } })
+  fireEvent.change(screen.getByLabelText('Thêm ảnh minh chứng'), { target: { files: [new File(['receipt'], 'receipt.png', { type: 'image/png' })] } })
+  await screen.findByAltText('Ảnh minh chứng 1')
   fireEvent.click(submit)
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/installation-dossiers/7/submit', {
-    method: 'POST', toastMessage: 'Installation request submitted successfully.', body: { expectedRevision: 1, note: 'Receipt attached', ...(!linked && { customer: { fullName: 'Garden owner', email: 'owner@example.com' } }), bills: [expect.objectContaining({ contentType: 'image/png' })] },
+    method: 'POST', toastMessage: 'Đã gửi yêu cầu lắp đặt.', body: { expectedRevision: 1, note: 'Receipt attached', ...(!linked && { customer: { fullName: 'Garden owner', email: 'owner@example.com' } }), bills: [expect.objectContaining({ contentType: 'image/png' })] },
   }))
-  expect(await screen.findByText('Dossier #7 submitted for administrator review.')).toBeTruthy()
+  expect(await screen.findByText('Đã gửi hồ sơ #7 để quản trị viên duyệt.')).toBeTruthy()
   expect(request).toHaveBeenCalledWith('/api/consultations/42/proposals/7/confirm-deposit', { method: 'POST', body: { note: 'Bank receipt REF-42' } })
 })
 
@@ -72,9 +72,9 @@ it('keeps owner proposal details read-only', async () => {
   const row = { id: 7, revision: 1, status: 'DEPOSIT_CONFIRMED', lines: [] }
   vi.spyOn(api, 'request').mockImplementation(async path => path.endsWith('/7') ? row : { items: [row], pagination: { totalItems: 1 } })
   render(<ProposalPanel consultationId={42} />)
-  fireEvent.click(await screen.findByRole('button', { name: 'View proposal revision 1' }))
-  await screen.findByRole('region', { name: 'Proposal details' })
-  expect(screen.queryByRole('button', { name: 'Prepare proposal' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Submit installation request' })).toBeNull()
-  expect(screen.queryByLabelText('Confirmation evidence or reference')).toBeNull()
+  fireEvent.click(await screen.findByRole('button', { name: 'Xem phiên bản phương án 1' }))
+  await screen.findByRole('region', { name: 'Chi tiết phương án' })
+  expect(screen.queryByRole('button', { name: 'Lập phương án' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Gửi yêu cầu lắp đặt' })).toBeNull()
+  expect(screen.queryByLabelText('Minh chứng hoặc mã tham chiếu xác nhận')).toBeNull()
 })

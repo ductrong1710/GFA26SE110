@@ -18,7 +18,7 @@ function UserDialog({ mode, record, onSave, onClose }) {
         {mode === 'status' ? <p>{statusAction} <strong>{record.fullName}</strong>?</p> : <>
           {mode !== 'roles' && <><label>Name<input value={values.fullName} required maxLength={120} onChange={(event) => setValues({ ...values, fullName: event.target.value })} /></label>
             <label>Email<input type="email" value={values.email} required maxLength={254} onChange={(event) => setValues({ ...values, email: event.target.value })} /></label></>}
-          {mode === 'add' && <label>Initial password<input type="password" required minLength={12} autoComplete="new-password" value={values.password ?? ''} onChange={event => setValues({ ...values, password: event.target.value })} /></label>}
+          {mode === 'add' && <label>Initial password<input type="password" required minLength={6} autoComplete="new-password" value={values.password ?? ''} onChange={event => setValues({ ...values, password: event.target.value })} /></label>}
           {mode !== 'status' && <fieldset><legend>Role</legend>{USER_ASSIGNABLE_ROLES.map((role) => <label key={role} className="management-check"><input type="radio" name="user-role" value={role} required checked={values.roles[0] === role} onChange={() => setValues({ ...values, roles: [role] })} />{ROLE_LABELS[role]}</label>)}</fieldset>}
         </>}
         {error && <p className="management-error" role="alert">{error}</p>}

@@ -43,7 +43,7 @@ test('public pages and role navigation remain usable on narrow screens', async (
         await expect(menu).toHaveAttribute('aria-expanded', 'false')
         await menu.click()
         const engineer = role === 'FarmEngineer'
-        await drawer.getByRole('link', { name: engineer ? 'Consultations' : 'Installation jobs', exact: true }).click()
+        await drawer.getByRole('link', { name: engineer ? 'Tư vấn' : 'Installation jobs', exact: true }).click()
         await expect(page).toHaveURL(engineer ? /\/app\/consultations$/ : /\/app\/installation-jobs$/)
         await expect(menu).toHaveAttribute('aria-expanded', 'false')
         await fits()
