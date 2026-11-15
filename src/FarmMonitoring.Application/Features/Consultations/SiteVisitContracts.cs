@@ -12,9 +12,9 @@ public sealed record SiteVisitProposeRequest(int? ExpectedRevision, string? Offi
 public sealed record SiteVisitReviewRequest(int? ExpectedRevision, string Decision, string? Reason = null);
 public sealed record SiteVisitConfirmRequest(int? ExpectedRevision, long PaidAmountVnd, DateTimeOffset PaidAt, string Reference, EvidenceImageData[] Bills);
 public sealed record SiteVisitScheduleRequest(int? ExpectedRevision);
-public sealed record SiteVisitPaymentView(long PaidAmountVnd, DateTimeOffset PaidAt, string Reference, int VerifiedBy, DateTimeOffset VerifiedAt, EvidenceImageData[]? Bills);
+public sealed record SiteVisitPaymentView(long PaidAmountVnd, DateTimeOffset PaidAt, string Reference, int? VerifiedBy, DateTimeOffset VerifiedAt, EvidenceImageData[]? Bills, string Source);
 public sealed record SiteVisitSnapshot(int Revision, string Channel, string? OfficeCode, string? OfficeLabel, decimal? DistanceKm,
     string? MapsUrl, DateTimeOffset? ProposedAt, long AmountVnd, string PricingMethod, string? PricingVersion, string? ManualReason,
     string? ChangeReason, int CreatedBy, DateTimeOffset CreatedAt, string ReviewStatus, string? ReviewReason, int? ReviewedBy,
-    DateTimeOffset? ReviewedAt, string PaymentStatus, SiteVisitPaymentView? Payment, int? ScheduledBy, DateTimeOffset? ScheduledAt);
-public sealed record SiteVisitState(string? Channel, int Revision, SiteVisitSnapshot? Current, SiteVisitSnapshot[] History, IReadOnlyList<SiteVisitOffice> Offices);
+    DateTimeOffset? ReviewedAt, string PaymentStatus, SiteVisitPaymentView? Payment, int? ScheduledBy, DateTimeOffset? ScheduledAt, VnpayAttemptView? Vnpay);
+public sealed record SiteVisitState(string? Channel, int Revision, SiteVisitSnapshot? Current, SiteVisitSnapshot[] History, IReadOnlyList<SiteVisitOffice> Offices, bool VnpayEnabled);

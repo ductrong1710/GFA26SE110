@@ -23,6 +23,9 @@ public sealed class SiteVisitConfiguration : IEntityTypeConfiguration<SiteVisitP
         b.HasKey(x => x.ProposalId);
         b.HasOne<SiteVisitProposal>().WithOne(x => x.Payment).HasForeignKey<SiteVisitPayment>(x => x.ProposalId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.VerifiedBy).OnDelete(DeleteBehavior.Restrict);
+        b.Property(x => x.Source).HasMaxLength(32).HasDefaultValue("MANUAL");
+        b.HasOne<VnpayTransaction>().WithOne().HasForeignKey<SiteVisitPayment>(x => x.VnpayTxnRef)
+            .HasPrincipalKey<VnpayTransaction>(x => x.TxnRef).OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<SiteVisitBill> b)

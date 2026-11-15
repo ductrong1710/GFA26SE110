@@ -6,7 +6,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Consultations;
 
-public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUser current, TimeProvider clock, SiteVisitPricing pricing)
+public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUser current, TimeProvider clock, SiteVisitPricing pricing, VnpayProtocol vnpay)
 {
     private int Actor => current.UserId ?? throw new AuthException("Authentication required.");
 
@@ -95,6 +95,7 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
     public Task<SiteVisitState> ConfirmAsync(int id, SiteVisitConfirmRequest request, CancellationToken ct) =>
         Change(id, request.ExpectedRevision, VisitAccess.Administrator, (lead, revisions, now) =>
         {
+            VnpayService.RequireNoUnresolved(revisions);
             var p = Latest(revisions);
             if (p.ReviewStatus != "APPROVED" || p.AmountVnd == 0 || p.Payment != null || p.ScheduledAt != null)
                 throw new ConflictException("This revision cannot accept a payment.");
@@ -110,6 +111,7 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
     public Task<SiteVisitState> ScheduleAsync(int id, SiteVisitScheduleRequest request, CancellationToken ct) =>
         Change(id, request.ExpectedRevision, VisitAccess.Administrator, (lead, revisions, now) =>
         {
+            VnpayService.RequireNoUnresolved(revisions);
             var p = Latest(revisions);
             if (p.Channel != "ON_SITE" || p.ReviewStatus != "APPROVED" || p.ScheduledAt != null || (p.AmountVnd > 0 && p.Payment == null))
                 throw new ConflictException("An approved, paid or free, unscheduled visit is required.");
@@ -134,13 +136,18 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
         var history = revisions.Select(p =>
         {
             var payment = p.Payment is not {} r ? null : new SiteVisitPaymentView(r.PaidAmountVnd, r.PaidAt, r.Reference, r.VerifiedBy,
-                r.VerifiedAt, admin && r.Bill != null ? JsonSerializer.Deserialize<EvidenceImageData[]>(r.Bill.ImagesJson) : null);
+                r.VerifiedAt, admin && r.Bill != null ? JsonSerializer.Deserialize<EvidenceImageData[]>(r.Bill.ImagesJson) : null, r.Source);
             return new SiteVisitSnapshot(p.Revision, p.Channel, p.OfficeCode, p.OfficeLabel, p.DistanceKm, p.MapsUrl, p.ProposedAt,
                 p.AmountVnd, p.PricingMethod, p.PricingVersion, p.ManualReason, p.ChangeReason, p.CreatedBy, p.CreatedAt, p.ReviewStatus,
                 p.ReviewReason, p.ReviewedBy, p.ReviewedAt, p.AmountVnd == 0 ? "NOT_REQUIRED" : payment == null ? "UNPAID" : "CONFIRMED",
-                payment, p.ScheduledBy, p.ScheduledAt);
+                payment, p.ScheduledBy, p.ScheduledAt, admin && p.Transactions.OrderByDescending(t => t.Id).FirstOrDefault() is {} attempt
+                    ? VnpayService.View(attempt,clock.GetUtcNow()) : null);
         }).ToArray();
-        return new(lead.Channel, history.LastOrDefault()?.Revision ?? 0, history.LastOrDefault(), history.SkipLast(1).ToArray(), pricing.Offices);
+        var latest = history.LastOrDefault();
+        var unresolved = revisions.SelectMany(p => p.Transactions).Where(VnpayService.IsUnresolved).OrderByDescending(t => t.Id).FirstOrDefault();
+        if (admin && latest != null && unresolved != null)
+            latest = latest with { Vnpay = VnpayService.View(unresolved,clock.GetUtcNow()) };
+        return new(lead.Channel, latest?.Revision ?? 0, latest, history.SkipLast(1).ToArray(), pricing.Offices, vnpay.IsConfigured);
     }
 
     private static SiteVisitProposal Latest(List<SiteVisitProposal> rows) => rows.LastOrDefault() ?? throw new ConflictException("No proposal exists.");

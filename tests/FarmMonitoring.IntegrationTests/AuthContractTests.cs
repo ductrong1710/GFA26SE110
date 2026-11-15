@@ -47,7 +47,8 @@ public class AuthContractTests(ApiFactory factory)
         foreach (var (route, method) in new[] {
             ("channel","put"), ("site-visit","get"), ("site-visit/fee-preview","post"),
             ("site-visit/proposals","post"), ("site-visit/review","post"),
-            ("site-visit/payments/confirm","post"), ("site-visit/schedule","post") })
+            ("site-visit/payments/confirm","post"), ("site-visit/schedule","post"),
+            ("site-visit/payments/vnpay/checkout","post") })
         {
             var operation = paths.GetProperty("/api/consultations/{id}/" + route).GetProperty(method);
             Assert.Contains(operation.GetProperty("security").EnumerateArray(), s => s.TryGetProperty("Bearer", out _));
@@ -55,6 +56,12 @@ public class AuthContractTests(ApiFactory factory)
         var scheme = spec.GetProperty("components").GetProperty("securitySchemes").GetProperty("Bearer");
         Assert.Equal("http", scheme.GetProperty("type").GetString());
         Assert.Equal("bearer", scheme.GetProperty("scheme").GetString());
+        foreach (var path in new[] { "/api/payments/vnpay/ipn", "/api/payments/vnpay/status" })
+        {
+            var operation = paths.GetProperty(path).GetProperty("get");
+            Assert.True(!operation.TryGetProperty("security", out var security) || security.GetArrayLength() == 0);
+            Assert.True(operation.GetProperty("responses").GetProperty("200").TryGetProperty("content", out _));
+        }
         foreach (var path in new[] { "/api/auth/login", "/api/auth/refresh" })
         {
             var operation = paths.GetProperty(path).GetProperty("post");

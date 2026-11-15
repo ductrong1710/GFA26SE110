@@ -25,6 +25,7 @@ public sealed class SiteVisitProposal
     public int? ScheduledBy { get; set; }
     public DateTimeOffset? ScheduledAt { get; set; }
     public SiteVisitPayment? Payment { get; set; }
+    public List<VnpayTransaction> Transactions { get; set; } = [];
 }
 
 public sealed class SiteVisitPayment
@@ -34,7 +35,9 @@ public sealed class SiteVisitPayment
     public DateTimeOffset PaidAt { get; set; }
     public string Reference { get; set; } = "";
     public DateTimeOffset VerifiedAt { get; set; }
-    public int VerifiedBy { get; set; }
+    public int? VerifiedBy { get; set; }
+    public string Source { get; set; } = "MANUAL";
+    public string? VnpayTxnRef { get; set; }
     public SiteVisitBill? Bill { get; set; }
 }
 

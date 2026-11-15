@@ -38,6 +38,10 @@ public static class DependencyInjection
         services.AddHostedService<PasswordResetWorker>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ISiteVisitRepository, ConsultationRepository>();
+        services.AddScoped<IVnpayRepository, ConsultationRepository>();
+        services.AddScoped<VnpayService>();
+        services.AddScoped(_ => configuration.GetSection("Vnpay").Get<VnpaySettings>() ?? new VnpaySettings());
+        services.AddScoped<VnpayProtocol>();
         services.AddScoped<SiteVisitService>();
         services.AddScoped(_ => configuration.GetSection("SiteVisitPricing").Get<SiteVisitPricingSettings>() ?? new SiteVisitPricingSettings());
         services.AddScoped<SiteVisitPricing>();

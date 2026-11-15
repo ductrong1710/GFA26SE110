@@ -3478,15 +3478,28 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("MANUAL");
+
                     b.Property<DateTimeOffset>("VerifiedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("VerifiedBy")
+                    b.Property<int?>("VerifiedBy")
                         .HasColumnType("integer");
+
+                    b.Property<string>("VnpayTxnRef")
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("ProposalId");
 
                     b.HasIndex("VerifiedBy");
+
+                    b.HasIndex("VnpayTxnRef")
+                        .IsUnique();
 
                     b.ToTable("site_visit_payments", (string)null);
                 });
@@ -4034,6 +4047,80 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("user_roles", (string)null);
+                });
+
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.VnpayTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<long>("AmountVnd")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CheckoutUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("PayDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ProposalId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProviderTransactionNo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PublicToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ResponseCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TmnCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TransactionStatus")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TxnRef")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ProposalId");
+
+                    b.HasIndex("PublicToken")
+                        .IsUnique();
+
+                    b.ToTable("vnpay_transactions", (string)null);
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Zone", b =>
@@ -5233,8 +5320,13 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.HasOne("FarmMonitoring.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("VerifiedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.VnpayTransaction", null)
+                        .WithOne()
+                        .HasForeignKey("FarmMonitoring.Domain.Entities.SiteVisitPayment", "VnpayTxnRef")
+                        .HasPrincipalKey("FarmMonitoring.Domain.Entities.VnpayTransaction", "TxnRef")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitProposal", b =>
@@ -5368,6 +5460,21 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("FarmMonitoring.Domain.Entities.VnpayTransaction", b =>
+                {
+                    b.HasOne("FarmMonitoring.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmMonitoring.Domain.Entities.SiteVisitProposal", null)
+                        .WithMany("Transactions")
+                        .HasForeignKey("ProposalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.Zone", b =>
                 {
                     b.HasOne("FarmMonitoring.Domain.Entities.Farm", "Farm")
@@ -5486,6 +5593,8 @@ namespace FarmMonitoring.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.SiteVisitProposal", b =>
                 {
                     b.Navigation("Payment");
+
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("FarmMonitoring.Domain.Entities.User", b =>

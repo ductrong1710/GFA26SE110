@@ -22,7 +22,7 @@ public sealed partial class ConsultationRepository : ISiteVisitRepository
         if ((access == VisitAccess.Engineer || !admin) && lead.EngineerId != actor) throw AccessDeniedException.OutsideScope();
         if (write && lead.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
 
-        var revisions = await db.Set<SiteVisitProposal>().Include(x => x.Payment).Where(x => x.ConsultationId == id)
+        var revisions = await db.Set<SiteVisitProposal>().Include(x => x.Payment).Include(x => x.Transactions).Where(x => x.ConsultationId == id)
             .OrderBy(x => x.Revision).ToListAsync(ct);
         if (admin && revisions.LastOrDefault()?.Payment is { } payment)
             await db.Entry(payment).Reference(x => x.Bill).LoadAsync(ct);

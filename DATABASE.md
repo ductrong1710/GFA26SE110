@@ -1062,3 +1062,9 @@ Migration 20261103130751_ThresholdChangeHistory creates threshold_changes with r
 
 ### MF-04 linked season and follow-up
 Migration 20261113064256_CropSupportFollowUp adds nullable crop_season_id and observed_at (timestamptz), plus nullable update fields follow_up_type, cultivation_activity_id, assigned_engineer_id, referral_type and device_incident_id. All new FKs use RESTRICT and have indexes. Old rows stay NULL, crop remains the report snapshot, and no historical observation time is inferred. History retains ASSIGNED/FOLLOW_UP/REVIEW_REQUESTED/REOPENED/REFERRED events alongside prior tokens. Downgrade refuses while new context/history exists. Apply via normal EF deployment after backup; this task migrates only isolated test databases.
+
+### MF-01 VNPAY Sandbox
+
+Migration `20261115005023_SiteVisitVnpaySandbox` tạo `vnpay_transactions` với integer identity PK, FK RESTRICT tới proposal và người tạo; TxnRef là alternate unique key và PublicToken có unique index. Lưu merchant, amount VND bigint, revision qua ProposalId, link, hạn, trạng thái và kết quả provider/thời điểm xác minh. `site_visit_payments` thêm Source (default MANUAL cho dữ liệu cũ), VnpayTxnRef nullable unique FK RESTRICT; VerifiedBy nullable cho xác thực hệ thống. Receipt PK ProposalId ngăn thu hai lần trên revision. Bill/actor/thời điểm và tiền lịch sử được giữ nguyên; không sinh giao dịch từ dữ liệu cũ.
+
+Các write serialize bằng FOR UPDATE trên cùng consultation trong transaction; IPN chỉ ACK sau commit. Downgrade từ chối nếu có bất kỳ giao dịch VNPAY để bảo vệ lịch sử, kể cả giao dịch thất bại. Sao lưu trước deploy; migration chỉ chạy trên PostgreSQL test cô lập trong tác vụ này.

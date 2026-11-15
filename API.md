@@ -1427,3 +1427,29 @@ Dùng `api.request` (trả về data đã bóc envelope). Preview trả 200; cá
 3. **Đúng phí đã duyệt**: với báo giá 165 km đã duyệt, Admin POST V/payments/confirm `{"expectedRevision":1,"paidAmountVnd":550000,"paidAt":"2026-11-10T10:00:00+07:00","reference":"BANK-001","bills":[{"contentType":"image/png","dataBase64":"<ảnh PNG hợp lệ mã hóa base64>"}]}` → `{"current":{"revision":1,"amountVnd":550000,"reviewStatus":"APPROVED","paymentStatus":"CONFIRMED","scheduledAt":null,"payment":{"paidAmountVnd":550000,"reference":"BANK-001","verifiedBy":12,"verifiedAt":"2026-11-13T06:00:00Z"}}}`. Chỉ POST V/schedule riêng mới chốt lịch. proposedAt là lúc hẹn, scheduledAt là lúc Admin chốt. Bill không có URL công khai; chỉ Admin nhận nội dung ảnh. Từ 1–5 ảnh PNG/JPEG, ≤2 MiB/ảnh.
 
 Phiên bản tăng khi gửi đề xuất mới. Review, xác nhận thu và chốt lịch áp dụng vào đúng revision, lưu actor/thời gian server. Thu tiền/chốt lịch xong thì khóa thay thế, yêu cầu Admin đối soát bên ngoài; không có endpoint tự hoàn tiền, sinh khoản thu mới hay mở khóa. Đề xuất mới không kế thừa duyệt hoặc thanh toán. Khi đổi kênh qua revision, kênh mới chỉ có hiệu lực sau duyệt. ON_SITE (kể cả điều chỉnh sang tại vườn đang chờ duyệt) không được ghi kết quả trước chốt lịch. ONLINE miễn phí, lead cũ chưa chọn kênh tiếp tục sử dụng API khảo sát hiện có.
+
+### MF-01: VNPAY Sandbox 2.1.0
+
+Sandbox bị tắt mặc định. Chỉ Admin tạo link cho revision hiện hành ON_SITE, APPROVED, phí >0, chưa thu/chốt lịch, lead IN_PROGRESS. Tiền lấy từ DB, kể cả báo giá thủ công trên 150 km; request không nhận số tiền. ONLINE/0đ giữ luồng cũ. Bill thủ công vẫn được hỗ trợ khi không có giao dịch VNPAY chưa rõ kết quả.
+
+Đặt V=/api/consultations/{id}/site-visit.
+
+| Method/path | Quyền | Request / response data |
+|---|---|---|
+| POST V/payments/vnpay/checkout | Admin | `{"expectedRevision":1}` → `{checkoutUrl,txnRef,status:"PENDING",expiresAt,sandbox:true}` |
+| GET /api/payments/vnpay/status?token=... | Công khai | Chỉ `{status,sandbox:true}`; token ngẫu nhiên 64 hex, không dùng consultationId/txnRef để tra công khai |
+| GET /api/payments/vnpay/ipn | Công khai, xác thực HMACSHA512 | Query VNPAY; JSON nguyên dạng `{"RspCode":"00","Message":"Confirm Success"}`, không bọc envelope |
+
+GET V bổ sung `vnpayEnabled` (đã bật và đủ cấu hình). Snapshot bổ sung `vnpay: {txnRef,status,expiresAt,checkoutUrl} | null`, chỉ Admin nhận thông tin này. Current có thể hiển thị giao dịch chưa giải quyết từ revision cũ để cảnh báo khóa khoản phí. Link chỉ trả khi PENDING còn hạn. Receipt bổ sung `source: "MANUAL" | "VNPAY_SANDBOX"`; `verifiedBy` null cho IPN, `verifiedAt` do server ghi. Không tạo bill giả.
+
+Checkout cùng revision tái sử dụng link còn hiệu lực. 400: thiếu expectedRevision hoặc vượt giới hạn PAY (1–9999999999 VND); 409: sai revision/bước hoặc kết quả chưa rõ; 422: Sandbox tắt/chưa cấu hình. Checkout/status dùng envelope hiện có. Giao dịch commit trước khi trả link. Checkout, IPN, bill và chốt lịch dùng chung khóa tư vấn; receipt duy nhất theo proposal và txnRef. IPN chỉ tạo receipt khi chữ ký, merchant, số tiền ×100, revision và cả responseCode/transactionStatus=00 hợp lệ; ngày thanh toán phải nằm trong thời hạn giao dịch.
+
+IPN trả HTTP200 với RspCode: 00 đã ghi nhận (có thể vào đối soát, không đồng nghĩa đã thu/chốt lịch); 01 không có giao dịch; 02 đã xử lý; 04 sai tiền; 97 sai chữ ký/merchant; 99 kết quả không hợp lệ hoặc không commit được. Kiểm tra tiền trước khi trả 02. IPN lặp không tạo thêm receipt. Tắt checkout không tắt IPN: giữ credentials cũ đến khi xử lý hết giao dịch.
+
+Trạng thái: PENDING chờ IPN; UNKNOWN là PENDING đã hết hạn nhưng chưa biết kết quả; SUCCEEDED đã có receipt; FAILED là lỗi xác định; RECONCILIATION_REQUIRED cần đối soát (revision cũ, kết quả mâu thuẫn, ngày ngoài hạn hoặc khoản phí đã xử lý). Chỉ transactionStatus02 cùng response09/10/11/12/13/24/51/65/75/79 được coi FAILED và cho thử lại. Mọi PENDING/UNKNOWN/RECONCILIATION_REQUIRED ở bất kỳ revision nào đều chặn tạo link khác, xác nhận bill và chốt lịch. Hết hạn không có nghĩa chưa bị trừ tiền.
+
+Return URL là FrontEnd `/payments/vnpay/return?token=...`. Trang chỉ đọc DB, bỏ qua mọi vnp_ResponseCode/vnp_SecureHash trong URL, không ghi thanh toán. Về trước IPN hiển thị “Đang xác nhận thanh toán”. Khách không cần đăng nhập; response không có tiền, hồ sơ, contact, bill hay actor. Tự kiểm tra tối đa 12 lần, cách 5 giây, và cho cập nhật thủ công.
+
+Ví dụ demo (giá test): revision1 đã duyệt 200000 VND → checkout trả link có `vnp_Amount=20000000`. Trước IPN: status PENDING, payment null; sau IPN hợp lệ: status SUCCEEDED, current.paymentStatus CONFIRMED, payment.source VNPAY_SANDBOX, scheduledAt vẫn null. Admin gọi riêng `POST V/schedule {"expectedRevision":1}`. Với 165km đã duyệt báo tay 620000 VND, PAY dùng 62000000; với 0đ checkout409, Admin chốt lịch theo NOT_REQUIRED như cũ.
+
+Thiết lập HTTPS/IPN, QueryDr và demo: [VNPAY_SANDBOX.md](docs/VNPAY_SANDBOX.md). Không có endpoint tự bỏ khóa đối soát hoặc tự hoàn tiền.
