@@ -9,7 +9,7 @@ import { displayVietnameseTime as displayTime } from '../../utils/display'
 const emptyZone = () => ({ name: '', crop: '', cropAgeDays: '', symptoms: '', installationLocation: '' })
 const emptySurvey = () => ({ expectedRevision: 0, farmName: '', farmLocation: '', farmArea: '', monitoringNeeds: '', notes: '', zones: [emptyZone()], images: [] })
 
-export default function SurveyPanel({ consultationId, editable }) {
+export default function SurveyPanel({ consultationId, editable, onSaved }) {
   const [page, setPage] = useState(1)
   const [draft, setDraft] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -42,6 +42,7 @@ export default function SurveyPanel({ consultationId, editable }) {
           symptoms: zone.symptoms || null, installationLocation: zone.installationLocation })),
       } })
       setSelected(saved); setDraft(null); setPage(1); query.reload(); setNotice(`Đã lưu bản khảo sát số ${saved.revision}.`)
+      onSaved?.()
     } catch (err) { setError(err.message) } finally { setPending(false) }
   }
   const field = name => ({ value: draft[name], onChange: event => setDraft({ ...draft, [name]: event.target.value }) })

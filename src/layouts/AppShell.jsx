@@ -6,14 +6,15 @@ import AppPageBoundary from '../components/app/AppPageBoundary'
 import { useFarmWorkspace } from '../services/api/useFarmWorkspace'
 import ApiState from '../components/app/ApiState'
 import { useAuth } from '../context/AuthContext'
+import { PERMISSIONS } from '../config/permissions'
 import '../styles/app-shell.css'
 import '../styles/app-tokens.css'
 
 const mobileQuery = '(max-width: 1023px)'
 
 export default function AppShell() {
-  const { activeRole } = useAuth()
-  const real = useFarmWorkspace()
+  const { activeRole, can } = useAuth()
+  const real = useFarmWorkspace(can(PERMISSIONS.FARMS_VIEW))
   const farmWorkspace = real.farmWorkspace
   const farms = farmWorkspace.farms
   const [mobile, setMobile] = useState(() => window.matchMedia(mobileQuery).matches)

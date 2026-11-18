@@ -1,12 +1,13 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderComponent, screen, waitFor, within } from '@testing-library/react'
 import ConsultationPage from '../src/pages/ConsultationPage'
 import SiteVisitPanel from '../src/components/app/SiteVisitPanel'
 import { api } from '../src/services/api/index.js'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ConsultationsPage, { ConsultationDetailPage } from '../src/pages/app/ConsultationsPage'
 import HeroSection from '../src/components/HeroSection'
-vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 4 }, can: permission => ['consultations.manage', 'consultations.view'].includes(permission) }) }))
+import { useAuth } from '../src/context/AuthContext'
+vi.mock('../src/context/AuthContext', () => ({ useAuth: vi.fn(() => ({ user: { id: 4 }, can: permission => ['consultations.manage', 'consultations.view'].includes(permission) })) }))
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 function render(component) { return renderComponent(<MemoryRouter>{component}</MemoryRouter>) }
@@ -40,14 +41,42 @@ it('keeps entered contact data available after a failed submission', async () =>
   expect(screen.getByLabelText('Họ tên *').value).toBe('Khách hàng')
 })
 
+it('opens all consultations for the administrator and can filter unassigned requests', async () => {
+  const request = vi.spyOn(api, 'request').mockImplementation(async (_, { query }) => ({
+    items: [],
+    pagination: { totalItems: query.inbox ? 7 : 0, totalPages: 1, pageSize: 10 },
+  }))
+  await useAuth.withImplementation(() => ({ can: () => true }), async () => {
+    render(<ConsultationsPage />)
+    const all = screen.getByRole('button', { name: 'Tất cả yêu cầu', pressed: true })
+    const inbox = screen.getByRole('button', { name: /Chờ phân công/, pressed: false })
+    await waitFor(() => expect(inbox.textContent).toContain('7'))
+    expect(request).toHaveBeenCalledWith('/api/consultations', expect.objectContaining({ query: { inbox: true, page: 1, pageSize: 1 } }))
+    expect(request).toHaveBeenCalledWith('/api/consultations', expect.objectContaining({ query: { inbox: false, page: 1 } }))
+    fireEvent.click(inbox)
+    expect(inbox.getAttribute('aria-pressed')).toBe('true')
+    expect(request).toHaveBeenLastCalledWith('/api/consultations', expect.objectContaining({ query: { inbox: true, page: 1 } }))
+    const pending = screen.getByRole('button', { name: 'Chờ tiếp nhận', pressed: false })
+    fireEvent.click(pending)
+    expect(pending.getAttribute('aria-pressed')).toBe('true')
+    expect(request).toHaveBeenLastCalledWith('/api/consultations', expect.objectContaining({ query: { pendingAcceptance: true, page: 1 } }))
+    fireEvent.click(all)
+    expect(request).toHaveBeenLastCalledWith('/api/consultations', expect.objectContaining({ query: { inbox: false, page: 1 } }))
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+})
+
 it('shows assigned consultation details to the engineer', async () => {
   const request = vi.spyOn(api, 'request').mockResolvedValue({
     items: [{ id: 42, serviceNeed: 'Sensors', status: 'IN_PROGRESS', createdAt: '2026-10-28T00:00:00Z' }],
     pagination: { totalItems: 1 },
   })
   render(<ConsultationsPage />)
-  expect((await screen.findByRole('link', { name: 'Mở #42' })).getAttribute('href')).toBe('/app/consultations/42')
+  expect((await screen.findByRole('link', { name: 'Xem chi tiết', exact: true })).getAttribute('href')).toBe('/app/consultations/42')
+  expect(screen.getByRole('heading', { name: 'Công việc tư vấn được giao' })).toBeTruthy()
+  expect(screen.queryByRole('table')).toBeNull()
   expect(screen.getByText('Đang xử lý')).toBeTruthy()
+  expect(request).toHaveBeenCalledTimes(1)
   expect(request).toHaveBeenCalledWith('/api/consultations', expect.objectContaining({ query: { inbox: false, page: 1 } }))
 })
 
@@ -62,8 +91,81 @@ it('records follow-up on the assigned detail and renders persisted history', asy
   fireEvent.click(screen.getByRole('button', { name: 'Lưu kết quả theo dõi' }))
   await screen.findByText('Đã lưu kết quả theo dõi.')
   expect(request).toHaveBeenCalledWith('/api/consultations/42/follow-ups', { method: 'POST', body: { notes: 'Called customer', contactResult: 'Answered', nextAction: 'Arrange survey' } })
-  expect(screen.getByText('Arrange survey')).toBeTruthy()
-  expect(screen.getByText('Đã ghi nhận kết quả theo dõi')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Lịch sử & Phân công/ })).toBeNull()
+})
+
+it('lets the engineer respond to their assignment before showing consultation controls', async () => {
+  const detail = { id: 42, customerName: 'Khách hàng', farmLocation: 'Vườn điều', engineerId: 4,
+    status: 'PENDING_ACCEPTANCE', preferredChannel: 'ONLINE', history: [],
+    assignment: { id: 9, responseDeadline: '2026-11-19T04:00:00Z' } }
+  let accepted = false
+  const request = vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path.endsWith('/assignment-response')) { accepted = true; return null }
+    if (path.endsWith('/site-visit')) return { revision: 0, channel: null }
+    return accepted ? { ...detail, status: 'IN_PROGRESS' } : detail
+  })
+  renderComponent(<MemoryRouter initialEntries={['/app/consultations/42?step=assignment']}><Routes><Route path="/app/consultations/:id" element={<ConsultationDetailPage />} /></Routes></MemoryRouter>)
+  const accept = await screen.findByRole('button', { name: 'Tiếp nhận', exact: true })
+  expect(screen.getByText('Vườn điều')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Từ chối', exact: true })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Lịch sử & Phân công/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Hình thức tư vấn' })).toBeNull()
+  expect(request.mock.calls.map(([path]) => path)).toEqual(['/api/consultations/42'])
+  fireEvent.click(accept)
+  fireEvent.click(await screen.findByRole('button', { name: 'Chuyển sang tư vấn tại vườn' }))
+  expect(screen.getByLabelText('Lý do chuyển sang tại vườn')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Lịch sử & Phân công/ })).toBeNull()
+})
+
+it('shows the reassigned engineer and newest named history event after saving', async () => {
+  const detail = { id: 42, engineerId: 4, engineerName: 'Nguyễn Văn Bình', customerName: 'Lê Minh An',
+    status: 'IN_PROGRESS', history: [
+      { id: 1, action: 'SUBMITTED', createdAt: '2026-10-27T00:00:00Z' },
+      { id: 2, action: 'CHANNEL_CHANGED', actorName: 'Nguyễn Văn Bình', createdAt: '2026-10-28T00:00:00Z', notes: 'UNSPECIFIED -> ONLINE' },
+    ] }
+  const request = vi.spyOn(api, 'request').mockImplementation(async path => {
+    if (path.endsWith('/assignment-candidates')) return [{ id: 5, fullName: 'Trần Thị Mai', openCount: 1, capacity: 10 }]
+    if (path.endsWith('/assign')) return { ...detail, engineerId: 5, engineerName: 'Trần Thị Mai', history: [...detail.history, {
+      id: 3, action: 'REASSIGNED', actorName: 'Phạm Văn Nam', previousEngineerName: detail.engineerName,
+      assignedEngineerName: 'Trần Thị Mai', createdAt: '2026-10-29T09:27:00Z',
+    }] }
+    if (path === '/api/consultations/42') return detail
+    return { items: [], pagination: { totalItems: 0 } }
+  })
+  await useAuth.withImplementation(() => ({ user: { id: 1 }, can: () => true }), async () => {
+    renderComponent(<MemoryRouter initialEntries={['/app/consultations/42']}><Routes><Route path="/app/consultations/:id" element={<ConsultationDetailPage />} /></Routes></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: /Lịch sử & Phân công/ }))
+    const card = within(await screen.findByRole('region', { name: 'Lịch sử & Phân công tư vấn' }))
+    expect(card.getByText('Chưa xác định → Tư vấn trực tuyến')).toBeTruthy()
+    fireEvent.click(card.getByRole('button', { name: 'Phân công lại' }))
+    fireEvent.click(await card.findByRole('button', { name: 'Gán cho Trần Thị Mai' }))
+    expect(await card.findByText('Đã phân công lại kỹ sư phụ trách.')).toBeTruthy()
+    expect(card.getByText('Trần Thị Mai', { selector: 'strong' })).toBeTruthy()
+    const [latest] = card.getAllByRole('listitem')
+    expect(latest.textContent).toContain('29/10/2026 16:27')
+    expect(latest.textContent).toContain('Thực hiện bởi: Phạm Văn Nam')
+    expect(latest.textContent).toContain('Từ: Nguyễn Văn Bình')
+    expect(latest.textContent).toContain('Sang: Trần Thị Mai')
+    expect(request).toHaveBeenCalledWith('/api/consultations/42/assign', {
+      method: 'POST', body: { engineerId: 5, expectedEngineerId: 4 }, retry: false,
+    })
+  })
+})
+
+it('shows an empty state for an unavailable step and leaves assignment accessible', async () => {
+  const request = vi.spyOn(api, 'request').mockResolvedValue({
+    id: 42, customerName: 'Khách hàng', status: 'NEW', history: [],
+  })
+  await useAuth.withImplementation(() => ({ user: { id: 1 }, can: () => true }), async () => {
+    renderComponent(<MemoryRouter initialEntries={['/app/consultations/42?step=farm']}><Routes><Route path="/app/consultations/:id" element={<ConsultationDetailPage />} /></Routes></MemoryRouter>)
+    const step = await screen.findByRole('button', { name: 'Nông trại khách hàng' })
+    expect(step.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('Không có dữ liệu')).toBeTruthy()
+    expect(screen.queryByRole('combobox', { name: 'Nông trại của khách hàng' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Lịch sử & Phân công/ }))
+    expect(screen.getByRole('button', { name: 'Mở danh sách phân công' })).toBeTruthy()
+    expect(request.mock.calls.map(([path]) => path)).toEqual(['/api/consultations/42'])
+  })
 })
 
 it.each([
