@@ -41,9 +41,25 @@ dotnet run --project src/FarmMonitoring.Api --launch-profile https
 
 Mở `https://localhost:7043/swagger` để kiểm tra API. Sau lần seed thành công, có thể xóa hai biến seed khỏi phiên terminal. Giữ cấu hình cá nhân, mật khẩu, JWT và khóa PayOS ngoài Git.
 
-PayOS chỉ cần cấu hình khi thử luồng thanh toán. Xem hợp đồng hiện tại trong [API.md](../API.md). Các kiểm thử PayOS dùng client giả lập và không cần khóa thanh toán thật.
+## 4. Cấu hình PayOS khi cần thử thanh toán
 
-## 4. Kiểm thử trước khi push
+Backend vẫn chạy khi chưa có khóa PayOS. Ba giá trị `ClientId`, `ApiKey` và `ChecksumKey` chỉ cần khi thử tạo link thanh toán. Lấy chúng từ kênh PayOS dành cho thử nghiệm. Nếu cần chia sẻ quyền truy cập với đồng đội, dùng kho mật khẩu hoặc kênh chia sẻ secret riêng.
+
+Chạy các lệnh tại thư mục backend và thay nội dung trong dấu `<...>` bằng giá trị của bạn:
+
+```powershell
+dotnet user-secrets set 'PayOS:ClientId' '<client-id>' --project src/FarmMonitoring.Api
+dotnet user-secrets set 'PayOS:ApiKey' '<api-key>' --project src/FarmMonitoring.Api
+dotnet user-secrets set 'PayOS:ChecksumKey' '<checksum-key>' --project src/FarmMonitoring.Api
+dotnet user-secrets set 'PayOS:ReturnUrl' 'https://localhost:5173/payments/payos/return' --project src/FarmMonitoring.Api
+dotnet user-secrets set 'PayOS:CancelUrl' 'https://localhost:5173/payments/payos/cancel' --project src/FarmMonitoring.Api
+```
+
+Các URL mẫu giả định frontend đang chạy HTTPS trên cổng 5173. Backend yêu cầu cả hai URL dùng HTTPS để bật tạo link. Nếu dùng Docker Compose development của dự án trên Windows, Compose lấy ba khóa từ User Secrets của máy host qua thư mục `%APPDATA%\Microsoft\UserSecrets\FarmMonitoring-Api-Development` và đặt URL trả về theo cấu hình Compose. Sau khi cấu hình, khởi động lại API. Giữ các giá trị thật ngoài Git, kể cả file `.env` và `secrets.json`.
+
+Nếu cần PayOS gửi webhook vào máy local, dùng địa chỉ HTTPS công khai trỏ đến môi trường thử nghiệm và đăng ký endpoint `/api/payments/payos/webhook` cho kênh PayOS đó. URL localhost chỉ dùng để trình duyệt quay về frontend. Xem [API.md](../API.md) để biết hợp đồng hiện tại. Các kiểm thử PayOS dùng client giả lập.
+
+## 5. Kiểm thử trước khi push
 
 Trên Windows, sau khi restore, dùng script sau để chạy các bài kiểm thử trên PostgreSQL tạm, riêng biệt với database development:
 
