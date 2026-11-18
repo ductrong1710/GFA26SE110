@@ -4,6 +4,7 @@ public sealed class SiteVisitProposal
 {
     public int Id { get; set; }
     public int ConsultationId { get; set; }
+    public Consultation Consultation { get; set; } = null!;
     public int Revision { get; set; }
     public string Channel { get; set; } = "ON_SITE";
     public string? OfficeCode { get; set; }
@@ -27,7 +28,7 @@ public sealed class SiteVisitProposal
     public int? ScheduledBy { get; set; }
     public DateTimeOffset? ScheduledAt { get; set; }
     public SiteVisitPayment? Payment { get; set; }
-    public List<VnpayTransaction> Transactions { get; set; } = [];
+    public List<PayOsTransaction> PayOsTransactions { get; set; } = [];
 }
 
 public sealed class SiteVisitPayment
@@ -39,7 +40,7 @@ public sealed class SiteVisitPayment
     public DateTimeOffset VerifiedAt { get; set; }
     public int? VerifiedBy { get; set; }
     public string Source { get; set; } = "MANUAL";
-    public string? VnpayTxnRef { get; set; }
+    public long? PayOsTransactionId { get; set; }
     public SiteVisitBill? Bill { get; set; }
 }
 

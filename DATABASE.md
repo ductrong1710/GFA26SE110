@@ -1063,11 +1063,13 @@ Migration 20261103130751_ThresholdChangeHistory creates threshold_changes with r
 ### MF-04 linked season and follow-up
 Migration 20261113064256_CropSupportFollowUp adds nullable crop_season_id and observed_at (timestamptz), plus nullable update fields follow_up_type, cultivation_activity_id, assigned_engineer_id, referral_type and device_incident_id. All new FKs use RESTRICT and have indexes. Old rows stay NULL, crop remains the report snapshot, and no historical observation time is inferred. History retains ASSIGNED/FOLLOW_UP/REVIEW_REQUESTED/REOPENED/REFERRED events alongside prior tokens. Downgrade refuses while new context/history exists. Apply via normal EF deployment after backup; this task migrates only isolated test databases.
 
-### MF-01 VNPAY Sandbox
+### MF-01 PayOS
 
-Migration `20261115005023_SiteVisitVnpaySandbox` tạo `vnpay_transactions` với integer identity PK, FK RESTRICT tới proposal và người tạo; TxnRef là alternate unique key và PublicToken có unique index. Lưu merchant, amount VND bigint, revision qua ProposalId, link, hạn, trạng thái và kết quả provider/thời điểm xác minh. `site_visit_payments` thêm Source (default MANUAL cho dữ liệu cũ), VnpayTxnRef nullable unique FK RESTRICT; VerifiedBy nullable cho xác thực hệ thống. Receipt PK ProposalId ngăn thu hai lần trên revision. Bill/actor/thời điểm và tiền lịch sử được giữ nguyên; không sinh giao dịch từ dữ liệu cũ.
+Migration `20261118045322_SiteVisitPayOsPayments` tạo `payos_transactions` với khóa chính bigint, FK RESTRICT tới đề xuất và người tạo, `OrderCode` duy nhất, `PaymentLinkId` duy nhất có lọc null, số tiền VND, revision, checkout URL, QR, hạn, trạng thái và dữ liệu đối soát từ provider. `site_visit_payments` thêm `PayOsTransactionId` nullable, unique FK RESTRICT. Khóa chính receipt theo ProposalId tiếp tục ngăn ghi nhận nhiều khoản thu cho cùng đề xuất. Các thao tác giao dịch dùng khóa consultation để serialize webhook, đối soát, xác nhận bill và chốt lịch.
 
-Các write serialize bằng FOR UPDATE trên cùng consultation trong transaction; IPN chỉ ACK sau commit. Downgrade từ chối nếu có bất kỳ giao dịch VNPAY để bảo vệ lịch sử, kể cả giao dịch thất bại. Sao lưu trước deploy; migration chỉ chạy trên PostgreSQL test cô lập trong tác vụ này.
+Các thay đổi schema được quản lý bằng EF Core migrations.
+
+Migration `20261118052607_SiteVisitPayOsPublicStatusToken` thêm token tra cứu nullable và unique có lọc vào `payos_transactions`. Token 256-bit chỉ có trên URL return/cancel và dùng endpoint công khai trả trạng thái tối thiểu. Giao dịch PayOS đã tồn tại trước migration giữ token null, không bị backfill hoặc thay đổi trạng thái.
 Migration `20261115090000_ConsultationIntakeCropType` thêm `consultations.crop_type`, `consultations.preferred_channel` và `site_visit_proposals.garden_address`. Các cột cho phép null để giữ dữ liệu cũ. API bắt buộc cây trồng và lựa chọn ban đầu khi gửi yêu cầu mới, cùng địa chỉ vườn khi lập báo cáo tại vườn cho yêu cầu mới. Lịch sử phân công, yêu cầu trả hồ sơ và quyết định dùng các giá trị action mới trong `consultation_history`.
 
 Migration `20261115100000_SiteVisitOffices` tạo danh mục `site_visit_offices` cho quản trị viên. Báo cáo lưu thêm link Maps của trụ sở trong `site_visit_proposals.office_maps_url` để các bản đã gửi giữ thông tin điểm xuất phát. Báo cáo cũ có thể chưa có link trụ sở.

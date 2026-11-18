@@ -11,11 +11,14 @@ public interface IConsultationRepository
     Task BindCustomerAsync(int id, int administratorId, CustomerFarmRequest request, DateTimeOffset now, CancellationToken ct);
     Task<PagedResult<ConsultationSummary>> FarmConsultationsAsync(int farmId, int userId, bool administrator, PageQuery query, CancellationToken ct);
     Task<Consultation?> GetAsync(int id, CancellationToken ct);
+    Task<Dictionary<int, string>> GetParticipantNamesAsync(int[] ids, CancellationToken ct);
     Task<IReadOnlyList<ConsultationAssignmentCandidate>> ListAssignmentCandidatesAsync(int id, CancellationToken ct);
     Task RequestReturnAsync(int id, int engineerId, string reason, DateTimeOffset now, CancellationToken ct);
     Task ReviewReturnAsync(int id, int adminId, ConsultationReturnDecision decision, DateTimeOffset now, CancellationToken ct);
     Task CloseAsync(int id, int engineerId, ConsultationStatus status, string? reason, DateTimeOffset now, CancellationToken ct);
-    Task AssignAsync(int id, int administratorId, AssignConsultationRequest request, DateTimeOffset now, CancellationToken ct);
+    Task AssignAsync(int id, int administratorId, AssignConsultationRequest request, CancellationToken ct);
+    Task RespondToAssignmentAsync(int id, int engineerId, RespondToConsultationAssignment request, CancellationToken ct);
+    Task ExpireAssignmentsAsync(CancellationToken ct);
     Task FollowUpAsync(int id, int engineerId, FollowUpRequest request, DateTimeOffset now, CancellationToken ct);
     Task AddSurveyAsync(FarmSurvey survey, int expectedRevision, CancellationToken ct);
     Task<PagedResult<SurveySummary>> ListSurveysAsync(int consultationId, PageQuery query, CancellationToken ct);

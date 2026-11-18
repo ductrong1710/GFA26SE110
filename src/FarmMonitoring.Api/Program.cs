@@ -3,8 +3,27 @@ using FarmMonitoring.Api.Extensions;
 using FarmMonitoring.Api.Middleware;
 using FarmMonitoring.Infrastructure;
 using FarmMonitoring.Infrastructure.Persistence;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var forwardedHeadersEnabled = builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled");
+if (forwardedHeadersEnabled)
+{
+    var trustedProxies = builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [];
+    if (trustedProxies.Length == 0)
+        throw new InvalidOperationException("ForwardedHeaders:KnownProxies must contain at least one trusted proxy address when forwarded headers are enabled.");
+
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        options.ForwardLimit = 1;
+        foreach (var proxy in trustedProxies)
+            options.KnownProxies.Add(IPAddress.Parse(proxy));
+    });
+}
+
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddApiServices();
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
@@ -16,6 +35,7 @@ builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
 }));
 
 var app = builder.Build();
+if (forwardedHeadersEnabled) app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseStatusCodePages(async context =>
 {
@@ -36,7 +56,8 @@ if (app.Environment.IsDevelopment())
     await scope.ServiceProvider.GetRequiredService<DevelopmentAdminSeeder>().SeedAsync(
         app.Configuration["SEED_ADMIN_EMAIL"], app.Configuration["SEED_ADMIN_PASSWORD"], app.Lifetime.ApplicationStopping);
 }
-app.UseHttpsRedirection();
+if (builder.Configuration.GetValue<bool?>("HttpsRedirection:Enabled") ?? !app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("Frontend");
 app.UseAuthentication();

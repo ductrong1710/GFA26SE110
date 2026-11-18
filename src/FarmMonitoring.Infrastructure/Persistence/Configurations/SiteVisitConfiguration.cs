@@ -12,7 +12,7 @@ public sealed class SiteVisitConfiguration : IEntityTypeConfiguration<SiteVisitP
         b.Property(x => x.OfficeMapsUrl).HasColumnName("office_maps_url").HasMaxLength(2048);
         b.Property(x => x.GardenAddress).HasColumnName("garden_address").HasMaxLength(500);
         b.HasIndex(x => new { x.ConsultationId, x.Revision }).IsUnique();
-        b.HasOne<Consultation>().WithMany().HasForeignKey(x => x.ConsultationId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Consultation).WithMany().HasForeignKey(x => x.ConsultationId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.DistanceKm).HasPrecision(9, 2);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.ReviewedBy).OnDelete(DeleteBehavior.Restrict);
@@ -26,8 +26,8 @@ public sealed class SiteVisitConfiguration : IEntityTypeConfiguration<SiteVisitP
         b.HasOne<SiteVisitProposal>().WithOne(x => x.Payment).HasForeignKey<SiteVisitPayment>(x => x.ProposalId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<User>().WithMany().HasForeignKey(x => x.VerifiedBy).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.Source).HasMaxLength(32).HasDefaultValue("MANUAL");
-        b.HasOne<VnpayTransaction>().WithOne().HasForeignKey<SiteVisitPayment>(x => x.VnpayTxnRef)
-            .HasPrincipalKey<VnpayTransaction>(x => x.TxnRef).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<PayOsTransaction>().WithOne().HasForeignKey<SiteVisitPayment>(x => x.PayOsTransactionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<SiteVisitBill> b)

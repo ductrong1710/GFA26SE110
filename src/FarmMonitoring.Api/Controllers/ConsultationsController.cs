@@ -57,6 +57,14 @@ public sealed class ConsultationsController(ConsultationService service) : Contr
     public async Task<ActionResult<ApiResponse<ConsultationResponse>>> Assign(int id, AssignConsultationRequest request, CancellationToken ct) =>
         Ok(ApiResponse<ConsultationResponse>.Ok(await service.AssignAsync(id, request, ct)));
 
+    [HttpPost("{id:int}/assignment-response")]
+    [Authorize(Policy = AccessPolicies.ProcessConsultations)]
+    public async Task<IActionResult> RespondToAssignment(int id, RespondToConsultationAssignment request, CancellationToken ct)
+    {
+        await service.RespondToAssignmentAsync(id, request, ct);
+        return NoContent();
+    }
+
     [HttpPost("{id:int}/follow-ups")]
     [Authorize(Policy = AccessPolicies.ProcessConsultations)]
     public async Task<ActionResult<ApiResponse<ConsultationResponse>>> FollowUp(int id, FollowUpRequest request, CancellationToken ct) =>

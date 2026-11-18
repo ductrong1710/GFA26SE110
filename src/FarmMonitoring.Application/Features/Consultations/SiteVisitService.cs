@@ -6,7 +6,7 @@ using FluentValidation;
 
 namespace FarmMonitoring.Application.Features.Consultations;
 
-public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUser current, TimeProvider clock, SiteVisitPricing pricing, VnpayProtocol vnpay)
+public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUser current, TimeProvider clock, SiteVisitPricing pricing, IPayOsClient payOs)
 {
     private int Actor => current.UserId ?? throw new AuthException("Authentication required.");
 
@@ -48,6 +48,8 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
     public Task<SiteVisitState> ProposeAsync(int id, SiteVisitProposeRequest request, CancellationToken ct) =>
         Change(id, request.ExpectedRevision, VisitAccess.Engineer, (lead, revisions, now, offices) =>
         {
+            if (revisions.SelectMany(x => x.PayOsTransactions).Any(PayOsService.IsUnresolved))
+                throw new ConflictException("Payment outcome is unresolved. Reconcile it before submitting another proposal.");
             var previous = revisions.LastOrDefault();
             if (previous?.Payment is not null || previous?.ScheduledAt is not null)
                 throw new ConflictException("Confirmed receipts and schedules require administrator reconciliation.");
@@ -110,13 +112,8 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
                     if (p.ProposedAt <= now) throw new ConflictException("Ngày giờ tư vấn đã qua. Hãy trả báo cáo để kỹ sư cập nhật.");
                     if (p.AmountVnd == 0)
                     {
-                        VnpayService.RequireNoUnresolved(revisions);
                         p.ScheduledBy = Actor;
                         p.ScheduledAt = now;
-                    }
-                    else if (vnpay.IsConfigured && !revisions.SelectMany(revision => revision.Transactions).Any(VnpayService.IsUnresolved))
-                    {
-                        VnpayService.CreateAttempt(p, vnpay, Actor, now, ip);
                     }
                 }
             }
@@ -125,9 +122,8 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
     public Task<SiteVisitState> ConfirmAsync(int id, SiteVisitConfirmRequest request, CancellationToken ct) =>
         Change(id, request.ExpectedRevision, VisitAccess.Administrator, (lead, revisions, now, offices) =>
         {
-            VnpayService.RequireNoUnresolved(revisions);
             var p = Latest(revisions);
-            if (lead.PreferredChannel != null) throw new ConflictException("Yêu cầu này cần thanh toán qua VNPay.");
+            if (lead.PreferredChannel != null) throw new ConflictException("Yêu cầu này cần thanh toán qua cổng thanh toán trực tuyến.");
             if (p.ReviewStatus != "APPROVED" || p.AmountVnd == 0 || p.Payment != null || p.ScheduledAt != null)
                 throw new ConflictException("This revision cannot accept a payment.");
             if (request.PaidAmountVnd != p.AmountVnd) throw new BusinessRuleException("Payment does not match the approved fee.");
@@ -142,7 +138,8 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
     public Task<SiteVisitState> ScheduleAsync(int id, SiteVisitScheduleRequest request, CancellationToken ct) =>
         Change(id, request.ExpectedRevision, VisitAccess.Administrator, (lead, revisions, now, offices) =>
         {
-            VnpayService.RequireNoUnresolved(revisions);
+            if (revisions.SelectMany(x => x.PayOsTransactions).Any(PayOsService.IsUnresolved))
+                throw new ConflictException("PayOS payment outcome is unresolved. Reconcile it before scheduling.");
             var p = Latest(revisions);
             if (p.Channel != "ON_SITE" || p.ReviewStatus != "APPROVED" || p.ScheduledAt != null || (p.AmountVnd > 0 && p.Payment == null))
                 throw new ConflictException("An approved, paid or free, unscheduled visit is required.");
@@ -175,14 +172,18 @@ public sealed class SiteVisitService(ISiteVisitRepository repository, ICurrentUs
             return new SiteVisitSnapshot(p.Revision, p.Channel, p.OfficeCode, p.OfficeLabel, p.DistanceKm, p.MapsUrl, p.ProposedAt,
                 p.AmountVnd, p.PricingMethod, p.PricingVersion, p.ManualReason, p.ChangeReason, p.CreatedBy, p.CreatedAt, p.ReviewStatus,
                 p.ReviewReason, p.ReviewedBy, p.ReviewedAt, p.AmountVnd == 0 ? "NOT_REQUIRED" : payment == null ? "UNPAID" : "CONFIRMED",
-                payment, p.ScheduledBy, p.ScheduledAt, p.Transactions.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).FirstOrDefault() is {} attempt
-                    ? VnpayService.View(attempt,clock.GetUtcNow()) : null, p.GardenAddress, p.OfficeMapsUrl);
+                payment, p.ScheduledBy, p.ScheduledAt, p.PayOsTransactions.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).FirstOrDefault() is {} attempt
+                    ? new PayOsAttemptView(attempt.OrderCode, attempt.PaymentLinkId, PayOsService.DisplayStatus(attempt, clock.GetUtcNow()), attempt.ExpiresAt,
+                        attempt.Status == "PENDING" && attempt.ExpiresAt > clock.GetUtcNow() ? attempt.CheckoutUrl : null,
+                        attempt.Status == "PENDING" && attempt.ExpiresAt > clock.GetUtcNow() ? attempt.QrCode : null) : null, p.GardenAddress, p.OfficeMapsUrl);
         }).ToArray();
         var latest = history.LastOrDefault();
-        var unresolved = revisions.SelectMany(p => p.Transactions).Where(VnpayService.IsUnresolved).OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).FirstOrDefault();
+        var unresolved = revisions.SelectMany(p => p.PayOsTransactions).Where(PayOsService.IsUnresolved).OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).FirstOrDefault();
         if (latest != null && unresolved != null)
-            latest = latest with { Vnpay = VnpayService.View(unresolved,clock.GetUtcNow()) };
-        return new(lead.Channel, latest?.Revision ?? 0, latest, history.SkipLast(1).ToArray(), offices, vnpay.IsConfigured, pricing.Tariff);
+            latest = latest with { PayOs = new PayOsAttemptView(unresolved.OrderCode, unresolved.PaymentLinkId, PayOsService.DisplayStatus(unresolved, clock.GetUtcNow()), unresolved.ExpiresAt,
+                unresolved.Status == "PENDING" && unresolved.ExpiresAt > clock.GetUtcNow() ? unresolved.CheckoutUrl : null,
+                unresolved.Status == "PENDING" && unresolved.ExpiresAt > clock.GetUtcNow() ? unresolved.QrCode : null) };
+        return new(lead.Channel, latest?.Revision ?? 0, latest, history.SkipLast(1).ToArray(), offices, payOs.IsConfigured, pricing.Tariff);
     }
 
     private static SiteVisitProposal Latest(List<SiteVisitProposal> rows) => rows.LastOrDefault() ?? throw new ConflictException("No proposal exists.");

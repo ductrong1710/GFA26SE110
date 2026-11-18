@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FarmMonitoring.Application.Interfaces;
+using FarmMonitoring.Domain.Entities;
 using FarmMonitoring.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,8 +59,8 @@ public sealed class ConsultationTests(ApiFactory factory)
         var detail = (await engineer.GetFromJsonAsync<JsonElement>($"/api/consultations/{id}")).GetProperty("data");
         Assert.Equal("IN_PROGRESS", detail.GetProperty("status").GetString());
         Assert.Equal("+84901234567", detail.GetProperty("phone").GetString());
-        Assert.Equal(3, detail.GetProperty("history").GetArrayLength());
-        Assert.Equal("Arrange survey", detail.GetProperty("history")[2].GetProperty("nextAction").GetString());
+        Assert.Equal(2, detail.GetProperty("history").GetArrayLength());
+        Assert.Equal("Arrange survey", detail.GetProperty("history")[1].GetProperty("nextAction").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, (await engineer.PostAsJsonAsync($"/api/consultations/{id}/follow-ups",
             new { notes = "", contactResult = "", nextAction = "" })).StatusCode);
     }
@@ -152,15 +153,113 @@ public sealed class ConsultationTests(ApiFactory factory)
         var winnerId = await ConsultationTestAssignment.EngineerIdAsync(winner);
         var loserId = await ConsultationTestAssignment.EngineerIdAsync(loser);
         var path = $"/api/consultations/{id}";
+        await ConsultationTestAssignment.AcceptAsync(winner, path, claims.Single(x => x.IsSuccessStatusCode));
         using var changed = await admin.PostAsJsonAsync(path + "/assign", new { engineerId = loserId, expectedEngineerId = winnerId });
         changed.EnsureSuccessStatusCode();
         var detail = (await changed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
         Assert.Equal(loserId, detail.GetProperty("engineerId").GetInt32());
-        Assert.Equal("REASSIGNED", detail.GetProperty("history").EnumerateArray().Last().GetProperty("action").GetString());
+        var history = detail.GetProperty("history").EnumerateArray().ToArray();
+        var assigned = history.Single(x => x.GetProperty("action").GetString() == "ASSIGNED");
+        var reassigned = history.Last();
+        Assert.Equal("REASSIGNED", reassigned.GetProperty("action").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(reassigned.GetProperty("actorName").GetString()));
+        Assert.Equal(assigned.GetProperty("assignedEngineerName").GetString(), reassigned.GetProperty("previousEngineerName").GetString());
+        Assert.Equal(detail.GetProperty("engineerName").GetString(), reassigned.GetProperty("assignedEngineerName").GetString());
+        Assert.Equal("Second engineer", reassigned.GetProperty(loserId == secondId ? "assignedEngineerName" : "previousEngineerName").GetString());
         Assert.Equal(HttpStatusCode.Forbidden, (await winner.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await loser.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync(path + "/assign",
             new { engineerId = winnerId, expectedEngineerId = winnerId })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Assignment_expires_once_while_engineer_responds_and_can_be_assigned_again()
+    {
+        using var admin = await Login("admin@example.com");
+        using var first = await Login(await ConsultationTestAssignment.CreateEngineerAsync(admin));
+        using var second = await Login(await ConsultationTestAssignment.CreateEngineerAsync(admin));
+        using var visitor = factory.CreateApiClient();
+        using var submitted = await visitor.PostAsJsonAsync("/api/consultations", new
+        {
+            customerName = "Assignment deadline", cropType = "Coffee", preferredChannel = "ONLINE",
+            phone = "0901234567", email = "customer@example.com", farmLocation = "Farm",
+            farmArea = 4, serviceNeed = "Monitoring", content = "Consultation"
+        });
+        submitted.EnsureSuccessStatusCode();
+        var id = (await submitted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("id").GetInt32();
+        var path = $"/api/consultations/{id}";
+
+        async Task<JsonElement> Assign(HttpClient engineer)
+        {
+            using var response = await admin.PostAsJsonAsync(path + "/assign",
+                new { engineerId = await ConsultationTestAssignment.EngineerIdAsync(engineer) });
+            response.EnsureSuccessStatusCode();
+            var detail = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+            Assert.Equal("PENDING_ACCEPTANCE", detail.GetProperty("status").GetString());
+            var attempt = detail.GetProperty("assignment");
+            Assert.Equal(TimeSpan.FromHours(5), attempt.GetProperty("responseDeadline").GetDateTimeOffset() -
+                attempt.GetProperty("assignedAt").GetDateTimeOffset());
+            return attempt;
+        }
+
+        var firstAttempt = await Assign(first);
+        var assignmentId = firstAttempt.GetProperty("id").GetInt32();
+        const string pendingList = "/api/consultations?pendingAcceptance=true";
+        Assert.Contains((await admin.GetFromJsonAsync<JsonElement>(pendingList)).GetProperty("data").EnumerateArray(),
+            row => row.GetProperty("id").GetInt32() == id && row.GetProperty("status").GetString() == "PENDING_ACCEPTANCE");
+        Assert.DoesNotContain((await second.GetFromJsonAsync<JsonElement>(pendingList)).GetProperty("data").EnumerateArray(),
+            row => row.GetProperty("id").GetInt32() == id);
+        Assert.Equal(HttpStatusCode.Conflict, (await first.PostAsJsonAsync(path + "/follow-ups",
+            new { notes = "Before accepting", contactResult = "Contacted", nextAction = "Survey" })).StatusCode);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var old = DateTimeOffset.UtcNow.AddHours(-5);
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            await db.Consultations.Where(x => x.Id == id).ExecuteUpdateAsync(x => x.SetProperty(row => row.UpdatedAt, old));
+            await db.Set<ConsultationHistory>().Where(x => x.Id == assignmentId).ExecuteUpdateAsync(x => x.SetProperty(row => row.CreatedAt, old));
+            await transaction.CommitAsync();
+        }
+
+        async Task RunExpiry()
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<IConsultationRepository>().ExpireAssignmentsAsync(default);
+        }
+
+        var late = first.PostAsJsonAsync(path + "/assignment-response", new { assignmentId, accept = true });
+        await Task.WhenAll(late, RunExpiry(), RunExpiry());
+        Assert.Equal(HttpStatusCode.Conflict, (await late).StatusCode);
+        Assert.Equal("Lượt phân công đã hết hạn. Vui lòng liên hệ Admin",
+            (await (await late).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
+        var expired = (await admin.GetFromJsonAsync<JsonElement>(path)).GetProperty("data");
+        Assert.Equal("NEEDS_REASSIGNMENT", expired.GetProperty("status").GetString());
+        Assert.Equal("EXPIRED", expired.GetProperty("assignment").GetProperty("status").GetString());
+        Assert.DoesNotContain((await admin.GetFromJsonAsync<JsonElement>(pendingList)).GetProperty("data").EnumerateArray(),
+            row => row.GetProperty("id").GetInt32() == id);
+        Assert.Single(expired.GetProperty("history").EnumerateArray(), x => x.GetProperty("action").GetString() == "ASSIGNMENT_EXPIRED");
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var adminId = await ConsultationTestAssignment.EngineerIdAsync(admin);
+            Assert.Equal(1, await db.Notifications.CountAsync(x => x.UserId == adminId && x.Channel == NotificationChannel.WEB &&
+                x.Subject == "Yêu cầu tư vấn cần phân công lại" && x.Message.StartsWith($"Yêu cầu tư vấn #{id} ")));
+        }
+
+        var secondAttempt = await Assign(second);
+        var secondId = secondAttempt.GetProperty("id").GetInt32();
+        Assert.NotEqual(assignmentId, secondId);
+        using var rejected = await second.PostAsJsonAsync(path + "/assignment-response", new { assignmentId = secondId, accept = false, reason = "Không thể bố trí lịch." });
+        rejected.EnsureSuccessStatusCode();
+        var rejectedDetail = (await admin.GetFromJsonAsync<JsonElement>(path)).GetProperty("data");
+        Assert.Equal("REJECTED", rejectedDetail.GetProperty("assignment").GetProperty("status").GetString());
+        Assert.Equal("Không thể bố trí lịch.", rejectedDetail.GetProperty("assignment").GetProperty("reason").GetString());
+        var third = await Assign(first);
+        using var accepted = await first.PostAsJsonAsync(path + "/assignment-response", new { assignmentId = third.GetProperty("id").GetInt32(), accept = true });
+        accepted.EnsureSuccessStatusCode();
+        var active = (await admin.GetFromJsonAsync<JsonElement>(path)).GetProperty("data");
+        Assert.Equal("IN_PROGRESS", active.GetProperty("status").GetString());
+        Assert.Equal("ACCEPTED", active.GetProperty("assignment").GetProperty("status").GetString());
     }
 
     [Fact]

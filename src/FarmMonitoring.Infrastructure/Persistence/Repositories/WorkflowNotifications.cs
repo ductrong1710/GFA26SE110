@@ -11,7 +11,14 @@ internal static class WorkflowNotifications
     }
     public static async Task AddForRoleAsync(AppDbContext db, string role, string subject, string message, DateTimeOffset now, CancellationToken ct)
     {
-        var ids = await db.Users.Where(x => x.IsActive && x.UserRoles.Any(r => r.Role.Name == role)).Select(x => x.Id).ToArrayAsync(ct);
+        var ids = await RecipientsForRoleAsync(db, role, ct);
+        AddForUsers(db, ids, subject, message, now);
+    }
+    public static Task<int[]> RecipientsForRoleAsync(AppDbContext db, string role, CancellationToken ct) =>
+        db.Users.Where(x => x.IsActive && x.UserRoles.Any(r => r.Role.Name == role)).Select(x => x.Id).ToArrayAsync(ct);
+
+    public static void AddForUsers(AppDbContext db, IEnumerable<int> ids, string subject, string message, DateTimeOffset now)
+    {
         foreach (var id in ids) Add(db, id, subject, message, now);
     }
     private static void Add(AppDbContext db, int userId, string subject, string message, DateTimeOffset now)

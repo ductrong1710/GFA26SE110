@@ -1221,9 +1221,13 @@ Engineer/Technician job context and rental-based device scoping remain pending s
 
 Administrators use `GET /api/consultations?inbox=true` for unassigned summaries. Engineers see their own work. Summaries omit contact fields. Administrators read `GET /api/consultations/{id}/assignment-candidates` for active engineers ordered by open count, including capacity and any blocking reason. `POST /api/consultations/{id}/assign` takes `{engineerId}`, transitions NEW to IN_PROGRESS, and rechecks capacity and prior returns atomically. Detail GET allows administrators and the assigned engineer. Follow-up accepts required `notes`, `contactResult`, `nextAction` from the assigned engineer.
 
+Consultation detail responses include the current `engineerName`. History entries include `actorName` and, where applicable, `previousEngineerName`, `assignedEngineerName`, or `linkedOwnerName`. These fields are nullable when a name cannot be resolved. Existing IDs and history notes remain available to API consumers.
+
+New assignments enter `PENDING_ACCEPTANCE`. The detail response includes the latest `assignment` with its ID, engineer name, UTC assignment time, five-hour response deadline, status and any recorded outcome. The assigned engineer responds with `POST /api/consultations/{id}/assignment-response` and `{assignmentId, accept, reason}`. Rejection requires a reason. Success returns 204. Acceptance changes the case to `IN_PROGRESS`. Rejection or expiry changes it to `NEEDS_REASSIGNMENT` and places it in the administrator inbox. The deadline is enforced by the API and a startup and minute-based background check. Cases already in progress retain their existing assignments.
+
 To transfer an IN_PROGRESS case directly, the administrator sends `{engineerId,expectedEngineerId}` to the same assignment endpoint, where `expectedEngineerId` is the current assignee. A stale assignment or a pending return request returns 409. Both engineers are notified, and the transfer is recorded in history.
 
-The assigned engineer can POST `/{id}/return-requests` with `{reason}`. The administrator reviews it at `/{id}/return-requests/review` with `{requestId,approve}`. Approval clears the assignment and blocks reassigning that case to the same engineer. Rejection retains the assignment. The assigned engineer can POST `/{id}/close` with `{status:"COMPLETED"|"CANCELLED",reason?}`. Return approval and closure are blocked while a VNPay result is unresolved.
+The assigned engineer can POST `/{id}/return-requests` with `{reason}`. The administrator reviews it at `/{id}/return-requests/review` with `{requestId,approve}`. Approval clears the assignment and blocks reassigning that case to the same engineer. Rejection retains the assignment. The assigned engineer can POST `/{id}/close` with `{status:"COMPLETED"|"CANCELLED",reason?}`. Return approval and closure are blocked while a PayOS payment result is unresolved.
 
 ### Farm survey revisions (Phase 2, partial)
 The assigned Agricultural Engineer records a survey with POST `/api/consultations/{id}/surveys`. Body: `expectedRevision` (0 initially), `farmName`, `farmLocation`, optional `farmArea` in hectares, `monitoringNeeds`, optional `notes`, and 1–100 relational `zones`. Each zone has `name`, optional `crop`, optional `cropAgeDays`, optional `symptoms`, and required `installationLocation`. Optional unknown values stay null; zero crop age is distinct from unknown.
@@ -1405,7 +1409,7 @@ MF-04 season picker: GET /api/crop-seasons additionally accepts farmId, zoneId a
 
 Nguồn: Report 3 SRS §5.11, §5.13–5.17 (BR-001/002, FR-003–005, AT-001, OD-01); Project Register MF-01 F02/F04/F06/F08. Đối chiếu BackEnd `4f4f80d`, FrontEnd `ebf7604`, snapshot review-2 `e7438df`. Đây là khoản thu trước khảo sát, độc lập với `confirm-deposit` và bill hồ sơ lắp đặt.
 
-`preferredChannel` là mong muốn ban đầu. Kỹ sư được phân công xác nhận trực tuyến qua PUT channel, hoặc nộp báo cáo tại vườn gồm `channel: "ON_SITE"` và `gardenAddress` cùng thông tin tuyến đường và lịch. Admin duyệt báo cáo miễn phí sẽ chốt lịch và thông báo cho kỹ sư trong cùng giao dịch. Với báo cáo có phí, admin tạo link VNPay sau duyệt. Kỹ sư lấy link trong chi tiết để gửi khách. Admin chốt lịch sau khi IPN xác nhận đã thanh toán. Đặt `L=/api/consultations/{id}`, `V=L/site-visit`:
+`preferredChannel` là mong muốn ban đầu. Kỹ sư được phân công xác nhận trực tuyến qua PUT channel, hoặc nộp báo cáo tại vườn gồm `channel: "ON_SITE"` và `gardenAddress` cùng thông tin tuyến đường và lịch. Admin duyệt báo cáo miễn phí sẽ chốt lịch và thông báo cho kỹ sư trong cùng giao dịch. Với báo cáo có phí, admin duyệt trước rồi tạo link PayOS bằng endpoint checkout. Kỹ sư lấy link trong chi tiết để gửi khách. Admin chốt lịch sau khi Webhook PayOS đã xác nhận thanh toán hoặc Admin đã đối soát trạng thái qua PayOS. Đặt `L=/api/consultations/{id}`, `V=L/site-visit`:
 
 | Method/path | JWT và điều kiện | Body |
 |---|---|---|
@@ -1428,32 +1432,24 @@ Dùng `api.request` (trả về data đã bóc envelope). Preview trả 200; cá
 1. **165 km**: POST V/fee-preview với `distanceKm: 165` trả `status: CALCULATED` và `amountVnd: 445000`.
    POST V/proposals gửi `pricingVersion` từ preview cùng thông tin tuyến đường và lịch. Backend lưu phí 445.000 VND, với `pricingMethod: CALCULATED`.
 2. **Tại vườn 0 đồng**: test riêng dùng T1=20, T2=80. Preview `{"officeCode":"OFFICE_1","distanceKm":5}` → `{"status":"CALCULATED","amountVnd":0,"pricingVersion":"<token>"}`. Submit như trên với distanceKm=5, bỏ hai trường manual. Admin POST V/review `{"expectedRevision":1,"decision":"APPROVE"}` → current.reviewStatus=APPROVED, paymentStatus=NOT_REQUIRED, payment=null. POST V/schedule `{"expectedRevision":1}` → current.scheduledAt khác null. Không POST payment. Thiếu cấu hình biểu phí phải hiển thị **Chưa cấu hình biểu phí**, không hiển thị 0 đồng.
-3. **Báo giá có phí**: admin duyệt và tạo link VNPay. Sau khi IPN được xác minh thành công, admin mới chốt lịch. `proposedAt` là giờ hẹn và `scheduledAt` là thời điểm admin chốt.
+3. **Báo giá có phí**: admin duyệt, sau đó tạo link PayOS bằng endpoint checkout. Chỉ Webhook PayOS đã xác minh hoặc thao tác đối soát Admin mới ghi nhận đã thanh toán; return URL không xác nhận giao dịch. Admin mới chốt lịch sau đó. `proposedAt` là giờ hẹn và `scheduledAt` là thời điểm admin chốt.
 
 Phiên bản tăng khi gửi đề xuất mới. Review, xác nhận thu và chốt lịch áp dụng vào đúng revision, lưu actor/thời gian server. Thu tiền/chốt lịch xong thì khóa thay thế, yêu cầu Admin đối soát bên ngoài; không có endpoint tự hoàn tiền, sinh khoản thu mới hay mở khóa. Đề xuất mới không kế thừa duyệt hoặc thanh toán. Khi đổi kênh qua revision, kênh mới chỉ có hiệu lực sau duyệt. ON_SITE (kể cả điều chỉnh sang tại vườn đang chờ duyệt) không được ghi kết quả trước chốt lịch. ONLINE miễn phí, lead cũ chưa chọn kênh tiếp tục sử dụng API khảo sát hiện có.
 
-### MF-01: VNPAY Sandbox 2.1.0
+### MF-01: PayOS
 
-Sandbox bị tắt mặc định. Khi admin duyệt báo cáo tại vườn có phí, backend tạo link trong cùng giao dịch nếu VNPay đã cấu hình và chưa có khoản thanh toán cần đối soát. Kỹ sư phụ trách nhận thông báo và lấy link trong chi tiết hồ sơ. Admin có thể dùng endpoint checkout để tạo link cho hồ sơ đã duyệt trước đó hoặc thử lại sau thất bại đã xác minh. Tiền lấy từ báo giá đã duyệt. Yêu cầu mới có phí thanh toán qua VNPay. Xác nhận bill thủ công chỉ áp dụng cho yêu cầu cũ và cần kết quả VNPay đã rõ.
+Backend dùng payOS SDK 2.1.1. Cấu hình bí mật nằm ở `PayOS:ClientId`, `PayOS:ApiKey`, `PayOS:ChecksumKey` trong secret store hoặc environment; không đưa secret vào frontend hoặc log. Admin duyệt đề xuất có phí rồi chủ động tạo link. Số tiền luôn lấy từ đề xuất đã duyệt. Một link đang hoạt động được tái sử dụng; kết quả không rõ sẽ khóa tạo link mới và yêu cầu đối soát. Checkout không tự xác nhận thanh toán.
 
 Đặt V=/api/consultations/{id}/site-visit.
 
 | Method/path | Quyền | Request / response data |
 |---|---|---|
-| POST V/payments/vnpay/checkout | Admin | `{"expectedRevision":1}` → `{checkoutUrl,txnRef,status:"PENDING",expiresAt,sandbox:true}` |
-| GET /api/payments/vnpay/status?token=... | Công khai | Chỉ `{status,sandbox:true}`; token ngẫu nhiên 64 hex, không dùng consultationId/txnRef để tra công khai |
-| GET /api/payments/vnpay/ipn | Công khai, xác thực HMACSHA512 | Query VNPAY; JSON nguyên dạng `{"RspCode":"00","Message":"Confirm Success"}`, không bọc envelope |
+| POST `/api/consultations/{id}/site-visit/payments/payos/checkout` | Admin | `{"expectedRevision":1}` → `{orderCode,paymentLinkId,checkoutUrl,qrCode,amountVnd,status,expiresAt}` |
+| POST `/api/payments/payos/webhook` | Công khai, HTTPS, chữ ký payOS | Raw JSON callback; SDK xác minh chữ ký trước khi xử lý. Trả ACK payOS sau commit/ACK an toàn |
+| GET `/api/payments/payos/{orderCode}` | Admin | Trạng thái và dữ liệu đối soát của giao dịch |
+| POST `/api/payments/payos/{orderCode}/reconcile` | Admin | Hỏi payOS trạng thái hiện tại và áp dụng quy tắc xác nhận |
+| GET `/api/payments/payos/public/{token}` | Công khai | Chỉ trả `{status}` theo token opaque 64 ký tự hex; không nhận orderCode và không lộ số tiền/hồ sơ |
 
-GET V trả `vnpayEnabled` và `vnpay: {txnRef,status,expiresAt,checkoutUrl} | null` cho Admin và kỹ sư phụ trách. Current có thể hiển thị giao dịch chưa giải quyết từ revision cũ. Link chỉ trả khi PENDING còn hạn. Receipt có `source: "MANUAL" | "VNPAY_SANDBOX"`. `verifiedBy` null cho IPN và `verifiedAt` do server ghi.
+GET V trả `payOsEnabled` và `payOs: {orderCode,paymentLinkId,status,expiresAt,checkoutUrl,qrCode} | null` cho Admin và kỹ sư phụ trách. Receipt ghi FK giao dịch payOS; dữ liệu receipt thủ công cũ vẫn được bảo toàn. Webhook chỉ xác nhận khi chữ ký SDK hợp lệ, order code/số tiền/payment link khớp, trạng thái thành công và revision vẫn phù hợp. Webhook trùng lặp được ACK idempotent. Kết quả muộn, hết hạn, revision cũ hoặc mâu thuẫn vào `RECONCILIATION_REQUIRED`; không tạo receipt tự động. Return URL chỉ phục vụ điều hướng, không phải bằng chứng thanh toán.
 
-Checkout cùng revision tái sử dụng link còn hiệu lực. 400: thiếu expectedRevision hoặc vượt giới hạn PAY (1–9999999999 VND); 409: sai revision/bước hoặc kết quả chưa rõ; 422: Sandbox tắt/chưa cấu hình. Checkout/status dùng envelope hiện có. Giao dịch commit trước khi trả link. Checkout, IPN, bill và chốt lịch dùng chung khóa tư vấn; receipt duy nhất theo proposal và txnRef. IPN chỉ tạo receipt khi chữ ký, merchant, số tiền ×100, revision và cả responseCode/transactionStatus=00 hợp lệ; ngày thanh toán phải nằm trong thời hạn giao dịch.
-
-IPN trả HTTP200 với RspCode: 00 đã ghi nhận (có thể vào đối soát, không đồng nghĩa đã thu/chốt lịch); 01 không có giao dịch; 02 đã xử lý; 04 sai tiền; 97 sai chữ ký/merchant; 99 kết quả không hợp lệ hoặc không commit được. Kiểm tra tiền trước khi trả 02. IPN lặp không tạo thêm receipt. Tắt checkout không tắt IPN: giữ credentials cũ đến khi xử lý hết giao dịch.
-
-Trạng thái: PENDING chờ IPN; UNKNOWN là PENDING đã hết hạn nhưng chưa biết kết quả; SUCCEEDED đã có receipt; FAILED là lỗi xác định; RECONCILIATION_REQUIRED cần đối soát (revision cũ, kết quả mâu thuẫn, ngày ngoài hạn hoặc khoản phí đã xử lý). Chỉ transactionStatus02 cùng response09/10/11/12/13/24/51/65/75/79 được coi FAILED và cho thử lại. Mọi PENDING/UNKNOWN/RECONCILIATION_REQUIRED ở bất kỳ revision nào đều chặn tạo link khác, xác nhận bill và chốt lịch. Hết hạn không có nghĩa chưa bị trừ tiền.
-
-Return URL là FrontEnd `/payments/vnpay/return?token=...`. Trang chỉ đọc DB, bỏ qua mọi vnp_ResponseCode/vnp_SecureHash trong URL, không ghi thanh toán. Về trước IPN hiển thị “Đang xác nhận thanh toán”. Khách không cần đăng nhập; response không có tiền, hồ sơ, contact, bill hay actor. Tự kiểm tra tối đa 12 lần, cách 5 giây, và cho cập nhật thủ công.
-
-Ví dụ demo (giá test): revision1 đã duyệt 200000 VND → checkout trả link có `vnp_Amount=20000000`. Trước IPN: status PENDING, payment null; sau IPN hợp lệ: status SUCCEEDED, current.paymentStatus CONFIRMED, payment.source VNPAY_SANDBOX, scheduledAt vẫn null. Admin gọi riêng `POST V/schedule {"expectedRevision":1}`. Với 165 km có phí 445.000 VND, PAY dùng 44500000. Duyệt báo giá 0 đồng đồng thời chốt lịch.
-
-Thiết lập HTTPS/IPN, QueryDr và demo: [VNPAY_SANDBOX.md](docs/VNPAY_SANDBOX.md). Không có endpoint tự bỏ khóa đối soát hoặc tự hoàn tiền.
+Trạng thái PENDING/CREATING/RECONCILIATION_REQUIRED chưa rõ sẽ chặn link khác, bill thủ công và chốt lịch. Link lỗi khi chưa rõ kết quả không được tạo lại trước khi đối soát. Receipt tối đa một bản cho đề xuất; Webhook/reconcile và thao tác lịch/bill dùng chung khóa hồ sơ. Webhook không yêu cầu JWT nhưng bắt buộc HTTPS ngoài môi trường local và chữ ký hợp lệ.

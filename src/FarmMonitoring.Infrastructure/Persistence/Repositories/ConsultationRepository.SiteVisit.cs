@@ -22,14 +22,13 @@ public sealed partial class ConsultationRepository : ISiteVisitRepository
         if ((access == VisitAccess.Engineer || !admin) && lead.EngineerId != actor) throw AccessDeniedException.OutsideScope();
         if (write && lead.Status != ConsultationStatus.IN_PROGRESS) throw new ConflictException("Consultation is not in progress.");
 
-        var revisions = await db.Set<SiteVisitProposal>().Include(x => x.Payment).Include(x => x.Transactions).Where(x => x.ConsultationId == id)
+        var revisions = await db.Set<SiteVisitProposal>().Include(x => x.Payment).Include(x => x.PayOsTransactions).Where(x => x.ConsultationId == id)
             .OrderBy(x => x.Revision).ToListAsync(ct);
         if (admin && revisions.LastOrDefault()?.Payment is { } payment)
             await db.Entry(payment).Reference(x => x.Bill).LoadAsync(ct);
         var count = revisions.Count;
         var previousReview = revisions.LastOrDefault()?.ReviewStatus;
         var previousSchedule = revisions.LastOrDefault()?.ScheduledAt;
-        var previousAttempts = revisions.LastOrDefault()?.Transactions.Count ?? 0;
         var result = action(lead, revisions, admin);
         if (write)
         {
@@ -44,12 +43,6 @@ public sealed partial class ConsultationRepository : ISiteVisitRepository
                 var appointment = revisions[^1].ProposedAt!.Value.ToOffset(TimeSpan.FromHours(7));
                 await WorkflowNotifications.AddForUserAsync(db, assigned, "Đã chốt lịch tư vấn tại vườn",
                     $"Yêu cầu #{id}: {appointment:dd/MM/yyyy HH:mm} (giờ Việt Nam). Mở yêu cầu để xem địa chỉ và lộ trình.", lead.UpdatedAt!.Value, ct);
-            }
-            else if (lead.EngineerId is int assignedForPayment && revisions.LastOrDefault() is { } paymentProposal &&
-                paymentProposal.Transactions.Count > previousAttempts)
-            {
-                await WorkflowNotifications.AddForUserAsync(db, assignedForPayment, "Đã tạo link thanh toán phí tư vấn",
-                    $"Mở yêu cầu #{id} để sao chép link và gửi cho khách hàng.", paymentProposal.Transactions[^1].CreatedAt, ct);
             }
             else if (lead.EngineerId is int assignedForReview && previousReview == "PENDING" && revisions[^1].ReviewStatus != previousReview)
             {

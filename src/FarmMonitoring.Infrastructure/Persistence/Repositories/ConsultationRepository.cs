@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FarmMonitoring.Infrastructure.Persistence.Repositories;
 
-public sealed partial class ConsultationRepository(AppDbContext db) : IConsultationRepository
+public sealed partial class ConsultationRepository(AppDbContext db, TimeProvider clock) : IConsultationRepository
 {
     public async Task CreateAsync(Consultation consultation, CancellationToken ct)
     {
@@ -24,8 +24,9 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
     public async Task<PagedResult<ConsultationSummary>> ListAsync(int engineerId, bool administrator, ConsultationQuery query, CancellationToken ct)
     {
         var rows = db.Consultations.AsNoTracking().Where(x => administrator
-            ? !query.Inbox || x.EngineerId == null && x.Status == ConsultationStatus.NEW
+            ? !query.Inbox || x.EngineerId == null && (x.Status == ConsultationStatus.NEW || x.Status == ConsultationStatus.NEEDS_REASSIGNMENT)
             : x.EngineerId == engineerId);
+        if (query.PendingAcceptance) rows = rows.Where(x => x.Status == ConsultationStatus.PENDING_ACCEPTANCE);
         if (!string.IsNullOrWhiteSpace(query.Search)) rows = rows.Where(x => x.ServiceNeed.Contains(query.Search.Trim()));
         var total = await rows.CountAsync(ct);
         var items = await rows.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
@@ -36,6 +37,10 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
     public Task<Consultation?> GetAsync(int id, CancellationToken ct) =>
         db.Consultations.AsNoTracking().Include(x => x.History).SingleOrDefaultAsync(x => x.Id == id, ct);
 
+    public Task<Dictionary<int, string>> GetParticipantNamesAsync(int[] ids, CancellationToken ct) =>
+        db.Users.AsNoTracking().Where(x => ids.Contains(x.Id))
+            .Select(x => new { x.Id, x.FullName }).ToDictionaryAsync(x => x.Id, x => x.FullName, ct);
+
     public async Task<PagedResult<ConsultationSummary>> FarmConsultationsAsync(int farmId, int userId, bool administrator, PageQuery query, CancellationToken ct)
     {
         var rows = db.Consultations.AsNoTracking().Where(x => x.FarmId == farmId && (administrator || x.OwnerId == userId));
@@ -45,7 +50,7 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
         return new(items, total, query.Page, query.PageSize);
     }
 
-    public async Task AssignAsync(int id, int administratorId, AssignConsultationRequest request, DateTimeOffset now, CancellationToken ct)
+    public async Task AssignAsync(int id, int administratorId, AssignConsultationRequest request, CancellationToken ct)
     {
         var engineerId = request.EngineerId;
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -56,8 +61,8 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
             throw new BusinessRuleException("Chọn nhân viên tư vấn đang hoạt động.");
         var row = await LockAsync(id, ct);
         var previousEngineerId = row.EngineerId;
-        if (previousEngineerId != request.ExpectedEngineerId ||
-            row.Status != (previousEngineerId == null ? ConsultationStatus.NEW : ConsultationStatus.IN_PROGRESS))
+        if (previousEngineerId != request.ExpectedEngineerId || row.Status is not
+            (ConsultationStatus.NEW or ConsultationStatus.IN_PROGRESS or ConsultationStatus.NEEDS_REASSIGNMENT))
             throw new ConflictException("Phân công đã thay đổi hoặc hồ sơ đã đóng. Vui lòng tải lại hồ sơ.");
         if (previousEngineerId == engineerId)
             throw new ConflictException("Kỹ sư này đang phụ trách hồ sơ.");
@@ -68,13 +73,20 @@ public sealed partial class ConsultationRepository(AppDbContext db) : IConsultat
             throw new ConflictException("Kỹ sư này đã được duyệt trả lại hồ sơ.");
         if (await OpenConsultations().CountAsync(x => x.EngineerId == engineerId, ct) >= AssignmentCapacity)
             throw new ConflictException("Kỹ sư đã đạt giới hạn công việc.");
+        if (previousEngineerId.HasValue) await EnsureNoUnresolvedPayment(id, ct);
+        var formerEngineerId = previousEngineerId;
+        if (row.Status == ConsultationStatus.NEEDS_REASSIGNMENT)
+            formerEngineerId = await db.Set<ConsultationHistory>().Where(x => x.ConsultationId == id &&
+                (x.Action == ConsultationAction.ASSIGNMENT_EXPIRED || x.Action == ConsultationAction.ASSIGNMENT_REJECTED))
+                .OrderByDescending(x => x.Id).Select(x => x.UserId).FirstOrDefaultAsync(ct);
+        var now = clock.GetUtcNow();
         row.EngineerId = engineerId;
-        row.Status = ConsultationStatus.IN_PROGRESS;
+        row.Status = ConsultationStatus.PENDING_ACCEPTANCE;
         row.UpdatedAt = now;
-        row.History.Add(new() { UserId = administratorId, Action = previousEngineerId == null ? ConsultationAction.ASSIGNED : ConsultationAction.REASSIGNED, Status = row.Status,
-            Notes = previousEngineerId == null ? $"Nhân viên tư vấn #{engineerId}" : $"Chuyển từ kỹ sư #{previousEngineerId} sang kỹ sư #{engineerId}", CreatedAt = now });
+        row.History.Add(new() { UserId = administratorId, Action = formerEngineerId == null ? ConsultationAction.ASSIGNED : ConsultationAction.REASSIGNED, Status = row.Status,
+            Notes = formerEngineerId == null ? $"Nhân viên tư vấn #{engineerId}" : $"Chuyển từ kỹ sư #{formerEngineerId} sang kỹ sư #{engineerId}", CreatedAt = now });
         await WorkflowNotifications.AddForUserAsync(db, engineerId, "Yêu cầu tư vấn được phân công",
-            $"Bạn được phân công xử lý yêu cầu tư vấn #{id}.", now, ct);
+            $"Bạn được phân công xử lý yêu cầu tư vấn #{id}. Vui lòng phản hồi trong vòng 5 giờ.", now, ct);
         if (previousEngineerId is int previous)
             await WorkflowNotifications.AddForUserAsync(db, previous, "Yêu cầu tư vấn đã được chuyển",
                 $"Hồ sơ tư vấn #{id} đã được chuyển sang kỹ sư khác.", now, ct);

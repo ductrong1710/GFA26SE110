@@ -6,20 +6,33 @@ namespace FarmMonitoring.Application.Features.Consultations;
 public sealed record SubmitConsultationRequest(string CustomerName, string Phone, string? Email,
     string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string? CropType, string? PreferredChannel);
 public sealed record AssignConsultationRequest(int EngineerId, int? ExpectedEngineerId = null);
+public sealed record RespondToConsultationAssignment(int AssignmentId, bool Accept, string? Reason);
+public sealed record ConsultationAssignmentAttempt(int Id, string Status, DateTimeOffset AssignedAt,
+    DateTimeOffset ResponseDeadline, DateTimeOffset? RespondedAt, string? Reason, string? EngineerName)
+{
+    public static readonly TimeSpan ResponseWindow = TimeSpan.FromHours(5);
+}
 public sealed record ConsultationAssignmentCandidate(int Id, string FullName, int OpenCount, int Capacity, string? BlockedReason);
 public sealed record ConsultationReturnRequest(string? Reason);
 public sealed record ConsultationReturnDecision(int RequestId, bool Approve);
 public sealed record CloseConsultationRequest(string Status, string? Reason);
 public sealed record FollowUpRequest(string Notes, string ContactResult, string NextAction);
 public sealed record CustomerFarmRequest(int OwnerId, int FarmId);
-public sealed class ConsultationQuery : PageQuery { public bool Inbox { get; init; } }
+public sealed class ConsultationQuery : PageQuery
+{
+    public bool Inbox { get; init; }
+    public bool PendingAcceptance { get; init; }
+}
 public sealed record ConsultationReceipt(int Id, string Status);
 public sealed record ConsultationSummary(int Id, string ServiceNeed, string Status, DateTimeOffset CreatedAt);
 public sealed record ConsultationHistoryResponse(int Id, int? UserId, string Action, string Status,
-    string? Notes, string? ContactResult, string? NextAction, DateTimeOffset CreatedAt);
+    string? Notes, string? ContactResult, string? NextAction, DateTimeOffset CreatedAt,
+    string? ActorName = null, string? PreviousEngineerName = null, string? AssignedEngineerName = null,
+    string? LinkedOwnerName = null);
 public sealed record ConsultationResponse(int Id, string CustomerName, string Phone, string? Email,
     string FarmLocation, decimal? FarmArea, string ServiceNeed, string Content, string Status,
-    int? EngineerId, DateTimeOffset CreatedAt, IReadOnlyList<ConsultationHistoryResponse> History, int? OwnerId, int? FarmId, string? Channel, string? CropType, string? PreferredChannel);
+    int? EngineerId, DateTimeOffset CreatedAt, IReadOnlyList<ConsultationHistoryResponse> History, int? OwnerId, int? FarmId, string? Channel, string? CropType, string? PreferredChannel,
+    string? EngineerName = null, ConsultationAssignmentAttempt? Assignment = null);
 
 public sealed class SubmitConsultationValidator : AbstractValidator<SubmitConsultationRequest>
 {

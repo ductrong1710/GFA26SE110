@@ -22,5 +22,14 @@ internal static class ConsultationTestAssignment
         var engineerId = await EngineerIdAsync(engineer);
         using var response = await admin.PostAsJsonAsync(lead + "/assign", new { engineerId });
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        await AcceptAsync(engineer, lead, response);
+    }
+
+    internal static async Task AcceptAsync(HttpClient engineer, string lead, HttpResponseMessage assignment)
+    {
+        var id = (await assignment.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data")
+            .GetProperty("assignment").GetProperty("id").GetInt32();
+        using var accepted = await engineer.PostAsJsonAsync(lead + "/assignment-response", new { assignmentId = id, accept = true });
+        Assert.True(accepted.IsSuccessStatusCode, await accepted.Content.ReadAsStringAsync());
     }
 }

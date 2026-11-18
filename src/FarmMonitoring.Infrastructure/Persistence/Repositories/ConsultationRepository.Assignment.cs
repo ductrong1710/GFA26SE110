@@ -11,7 +11,8 @@ public sealed partial class ConsultationRepository
     private const int AssignmentCapacity = 10;
 
     private IQueryable<Consultation> OpenConsultations() => db.Consultations.Where(row =>
-        row.Status == ConsultationStatus.NEW || row.Status == ConsultationStatus.IN_PROGRESS);
+        row.Status == ConsultationStatus.NEW || row.Status == ConsultationStatus.IN_PROGRESS ||
+        row.Status == ConsultationStatus.PENDING_ACCEPTANCE);
 
     public async Task<IReadOnlyList<ConsultationAssignmentCandidate>> ListAssignmentCandidatesAsync(int id, CancellationToken ct)
     {
@@ -94,8 +95,8 @@ public sealed partial class ConsultationRepository
     private async Task EnsureNoUnresolvedPayment(int id, CancellationToken ct)
     {
         var unresolved = await db.Set<SiteVisitProposal>().Where(p => p.ConsultationId == id)
-            .SelectMany(p => p.Transactions).AnyAsync(t => t.Status == "PENDING" || t.Status == "RECONCILIATION_REQUIRED", ct);
-        if (unresolved) throw new ConflictException("Cần xác minh kết quả thanh toán VNPay trước khi trả hoặc đóng hồ sơ.");
+            .SelectMany(p => p.PayOsTransactions).AnyAsync(t => t.Status == "CREATING" || t.Status == "PENDING" || t.Status == "RECONCILIATION_REQUIRED", ct);
+        if (unresolved) throw new ConflictException("Cần đối soát kết quả giao dịch thanh toán trước khi trả hoặc đóng hồ sơ.");
     }
 
     private Task<ConsultationHistory[]> ReturnHistory(int id, CancellationToken ct) =>

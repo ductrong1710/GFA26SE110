@@ -1,5 +1,7 @@
 # Farm Monitoring backend
 
+For a fresh checkout, see [Chạy backend SmartFarm sau khi pull](docs/RUN_BACKEND_LOCAL.md).
+
 ASP.NET Core backend for authentication/users, farms/zones, sensors, UAVs/gateways, missions, telemetry, offline synchronization, thresholds, alerts/notifications and reports. Current contracts are maintained in AGENTS.md, ARCHITECTURE.md, DATABASE.md, API.md and BUSINESS_RULES.md.
 
 ## Structure

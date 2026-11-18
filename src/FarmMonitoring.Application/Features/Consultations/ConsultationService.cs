@@ -3,6 +3,7 @@ using FarmMonitoring.Application.Interfaces;
 using FarmMonitoring.Domain.Constants;
 using FarmMonitoring.Domain.Entities;
 using FluentValidation;
+using System.Text.RegularExpressions;
 
 namespace FarmMonitoring.Application.Features.Consultations;
 
@@ -39,11 +40,52 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         var actor = await RequireReaderAsync(ct);
         var row = await repository.GetAsync(id, ct) ?? throw new NotFoundException("Consultation not found.");
         if (!actor.Admin && row.EngineerId != actor.Id) throw new AccessDeniedException("Only the assigned engineer or administrator can access this consultation.");
+        var history = row.History.OrderBy(x => x.Id).Select(item => new
+        {
+            Item = item,
+            Previous = ReadHistoryId(item, ConsultationAction.REASSIGNED, @"^Chuyển từ kỹ sư #([0-9]+) sang kỹ sư #"),
+            Assigned = ReadHistoryId(item, ConsultationAction.ASSIGNED, @"^Nhân viên tư vấn #([0-9]+)$")
+                ?? ReadHistoryId(item, ConsultationAction.REASSIGNED, @"^Chuyển từ kỹ sư #[0-9]+ sang kỹ sư #([0-9]+)$"),
+            Owner = ReadHistoryId(item, ConsultationAction.CUSTOMER_BOUND, @"^Linked owner #([0-9]+) and farm #")
+        }).ToArray();
+        var ids = history.SelectMany(x => new[] { x.Item.UserId, x.Previous, x.Assigned, x.Owner })
+            .Append(row.EngineerId).OfType<int>().Distinct().ToArray();
+        var names = ids.Length == 0 ? new Dictionary<int, string>() : await repository.GetParticipantNamesAsync(ids, ct);
+        string? Name(int? userId) => userId is int value ? Optional(names.GetValueOrDefault(value)) : null;
+        var start = history.LastOrDefault(x => x.Item.Status == ConsultationStatus.PENDING_ACCEPTANCE &&
+            x.Item.Action is ConsultationAction.ASSIGNED or ConsultationAction.REASSIGNED);
+        ConsultationAssignmentAttempt? assignment = null;
+        if (start != null)
+        {
+            var outcome = history.FirstOrDefault(x => x.Item.Id > start.Item.Id &&
+                x.Item.Action is ConsultationAction.ASSIGNMENT_ACCEPTED or ConsultationAction.ASSIGNMENT_REJECTED or ConsultationAction.ASSIGNMENT_EXPIRED)?.Item;
+            var status = outcome?.Action switch
+            {
+                ConsultationAction.ASSIGNMENT_ACCEPTED => "ACCEPTED",
+                ConsultationAction.ASSIGNMENT_REJECTED => "REJECTED",
+                ConsultationAction.ASSIGNMENT_EXPIRED => "EXPIRED",
+                _ => "PENDING_ACCEPTANCE"
+            };
+            assignment = new(start.Item.Id, status, start.Item.CreatedAt, start.Item.CreatedAt + ConsultationAssignmentAttempt.ResponseWindow,
+                outcome?.CreatedAt, outcome?.Notes, Name(start.Assigned));
+        }
         return new(row.Id, row.CustomerName, row.Phone, row.Email, row.FarmLocation, row.FarmArea,
             row.ServiceNeed, row.Content, row.Status.ToString(), row.EngineerId, row.CreatedAt,
-            row.History.OrderBy(x => x.Id).Select(x => new ConsultationHistoryResponse(x.Id, x.UserId,
-                x.Action.ToString(), x.Status.ToString(), x.Notes, x.ContactResult, x.NextAction, x.CreatedAt)).ToArray(), row.OwnerId, row.FarmId, row.Channel, row.CropType, row.PreferredChannel);
+            history.Where(x => actor.Admin || !IsAssignmentHistory(x.Item.Action))
+            .Select(x => new ConsultationHistoryResponse(x.Item.Id, x.Item.UserId, x.Item.Action.ToString(),
+                x.Item.Status.ToString(), x.Item.Notes, x.Item.ContactResult, x.Item.NextAction, x.Item.CreatedAt,
+                Name(x.Item.UserId), Name(x.Previous), Name(x.Assigned), Name(x.Owner))).ToArray(),
+            row.OwnerId, row.FarmId, row.Channel, row.CropType, row.PreferredChannel, Name(row.EngineerId), assignment);
     }
+
+    private static bool IsAssignmentHistory(ConsultationAction action) => action is
+        ConsultationAction.ASSIGNED or ConsultationAction.REASSIGNED or ConsultationAction.CLAIMED or
+        ConsultationAction.ASSIGNMENT_ACCEPTED or ConsultationAction.ASSIGNMENT_REJECTED or ConsultationAction.ASSIGNMENT_EXPIRED;
+
+    // Assignment and binding events store their related IDs in historical notes.
+    private static int? ReadHistoryId(ConsultationHistory item, ConsultationAction action, string pattern) =>
+        item.Action == action && item.Notes is not null &&
+        int.TryParse(Regex.Match(item.Notes, pattern).Groups[1].Value, out var id) ? id : null;
 
     public async Task<IReadOnlyList<ConsultationAssignmentCandidate>> AssignmentCandidatesAsync(int id, CancellationToken ct)
     {
@@ -85,8 +127,18 @@ public sealed class ConsultationService(IConsultationRepository repository, ICur
         var actor = await RequireReaderAsync(ct);
         if (!actor.Admin) throw new AccessDeniedException("Administrator access required.");
         if (request.EngineerId <= 0) throw new ValidationException("A positive engineerId is required.");
-        await repository.AssignAsync(id, actor.Id, request, clock.GetUtcNow(), ct);
+        await repository.AssignAsync(id, actor.Id, request, ct);
         return await GetAsync(id, ct);
+    }
+
+    public async Task RespondToAssignmentAsync(int id, RespondToConsultationAssignment request, CancellationToken ct)
+    {
+        var engineer = await RequireEngineerAsync(ct);
+        if (request.AssignmentId <= 0) throw new ValidationException("Lượt phân công không hợp lệ.");
+        var reason = Optional(request.Reason);
+        if (!request.Accept && (reason is null || reason.Length > 1000 || reason.Contains('\0')))
+            throw new ValidationException("Nhập lý do từ chối, tối đa 1.000 ký tự.");
+        await repository.RespondToAssignmentAsync(id, engineer, request with { Reason = request.Accept ? null : reason }, ct);
     }
 
     public async Task<ConsultationResponse> FollowUpAsync(int id, FollowUpRequest request, CancellationToken ct)
